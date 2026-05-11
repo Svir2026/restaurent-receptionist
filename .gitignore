@@ -1,0 +1,67 @@
+##############################
+# Secrets / environment files
+##############################
+.env
+.env.*
+!.env.example
+
+# Service account keys / credentials
+*.pem
+*.key
+*service_account*.json
+credentials*.json
+
+##############################
+# Python
+##############################
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.nox/
+.tox/
+pip-wheel-metadata/
+
+##############################
+# Virtual environments
+##############################
+.venv/
+venv/
+ENV/
+env/
+
+##############################
+# Build / packaging
+##############################
+build/
+dist/
+*.egg-info/
+.eggs/
+
+##############################
+# Logs / runtime
+##############################
+*.log
+logs/
+
+##############################
+# OS / editor
+##############################
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+.vscode/
+.idea/
+
+##############################
+# Project-specific: keep config JSONs tracked
+##############################
+*.json
+!.eslintrc.json
+!.prettierrc.json
