@@ -24,6 +24,13 @@ from app.utils.time import coerce_to_tz, make_window, tz_now
 
 router = APIRouter(tags=["orders"])
 
+# Returned when caller phone is absent so voice agents can recover (ElevenLabs tools).
+MISSING_PHONE_DETAIL = (
+    "The phone number is missing. Ask the user for their phone number, then call this "
+    "tool again with that number in the phone parameter (e.g. caller_number, "
+    "customer_phone, or param_caller_number for this request)."
+)
+
 # Sheet / staff workflow: new order → preparing → ready → completed | cancelled
 ACTIVE_STATUSES = {"new order", "preparing", "ready"}
 CANCELLABLE_STATUSES = {"new order"}
@@ -33,9 +40,9 @@ ACTIVE_STATUSES |= LEGACY_ACTIVE_STATUSES
 CANCELLABLE_STATUSES |= LEGACY_ACTIVE_STATUSES
 
 
-def _require_phone_or_422(value: str | None, field_name: str) -> str:
+def _require_phone_or_422(value: str | None, _field_name: str) -> str:
     if value is None or not str(value).strip():
-        raise HTTPException(status_code=422, detail=f"{field_name} is required")
+        raise HTTPException(status_code=422, detail=MISSING_PHONE_DETAIL)
     return str(value)
 
 
@@ -43,6 +50,8 @@ def _resolve_caller_phone(raw: str | None, field_name: str) -> str:
     try:
         return normalize_phone(_require_phone_or_422(raw, field_name))
     except ValueError as e:
+        if str(e) == "phone number is required":
+            raise HTTPException(status_code=422, detail=MISSING_PHONE_DETAIL) from e
         raise HTTPException(status_code=422, detail=str(e)) from e
 
 
