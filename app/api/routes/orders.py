@@ -24,12 +24,23 @@ from app.utils.time import coerce_to_tz, make_window, tz_now
 
 router = APIRouter(tags=["orders"])
 
-# Returned when caller phone is absent so voice agents can recover (ElevenLabs tools).
+# Returned in HTTP 200 `message` when caller phone is absent so voice agents can recover.
 MISSING_PHONE_DETAIL = (
     "The phone number is missing. Ask the user for their phone number, then call this "
     "tool again with that number in the phone parameter (e.g. caller_number, "
     "customer_phone, or param_caller_number for this request)."
 )
+
+
+def _try_resolve_caller_phone(raw: str | None) -> tuple[str | None, str | None]:
+    """(normalized_phone, None) on success, or (None, MISSING_PHONE_DETAIL) for missing/invalid."""
+    if raw is None or not str(raw).strip():
+        return None, MISSING_PHONE_DETAIL
+    try:
+        return normalize_phone(str(raw)), None
+    except ValueError:
+        return None, MISSING_PHONE_DETAIL
+
 
 # Sheet / staff workflow: new order → preparing → ready → completed | cancelled
 ACTIVE_STATUSES = {"new order", "preparing", "ready"}
@@ -38,21 +49,6 @@ CANCELLABLE_STATUSES = {"new order"}
 LEGACY_ACTIVE_STATUSES = {"submitted", "confirmed"}
 ACTIVE_STATUSES |= LEGACY_ACTIVE_STATUSES
 CANCELLABLE_STATUSES |= LEGACY_ACTIVE_STATUSES
-
-
-def _require_phone_or_422(value: str | None, _field_name: str) -> str:
-    if value is None or not str(value).strip():
-        raise HTTPException(status_code=422, detail=MISSING_PHONE_DETAIL)
-    return str(value)
-
-
-def _resolve_caller_phone(raw: str | None, field_name: str) -> str:
-    try:
-        return normalize_phone(_require_phone_or_422(raw, field_name))
-    except ValueError as e:
-        if str(e) == "phone number is required":
-            raise HTTPException(status_code=422, detail=MISSING_PHONE_DETAIL) from e
-        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 def _parse_dt(value: str) -> datetime | None:
@@ -212,7 +208,9 @@ def _assert_order_belongs_to_caller(row: OrderRow, phone: str) -> None:
     response_model=SubmitOrderResponse,
 )
 def submit_order(payload: SubmitOrderRequest) -> SubmitOrderResponse:
-    phone = _resolve_caller_phone(payload.customer_phone, "customer_phone")
+    phone, phone_err = _try_resolve_caller_phone(payload.customer_phone)
+    if phone_err:
+        return SubmitOrderResponse(message=phone_err)
 
     now = tz_now(settings.restaurant_timezone)
     order_id = str(ulid.new())
@@ -254,10 +252,19 @@ def submit_order(payload: SubmitOrderRequest) -> SubmitOrderResponse:
     response_model=CheckOrderStatusResponse,
 )
 def check_order_status(
-    param_caller_number: str | None = Query(None, min_length=3),
+    param_caller_number: str | None = Query(None),
 ) -> CheckOrderStatusResponse:
-    phone = _resolve_caller_phone(param_caller_number, "param_caller_number")
+    phone, phone_err = _try_resolve_caller_phone(param_caller_number)
     _, window_start, window_end = _lookahead_window()
+    if phone_err:
+        return CheckOrderStatusResponse(
+            message=phone_err,
+            caller_number=None,
+            timezone=settings.restaurant_timezone,
+            window_start=window_start,
+            window_end=window_end,
+            orders=[],
+        )
 
     repo = _orders_repo()
     rows = repo.find_by_phone(phone)
@@ -300,8 +307,10 @@ def check_order_status(
     response_model=UpdateOrderResponse,
 )
 def update_order(payload: UpdateOrderRequest) -> UpdateOrderResponse:
-    phone = _resolve_caller_phone(payload.caller_number, "caller_number")
+    phone, phone_err = _try_resolve_caller_phone(payload.caller_number)
     _, window_start, window_end = _lookahead_window()
+    if phone_err:
+        return UpdateOrderResponse(updated=False, updated_fields=[], message=phone_err)
 
     repo = _orders_repo()
     order_id = payload.order_id.strip() if payload.order_id else None
@@ -391,8 +400,10 @@ def update_order(payload: UpdateOrderRequest) -> UpdateOrderResponse:
     response_model=CancelOrderResponse,
 )
 def cancel_order(payload: CancelOrderRequest) -> CancelOrderResponse:
-    phone = _resolve_caller_phone(payload.caller_number, "caller_number")
+    phone, phone_err = _try_resolve_caller_phone(payload.caller_number)
     _, window_start, window_end = _lookahead_window()
+    if phone_err:
+        return CancelOrderResponse(cancelled=False, cancelled_orders=[], message=phone_err)
 
     repo = _orders_repo()
     cancelled: list[dict[str, str]] = []

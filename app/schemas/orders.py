@@ -21,7 +21,7 @@ class OrderItem(BaseModel):
 
 class SubmitOrderRequest(BaseModel):
     customer_name: str | None = Field(default=None, max_length=120)
-    customer_phone: str | None = Field(default=None, min_length=3, max_length=32)
+    customer_phone: str | None = Field(default=None, max_length=32)
     order_type: OrderType
     order_items: list[OrderItem] | str = Field(..., min_length=1)
     total: float | None = Field(default=None, ge=0)
@@ -58,9 +58,10 @@ class SubmitOrderRequest(BaseModel):
 
 
 class SubmitOrderResponse(BaseModel):
-    order_id: str
-    order_status: str
-    created_at: datetime
+    message: str | None = None
+    order_id: str | None = None
+    order_status: str | None = None
+    created_at: datetime | None = None
     total: float | None = None
 
 
@@ -74,6 +75,7 @@ class CheckOrderStatusResponseItem(BaseModel):
 
 
 class CheckOrderStatusResponse(BaseModel):
+    message: str | None = None
     caller_number: str | None = None
     timezone: str
     window_start: datetime
@@ -82,7 +84,7 @@ class CheckOrderStatusResponse(BaseModel):
 
 
 class UpdateOrderRequest(BaseModel):
-    caller_number: str | None = Field(default=None, min_length=3, max_length=32)
+    caller_number: str | None = Field(default=None, max_length=32)
     order_id: str | None = Field(default=None, min_length=1, max_length=64)
 
     customer_name: str | None = Field(default=None, max_length=120)
@@ -129,6 +131,7 @@ class UpdateOrderRequest(BaseModel):
 
 
 class UpdateOrderResponse(BaseModel):
+    message: str | None = None
     updated: bool
     order_id: str | None = None
     order_status: str | None = None
@@ -138,11 +141,12 @@ class UpdateOrderResponse(BaseModel):
 
 
 class CancelOrderRequest(BaseModel):
-    caller_number: str | None = Field(default=None, min_length=3, max_length=32)
+    caller_number: str | None = Field(default=None, max_length=32)
     order_id: str | None = Field(default=None, min_length=1, max_length=64)
     reason: str | None = Field(default=None, max_length=500)
 
 
 class CancelOrderResponse(BaseModel):
+    message: str | None = None
     cancelled: bool
     cancelled_orders: list[dict[str, Any]]
