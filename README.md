@@ -3,10 +3,11 @@
 Backend API for an ElevenLabs inbound-call receptionist. Stores orders in **Google Sheets** via the **Google Sheets API** (service account).
 
 ### What you get
-- **`POST /submit-order`**: append a new order row to Google Sheets
-- **`GET /check-order-status`**: list matching orders for a caller within a lookahead window (handles midnight crossover)
-- **`POST /update-order`**: update a caller's active order
-- **`POST /cancel-order`**: cancel by `order_id` or cancel the most recent active order for caller
+- **`POST /submit-order`**: append a new order row to **Google Sheets** and **Supabase** (`orders` table)
+- **`GET /check-order-status`**: list matching orders for a caller within a lookahead window (handles midnight crossover) — reads from Sheets only
+- **`POST /update-order`**: update a caller's active order — Sheets + Supabase
+- **`POST /cancel-order`**: cancel by `order_id` or cancel the most recent active order for caller — Sheets + Supabase
+- **`POST /webhooks/elevenlabs/post-call`**: ElevenLabs post-call webhook — verifies signature and appends one row to **Logs** (Sheets + Supabase `call_logs`)
 
 ### 1) Create the Google Sheet
 Option A (recommended): run the included Apps Script to create the sheet with correct headers.
@@ -16,6 +17,7 @@ Option A (recommended): run the included Apps Script to create the sheet with co
   - Open your Google Sheet
   - Click Extensions -> Apps Script
   - Paste the script and run `setupOrdersSheet`
+  - For ElevenLabs call logs: run `setupLogsSheet` (adds a **Logs** tab; does not remove **Orders**)
 
 Option B: manually create a sheet/tab named `Orders` with header row 1 exactly:
 
@@ -27,11 +29,21 @@ Option B: manually create a sheet/tab named `Orders` with header row 1 exactly:
 3. Share your spreadsheet with the service account email (Editor access).
 
 ### 3) Configure environment variables
-- Copy `.env.example` → `.env`
+- Copy `.env.example` → `.env` (if present), or create `.env` beside the project
 - Fill:
   - `GOOGLE_SHEET_ID`
   - `GOOGLE_SERVICE_ACCOUNT_JSON` (either paste the full JSON contents, or set it to the path of the JSON key file)
   - `RESTAURANT_TIMEZONE` (IANA timezone, e.g. `Asia/Karachi`)
+  - `GOOGLE_SHEET_LOGS_TAB` (optional, default `Logs`) — tab for ElevenLabs webhook rows
+  - `ELEVENLABS_WEBHOOK_SECRET` — required; signing secret from ElevenLabs webhook settings (HMAC verification)
+  - `SUPABASE_URL` — project URL (Settings → API)
+  - `SUPABASE_SERVICE_ROLE_KEY` — **service_role** secret (server-side only; never expose to clients)
+  - `SUPABASE_ORDERS_TABLE` / `SUPABASE_LOGS_TABLE` — optional; default table names `orders` and `call_logs`
+
+### ElevenLabs post-call webhook
+1. Create the **Logs** tab (run `setupLogsSheet` in Apps Script, or let the first append create the header row automatically).
+2. In ElevenLabs, set the post-call webhook URL to your public base URL plus **`/webhooks/elevenlabs/post-call`** (HTTPS). Example: `https://your-app.herokuapp.com/webhooks/elevenlabs/post-call`
+3. Paste the same signing secret into `ELEVENLABS_WEBHOOK_SECRET` in your deployment environment.
 
 ### 4) Run locally
 
@@ -43,6 +55,10 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Open docs at `http://localhost:8000/docs`.
+
+### Phone numbers
+- Stored value: leading spaces trimmed and a leading `+` removed (digits and any other characters you pass are kept as-is).
+- Lookup and “same caller” checks compare the **last 10 digits** only, so `+46701234567`, `46701234567`, and `0701234567` match when their digit tails align.
 
 ### API usage (examples)
 

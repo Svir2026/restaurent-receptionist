@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 SCOPES = ("https://www.googleapis.com/auth/spreadsheets",)
 
+# Avoid repeated spreadsheets.get on strike-through / formatting (key: spreadsheet_id, sheet title).
+_sheet_id_cache: dict[tuple[str, str], int] = {}
+
 
 def _raise_better_http_error(e: HttpError, *, spreadsheet_id: str) -> None:
     status = getattr(getattr(e, "resp", None), "status", None)
@@ -33,6 +36,10 @@ class SheetsClient:
     service: Any
 
     def _sheet_id_by_title(self, spreadsheet_id: str, title: str) -> int:
+        cache_key = (spreadsheet_id, title)
+        cached = _sheet_id_cache.get(cache_key)
+        if isinstance(cached, int):
+            return cached
         try:
             doc = (
                 self.service.spreadsheets()
@@ -47,6 +54,7 @@ class SheetsClient:
                 if (props.get("title") or "").strip() == title:
                     sheet_id = props.get("sheetId")
                     if isinstance(sheet_id, int):
+                        _sheet_id_cache[cache_key] = sheet_id
                         return sheet_id
             raise KeyError(f"sheet {title!r} not found")
         except HttpError as e:
@@ -103,6 +111,30 @@ class SheetsClient:
                     range=range_a1,
                     valueInputOption="RAW",
                     body={"values": values},
+                )
+                .execute()
+            )
+        except HttpError as e:
+            _raise_better_http_error(e, spreadsheet_id=spreadsheet_id)
+
+    def batch_update_values(
+        self,
+        spreadsheet_id: str,
+        ranges_and_values: list[tuple[str, list[list[Any]]]],
+    ) -> dict[str, Any]:
+        """Update multiple disjoint ranges in a single HTTP call."""
+        if not ranges_and_values:
+            return {}
+        try:
+            return (
+                self.service.spreadsheets()
+                .values()
+                .batchUpdate(
+                    spreadsheetId=spreadsheet_id,
+                    body={
+                        "valueInputOption": "RAW",
+                        "data": [{"range": r, "values": v} for r, v in ranges_and_values],
+                    },
                 )
                 .execute()
             )

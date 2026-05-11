@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import logging
+from collections.abc import Callable
 from datetime import datetime
 
 import ulid
@@ -19,24 +19,26 @@ from app.schemas.orders import (
     UpdateOrderResponse,
 )
 from app.services.orders_repo import OrdersRepository, OrderRow
-from app.utils.phone import normalize_phone, try_normalize_phone
+from app.utils.phone import normalize_phone, phone_suffix_match
 from app.utils.time import coerce_to_tz, make_window, tz_now
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["orders"])
 
 ACTIVE_STATUSES = {"submitted", "confirmed", "preparing", "ready"}
 CANCELLABLE_STATUSES = {"submitted", "confirmed"}
 
-def _is_testing_mode() -> bool:
-    return (settings.mode or "").strip().lower() == "testing"
-
 
 def _require_phone_or_422(value: str | None, field_name: str) -> str:
     if value is None or not str(value).strip():
-        raise HTTPException(status_code=422, detail=f"{field_name} is required in development mode")
+        raise HTTPException(status_code=422, detail=f"{field_name} is required")
     return str(value)
+
+
+def _resolve_caller_phone(raw: str | None, field_name: str) -> str:
+    try:
+        return normalize_phone(_require_phone_or_422(raw, field_name))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 def _parse_dt(value: str) -> datetime | None:
@@ -52,7 +54,6 @@ def _parse_dt(value: str) -> datetime | None:
 def _fmt_sheet_dt(value: datetime | None) -> str:
     if not value:
         return ""
-    # Store a human-friendly local datetime while remaining parseable by datetime.fromisoformat.
     return value.strftime("%Y-%m-%d %H:%M")
 
 
@@ -69,13 +70,73 @@ def _row_created_at(row: OrderRow) -> datetime | None:
     return _parse_dt(row.data.get("created_at") or "")
 
 
+def _row_sort_comparator(row: OrderRow) -> datetime | None:
+    relevant = _row_relevant_time(row)
+    created = _row_created_at(row) or relevant
+    if not created:
+        return None
+    relevant_tz = coerce_to_tz(relevant, settings.restaurant_timezone) if relevant else None
+    created_tz = coerce_to_tz(created, settings.restaurant_timezone)
+    return relevant_tz or created_tz
+
+
 def _row_order_type(row: OrderRow) -> OrderType:
     order_type = (row.data.get("order_type") or "").strip()
     return "dine_in" if order_type == "dine_in" else "takeaway"
 
 
+def _row_total_optional(row: OrderRow) -> float | None:
+    t = (row.data.get("total") or "").strip()
+    if not t:
+        return None
+    try:
+        return float(t)
+    except ValueError:
+        return None
+
+
 def _orders_repo() -> OrdersRepository:
     return OrdersRepository.from_settings()
+
+
+def _lookahead_window() -> tuple[datetime, datetime, datetime]:
+    now = tz_now(settings.restaurant_timezone)
+    window_start, window_end = make_window(now, settings.lookahead_hours)
+    return now, window_start, window_end
+
+
+def _active_status_ok(status: str) -> bool:
+    return not (status and status not in ACTIVE_STATUSES)
+
+
+def _cancellable_status_ok(status: str) -> bool:
+    return status in CANCELLABLE_STATUSES
+
+
+def _collect_window_candidates(
+    rows: list[OrderRow],
+    window_start: datetime,
+    window_end: datetime,
+    *,
+    status_ok: Callable[[str], bool],
+) -> list[tuple[datetime, OrderRow]]:
+    out: list[tuple[datetime, OrderRow]] = []
+    for row in rows:
+        status = (row.data.get("order_status") or "").strip().lower()
+        if not status_ok(status):
+            continue
+        comparator = _row_sort_comparator(row)
+        if comparator is None or comparator < window_start or comparator > window_end:
+            continue
+        out.append((comparator, row))
+    return out
+
+
+def _latest_by_comparator(candidates: list[tuple[datetime, OrderRow]]) -> OrderRow | None:
+    if not candidates:
+        return None
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    return candidates[0][1]
 
 
 def _active_status_or_error(row: OrderRow) -> str:
@@ -103,28 +164,33 @@ def _latest_active_order_in_window(
     window_start: datetime,
     window_end: datetime,
 ) -> OrderRow | None:
-    candidates: list[tuple[datetime, OrderRow]] = []
-    for row in rows:
-        status = (row.data.get("order_status") or "").strip().lower()
-        if status and status not in ACTIVE_STATUSES:
-            continue
-        relevant = _row_relevant_time(row)
-        created = _row_created_at(row) or relevant
-        if not created:
-            continue
+    candidates = _collect_window_candidates(
+        rows,
+        window_start,
+        window_end,
+        status_ok=_active_status_ok,
+    )
+    return _latest_by_comparator(candidates)
 
-        relevant_tz = coerce_to_tz(relevant, settings.restaurant_timezone) if relevant else None
-        created_tz = coerce_to_tz(created, settings.restaurant_timezone)
-        comparator = relevant_tz or created_tz
-        if comparator < window_start or comparator > window_end:
-            continue
 
-        candidates.append((comparator, row))
+def _fetch_order_for_mutation(
+    repo: OrdersRepository,
+    *,
+    order_id: str | None,
+    phone: str,
+    window_start: datetime,
+    window_end: datetime,
+) -> OrderRow | None:
+    if order_id:
+        return repo.find_by_order_id(order_id)
+    return _latest_active_order_in_window(repo.find_by_phone(phone), window_start, window_end)
 
-    if not candidates:
-        return None
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    return candidates[0][1]
+
+def _assert_order_belongs_to_caller(row: OrderRow, phone: str) -> None:
+    if not phone:
+        return
+    if not phone_suffix_match(row.data.get("customer_phone"), phone):
+        raise HTTPException(status_code=403, detail="order_id does not belong to caller_number")
 
 
 @router.post(
@@ -132,14 +198,7 @@ def _latest_active_order_in_window(
     response_model=SubmitOrderResponse,
 )
 def submit_order(payload: SubmitOrderRequest) -> SubmitOrderResponse:
-    raw_phone = payload.customer_phone
-    if _is_testing_mode():
-        phone = normalize_phone(raw_phone) if (raw_phone or "").strip() else ""
-    else:
-        try:
-            phone = normalize_phone(_require_phone_or_422(raw_phone, "customer_phone"))
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e)) from e
+    phone = _resolve_caller_phone(payload.customer_phone, "customer_phone")
 
     now = tz_now(settings.restaurant_timezone)
     order_id = str(ulid.new())
@@ -183,34 +242,22 @@ def submit_order(payload: SubmitOrderRequest) -> SubmitOrderResponse:
 def check_order_status(
     param_caller_number: str | None = Query(None, min_length=3),
 ) -> CheckOrderStatusResponse:
-    if _is_testing_mode():
-        phone = normalize_phone(param_caller_number) if (param_caller_number or "").strip() else ""
-    else:
-        try:
-            phone = normalize_phone(_require_phone_or_422(param_caller_number, "param_caller_number"))
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e)) from e
-
-    now = tz_now(settings.restaurant_timezone)
-    window_start, window_end = make_window(now, settings.lookahead_hours)
+    phone = _resolve_caller_phone(param_caller_number, "param_caller_number")
+    _, window_start, window_end = _lookahead_window()
 
     repo = _orders_repo()
-    rows = repo.find_by_phone(phone) if phone else []
+    rows = repo.find_by_phone(phone)
 
     results: list[CheckOrderStatusResponseItem] = []
     for r in rows:
+        comparator = _row_sort_comparator(r)
+        if comparator is None or comparator < window_start or comparator > window_end:
+            continue
+
         relevant = _row_relevant_time(r)
         created = _row_created_at(r) or relevant
-        if not created:
-            continue
-
         relevant_tz = coerce_to_tz(relevant, settings.restaurant_timezone) if relevant else None
         created_tz = coerce_to_tz(created, settings.restaurant_timezone)
-
-        # Filter by window using relevant time when present, else created_at.
-        comparator = relevant_tz or created_tz
-        if comparator < window_start or comparator > window_end:
-            continue
 
         results.append(
             CheckOrderStatusResponseItem(
@@ -219,14 +266,14 @@ def check_order_status(
                 order_type=_row_order_type(r),
                 scheduled_time=relevant_tz,
                 created_at=created_tz,
-                total=(float(r.data.get("total")) if (r.data.get("total") or "").strip() else None),
+                total=_row_total_optional(r),
             )
         )
 
     results.sort(key=lambda x: (x.scheduled_time or x.created_at), reverse=True)
 
     return CheckOrderStatusResponse(
-        caller_number=phone or None,
+        caller_number=phone,
         timezone=settings.restaurant_timezone,
         window_start=window_start,
         window_end=window_end,
@@ -239,29 +286,24 @@ def check_order_status(
     response_model=UpdateOrderResponse,
 )
 def update_order(payload: UpdateOrderRequest) -> UpdateOrderResponse:
-    raw_phone = payload.caller_number
-    if _is_testing_mode():
-        phone = normalize_phone(raw_phone) if (raw_phone or "").strip() else ""
-    else:
-        try:
-            phone = normalize_phone(_require_phone_or_422(raw_phone, "caller_number"))
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e)) from e
-
-    now = tz_now(settings.restaurant_timezone)
-    window_start, window_end = make_window(now, settings.lookahead_hours)
+    phone = _resolve_caller_phone(payload.caller_number, "caller_number")
+    _, window_start, window_end = _lookahead_window()
 
     repo = _orders_repo()
     order_id = payload.order_id.strip() if payload.order_id else None
+    row = _fetch_order_for_mutation(
+        repo,
+        order_id=order_id,
+        phone=phone,
+        window_start=window_start,
+        window_end=window_end,
+    )
+
     if order_id:
-        row = repo.find_by_order_id(order_id)
         if not row:
             raise HTTPException(status_code=404, detail="order_id not found")
-        row_phone = try_normalize_phone(row.data.get("customer_phone"))
-        if phone and row_phone != phone:
-            raise HTTPException(status_code=403, detail="order_id does not belong to caller_number")
+        _assert_order_belongs_to_caller(row, phone)
     else:
-        row = _latest_active_order_in_window(repo.find_by_phone(phone), window_start, window_end) if phone else None
         if not row:
             return UpdateOrderResponse(updated=False, updated_fields=[])
 
@@ -302,20 +344,31 @@ def update_order(payload: UpdateOrderRequest) -> UpdateOrderResponse:
     if "notes" in fields_set:
         updates["notes"] = payload.notes or ""
 
-    if payload.order_type == "dine_in":
+    if final_order_type == "dine_in":
         updates["pickup_time"] = ""
-    if payload.order_type == "takeaway":
+    if final_order_type == "takeaway":
         updates["dine_in_time"] = ""
 
-    repo.update_order(row.row_number, updates)
+    repo.update_order(
+        row.row_number,
+        (row.data.get("order_id") or "").strip(),
+        updates,
+    )
     updated_fields = list(updates.keys())
+    total_out: float | None
+    if "total" in updates:
+        t = updates.get("total")
+        total_out = float(t) if t is not None else None
+    else:
+        total_out = _row_total_optional(row)
+
     return UpdateOrderResponse(
         updated=True,
         order_id=(row.data.get("order_id") or "").strip(),
         order_status=order_status,
         row_number=row.row_number,
         updated_fields=updated_fields,
-        total=(updates.get("total") if "total" in updates else (float(row.data.get("total")) if (row.data.get("total") or "").strip() else None)),
+        total=total_out,
     )
 
 
@@ -324,66 +377,43 @@ def update_order(payload: UpdateOrderRequest) -> UpdateOrderResponse:
     response_model=CancelOrderResponse,
 )
 def cancel_order(payload: CancelOrderRequest) -> CancelOrderResponse:
-    raw_phone = payload.caller_number
-    if _is_testing_mode():
-        phone = normalize_phone(raw_phone) if (raw_phone or "").strip() else ""
-    else:
-        try:
-            phone = normalize_phone(_require_phone_or_422(raw_phone, "caller_number"))
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e)) from e
-
-    now = tz_now(settings.restaurant_timezone)
-    window_start, window_end = make_window(now, settings.lookahead_hours)
+    phone = _resolve_caller_phone(payload.caller_number, "caller_number")
+    _, window_start, window_end = _lookahead_window()
 
     repo = _orders_repo()
     cancelled: list[dict[str, str]] = []
 
     if payload.order_id and payload.order_id.strip():
-        order_id = payload.order_id.strip()
-        row = repo.find_by_order_id(order_id)
+        oid = payload.order_id.strip()
+        row = repo.find_by_order_id(oid)
         if not row:
             raise HTTPException(status_code=404, detail="order_id not found")
-        row_phone = try_normalize_phone(row.data.get("customer_phone"))
-        if phone and row_phone != phone:
-            raise HTTPException(status_code=403, detail="order_id does not belong to caller_number")
+        _assert_order_belongs_to_caller(row, phone)
         _cancellable_status_or_error(row)
         repo.update_status(
             row.row_number,
+            oid,
             "cancelled",
             cancellation_reason=(payload.reason or ""),
             strike_through=True,
         )
-        cancelled.append({"order_id": order_id, "row_number": str(row.row_number)})
+        cancelled.append({"order_id": oid, "row_number": str(row.row_number)})
         return CancelOrderResponse(cancelled=True, cancelled_orders=cancelled)
 
-    # Cancel most recent cancellable order within window.
-    rows = repo.find_by_phone(phone) if phone else []
-    candidates: list[tuple[datetime, OrderRow]] = []
-    for r in rows:
-        status = (r.data.get("order_status") or "").strip().lower()
-        if status not in CANCELLABLE_STATUSES:
-            continue
-        relevant = _row_relevant_time(r)
-        created = _row_created_at(r) or relevant
-        if not created:
-            continue
-
-        relevant_tz = coerce_to_tz(relevant, settings.restaurant_timezone) if relevant else None
-        created_tz = coerce_to_tz(created, settings.restaurant_timezone)
-        comparator = relevant_tz or created_tz
-        if comparator < window_start or comparator > window_end:
-            continue
-
-        candidates.append((comparator, r))
-
-    if not candidates:
+    rows = repo.find_by_phone(phone)
+    candidates = _collect_window_candidates(
+        rows,
+        window_start,
+        window_end,
+        status_ok=_cancellable_status_ok,
+    )
+    chosen = _latest_by_comparator(candidates)
+    if not chosen:
         return CancelOrderResponse(cancelled=False, cancelled_orders=[])
 
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    _, chosen = candidates[0]
     repo.update_status(
         chosen.row_number,
+        (chosen.data.get("order_id") or "").strip(),
         "cancelled",
         cancellation_reason=(payload.reason or ""),
         strike_through=True,
@@ -395,3 +425,4 @@ def cancel_order(payload: CancelOrderRequest) -> CancelOrderResponse:
         }
     )
     return CancelOrderResponse(cancelled=True, cancelled_orders=cancelled)
+

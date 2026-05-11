@@ -8,4 +8,4 @@ google-api-python-client==2.143.0
 google-auth==2.34.0
 google-auth-httplib2==0.2.0
 ulid-py==1.1.0
-phonenumbers==8.13.43
+supabase==2.10.0
