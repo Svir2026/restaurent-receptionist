@@ -24,8 +24,13 @@ from app.utils.time import coerce_to_tz, make_window, tz_now
 
 router = APIRouter(tags=["orders"])
 
-ACTIVE_STATUSES = {"submitted", "confirmed", "preparing", "ready"}
-CANCELLABLE_STATUSES = {"submitted", "confirmed"}
+# Sheet / staff workflow: new order → preparing → ready → completed | cancelled
+ACTIVE_STATUSES = {"new order", "preparing", "ready"}
+CANCELLABLE_STATUSES = {"new order"}
+# Legacy rows (before status rename) remain valid for lookups and cancel until migrated
+LEGACY_ACTIVE_STATUSES = {"submitted", "confirmed"}
+ACTIVE_STATUSES |= LEGACY_ACTIVE_STATUSES
+CANCELLABLE_STATUSES |= LEGACY_ACTIVE_STATUSES
 
 
 def _require_phone_or_422(value: str | None, field_name: str) -> str:
@@ -210,7 +215,7 @@ def submit_order(payload: SubmitOrderRequest) -> SubmitOrderResponse:
         coerce_to_tz(payload.pickup_time, settings.restaurant_timezone) if payload.pickup_time else None
     )
 
-    order_status = "submitted"
+    order_status = "new order"
     items = [i.model_dump() for i in payload.order_items]
     total = float(payload.total) if payload.total is not None else None
     order_row = {

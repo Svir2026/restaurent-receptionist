@@ -93,8 +93,7 @@ function setupOrdersSheet() {
   
     // ── 6. Dropdown validation for order_status (D) ───────────────────────────
     const statusValues = [
-      "submitted",
-      "confirmed",
+      "new order",
       "preparing",
       "ready",
       "completed",
