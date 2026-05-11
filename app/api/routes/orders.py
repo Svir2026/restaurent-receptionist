@@ -339,10 +339,6 @@ def cancel_order(payload: CancelOrderRequest) -> CancelOrderResponse:
     repo = _orders_repo()
     cancelled: list[dict[str, str]] = []
 
-    note = f"cancelled via API at {now.isoformat()}"
-    if payload.reason:
-        note = f"{note} (reason: {payload.reason})"
-
     if payload.order_id and payload.order_id.strip():
         order_id = payload.order_id.strip()
         row = repo.find_by_order_id(order_id)
@@ -352,7 +348,12 @@ def cancel_order(payload: CancelOrderRequest) -> CancelOrderResponse:
         if phone and row_phone != phone:
             raise HTTPException(status_code=403, detail="order_id does not belong to caller_number")
         _cancellable_status_or_error(row)
-        repo.update_status(row.row_number, "cancelled", note_suffix=note)
+        repo.update_status(
+            row.row_number,
+            "cancelled",
+            cancellation_reason=(payload.reason or ""),
+            strike_through=True,
+        )
         cancelled.append({"order_id": order_id, "row_number": str(row.row_number)})
         return CancelOrderResponse(cancelled=True, cancelled_orders=cancelled)
 
@@ -381,7 +382,12 @@ def cancel_order(payload: CancelOrderRequest) -> CancelOrderResponse:
 
     candidates.sort(key=lambda x: x[0], reverse=True)
     _, chosen = candidates[0]
-    repo.update_status(chosen.row_number, "cancelled", note_suffix=note)
+    repo.update_status(
+        chosen.row_number,
+        "cancelled",
+        cancellation_reason=(payload.reason or ""),
+        strike_through=True,
+    )
     cancelled.append(
         {
             "order_id": (chosen.data.get("order_id") or "").strip(),

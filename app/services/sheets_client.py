@@ -32,6 +32,26 @@ def _raise_better_http_error(e: HttpError, *, spreadsheet_id: str) -> None:
 class SheetsClient:
     service: Any
 
+    def _sheet_id_by_title(self, spreadsheet_id: str, title: str) -> int:
+        try:
+            doc = (
+                self.service.spreadsheets()
+                .get(
+                    spreadsheetId=spreadsheet_id,
+                    fields="sheets(properties(sheetId,title))",
+                )
+                .execute()
+            )
+            for s in doc.get("sheets", []) or []:
+                props = s.get("properties", {}) or {}
+                if (props.get("title") or "").strip() == title:
+                    sheet_id = props.get("sheetId")
+                    if isinstance(sheet_id, int):
+                        return sheet_id
+            raise KeyError(f"sheet {title!r} not found")
+        except HttpError as e:
+            _raise_better_http_error(e, spreadsheet_id=spreadsheet_id)
+
     def get_values(self, spreadsheet_id: str, range_a1: str) -> list[list[str]]:
         try:
             result = (
@@ -88,6 +108,55 @@ class SheetsClient:
             )
         except HttpError as e:
             _raise_better_http_error(e, spreadsheet_id=spreadsheet_id)
+
+    def batch_update(self, spreadsheet_id: str, requests: list[dict[str, Any]]) -> dict[str, Any]:
+        try:
+            return (
+                self.service.spreadsheets()
+                .batchUpdate(
+                    spreadsheetId=spreadsheet_id,
+                    body={"requests": requests},
+                )
+                .execute()
+            )
+        except HttpError as e:
+            _raise_better_http_error(e, spreadsheet_id=spreadsheet_id)
+
+    def set_row_strikethrough(
+        self,
+        *,
+        spreadsheet_id: str,
+        sheet_title: str,
+        row_number: int,
+        start_col: int,
+        end_col: int,
+        strikethrough: bool,
+    ) -> None:
+        # Sheets API uses 0-based indices; our row_number is 1-based.
+        sheet_id = self._sheet_id_by_title(spreadsheet_id, sheet_title)
+        row_idx = max(row_number - 1, 0)
+        requests = [
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": row_idx,
+                        "endRowIndex": row_idx + 1,
+                        "startColumnIndex": max(start_col, 0),
+                        "endColumnIndex": max(end_col, 0),
+                    },
+                    "cell": {
+                        "userEnteredFormat": {
+                            "textFormat": {
+                                "strikethrough": bool(strikethrough),
+                            }
+                        }
+                    },
+                    "fields": "userEnteredFormat.textFormat.strikethrough",
+                }
+            }
+        ]
+        self.batch_update(spreadsheet_id, requests)
 
 
 @lru_cache(maxsize=1)

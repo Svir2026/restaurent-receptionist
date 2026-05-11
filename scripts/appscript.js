@@ -29,7 +29,7 @@ function setupOrdersSheet() {
       }
     });
   
-    // ── 2. Write header row A1:M1 ─────────────────────────────────────────────
+    // ── 2. Write header row A1:N1 ─────────────────────────────────────────────
     const headers = [
       "order_id",       // A
       "customer_name",  // B
@@ -43,7 +43,8 @@ function setupOrdersSheet() {
       "pickup_time",    // J
       "total",          // K
       "notes",          // L
-      "source"          // M
+      "source",         // M
+      "cancellation_reason" // N
     ];
   
     const headerRange = sheet.getRange(1, 1, 1, headers.length);
@@ -73,6 +74,7 @@ function setupOrdersSheet() {
     sheet.setColumnWidth(11, 110); // K: total
     sheet.setColumnWidth(12, 220); // L: notes
     sheet.setColumnWidth(13, 120); // M: source
+    sheet.setColumnWidth(14, 260); // N: cancellation_reason
   
     // ── 5. Plain text format for phone, dates ─────────────────────────────────
     // customer_phone (C) — prevent Google from mangling + and leading zeros
@@ -118,6 +120,7 @@ function setupOrdersSheet() {
     sheet.getRange("H2:H1000").setHorizontalAlignment("center"); // party_size
     sheet.getRange("K2:K1000").setHorizontalAlignment("center"); // total
     sheet.getRange("M2:M1000").setHorizontalAlignment("center"); // source
+    sheet.getRange("N2:N1000").setWrap(true); // cancellation_reason
   
     // ── 10. Done ──────────────────────────────────────────────────────────────
     SpreadsheetApp.getUi().alert(

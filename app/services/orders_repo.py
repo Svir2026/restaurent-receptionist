@@ -25,6 +25,7 @@ ORDERS_HEADERS: list[str] = [
     "total",
     "notes",
     "source",
+    "cancellation_reason",
 ]
 
 
@@ -190,13 +191,14 @@ class OrdersRepository:
             _serialize_cell("total", total),
             combined_notes,
             _safe_str(order.get("source")),
+            "",
         ]
-        self.client.append_values(self.spreadsheet_id, self._sheet_range("A:M"), [row])
+        self.client.append_values(self.spreadsheet_id, self._sheet_range("A:N"), [row])
 
     def update_order(self, row_number: int, updates: dict[str, Any]) -> None:
         self.ensure_header()
         for header, value in updates.items():
-            if header not in ORDERS_HEADERS or header in {"order_id", "customer_phone", "created_at"}:
+            if header not in ORDERS_HEADERS or header in {"order_id", "customer_phone", "created_at", "cancellation_reason"}:
                 continue
             column = _column_letter(ORDERS_HEADERS.index(header))
             self.client.update_values(
@@ -207,7 +209,7 @@ class OrdersRepository:
 
     def iter_orders(self) -> Iterable[OrderRow]:
         self.ensure_header()
-        values = self.client.get_values(self.spreadsheet_id, self._sheet_range("A2:M"))
+        values = self.client.get_values(self.spreadsheet_id, self._sheet_range("A2:N"))
         # Row numbers: header is row 1, first data row is row 2
         for idx, row in enumerate(values, start=2):
             # Pad row to header length
@@ -228,13 +230,31 @@ class OrdersRepository:
                 return r
         return None
 
-    def update_status(self, row_number: int, new_status: str, note_suffix: str | None = None) -> None:
-        # order_status is column D, notes is column K
-        status_cell = f"D{row_number}"
-        self.client.update_values(self.spreadsheet_id, self._sheet_range(status_cell), [[new_status]])
+    def update_status(
+        self,
+        row_number: int,
+        new_status: str,
+        *,
+        cancellation_reason: str | None = None,
+        strike_through: bool = False,
+    ) -> None:
+        status_col = _column_letter(ORDERS_HEADERS.index("order_status"))
+        self.client.update_values(self.spreadsheet_id, self._sheet_range(f"{status_col}{row_number}"), [[new_status]])
 
-        if note_suffix:
-            current_note = self.client.get_values(self.spreadsheet_id, self._sheet_range(f"K{row_number}:K{row_number}"))
-            existing = (current_note[0][0] if current_note and current_note[0] else "").strip()
-            combined = f"{existing} | {note_suffix}".strip(" |") if existing else note_suffix
-            self.client.update_values(self.spreadsheet_id, self._sheet_range(f"K{row_number}"), [[combined]])
+        if cancellation_reason is not None:
+            reason_col = _column_letter(ORDERS_HEADERS.index("cancellation_reason"))
+            self.client.update_values(
+                self.spreadsheet_id,
+                self._sheet_range(f"{reason_col}{row_number}"),
+                [[_safe_str(cancellation_reason)]],
+            )
+
+        if strike_through:
+            self.client.set_row_strikethrough(
+                spreadsheet_id=self.spreadsheet_id,
+                sheet_title=self.tab,
+                row_number=row_number,
+                start_col=0,
+                end_col=len(ORDERS_HEADERS),
+                strikethrough=True,
+            )
