@@ -72,6 +72,8 @@ curl -X POST "http://localhost:8000/submit-order" ^
 
 #### Check order status (lists orders in the lookahead window)
 
+Returns full order details per match (`customer_name`, `order_items`, times, `notes`, etc.), not status alone.
+
 ```bash
 curl "http://localhost:8000/check-order-status?param_caller_number=%2B923001234567"
 ```

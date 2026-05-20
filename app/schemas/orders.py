@@ -69,9 +69,18 @@ class CheckOrderStatusResponseItem(BaseModel):
     order_id: str
     order_status: str
     order_type: OrderType
-    scheduled_time: datetime | None
+    customer_name: str | None = None
+    customer_phone: str | None = None
+    order_items: str | None = None
+    party_size: int | None = None
+    dine_in_time: datetime | None = None
+    pickup_time: datetime | None = None
+    scheduled_time: datetime | None = None
     created_at: datetime
     total: float | None = None
+    notes: str | None = None
+    source: str | None = None
+    cancellation_reason: str | None = None
 
 
 class CheckOrderStatusResponse(BaseModel):

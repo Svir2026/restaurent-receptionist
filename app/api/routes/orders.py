@@ -105,6 +105,53 @@ def _row_total_optional(row: OrderRow) -> float | None:
         return None
 
 
+def _row_optional_str(row: OrderRow, key: str) -> str | None:
+    v = (row.data.get(key) or "").strip()
+    return v or None
+
+
+def _row_party_size_optional(row: OrderRow) -> int | None:
+    v = (row.data.get("party_size") or "").strip()
+    if not v:
+        return None
+    try:
+        return int(v)
+    except ValueError:
+        return None
+
+
+def _row_dt_optional(row: OrderRow, key: str) -> datetime | None:
+    parsed = _parse_dt(row.data.get(key) or "")
+    if not parsed:
+        return None
+    return coerce_to_tz(parsed, settings.restaurant_timezone)
+
+
+def _row_to_check_status_item(row: OrderRow) -> CheckOrderStatusResponseItem:
+    relevant = _row_relevant_time(row)
+    created = _row_created_at(row) or relevant
+    relevant_tz = coerce_to_tz(relevant, settings.restaurant_timezone) if relevant else None
+    created_tz = coerce_to_tz(created, settings.restaurant_timezone)
+
+    return CheckOrderStatusResponseItem(
+        order_id=_row_optional_str(row, "order_id") or "",
+        order_status=_row_optional_str(row, "order_status") or "",
+        order_type=_row_order_type(row),
+        customer_name=_row_optional_str(row, "customer_name"),
+        customer_phone=_row_optional_str(row, "customer_phone"),
+        order_items=_row_optional_str(row, "order_items"),
+        party_size=_row_party_size_optional(row),
+        dine_in_time=_row_dt_optional(row, "dine_in_time"),
+        pickup_time=_row_dt_optional(row, "pickup_time"),
+        scheduled_time=relevant_tz,
+        created_at=created_tz,
+        total=_row_total_optional(row),
+        notes=_row_optional_str(row, "notes"),
+        source=_row_optional_str(row, "source"),
+        cancellation_reason=_row_optional_str(row, "cancellation_reason"),
+    )
+
+
 def _orders_repo() -> OrdersRepository:
     return OrdersRepository.from_settings()
 
@@ -275,21 +322,7 @@ def check_order_status(
         if comparator is None or comparator < window_start or comparator > window_end:
             continue
 
-        relevant = _row_relevant_time(r)
-        created = _row_created_at(r) or relevant
-        relevant_tz = coerce_to_tz(relevant, settings.restaurant_timezone) if relevant else None
-        created_tz = coerce_to_tz(created, settings.restaurant_timezone)
-
-        results.append(
-            CheckOrderStatusResponseItem(
-                order_id=(r.data.get("order_id") or "").strip(),
-                order_status=(r.data.get("order_status") or "").strip(),
-                order_type=_row_order_type(r),
-                scheduled_time=relevant_tz,
-                created_at=created_tz,
-                total=_row_total_optional(r),
-            )
-        )
+        results.append(_row_to_check_status_item(r))
 
     results.sort(key=lambda x: (x.scheduled_time or x.created_at), reverse=True)
 
