@@ -26,9 +26,7 @@ router = APIRouter(tags=["orders"])
 
 # Returned in HTTP 200 `message` when caller phone is absent so voice agents can recover.
 MISSING_PHONE_DETAIL = (
-    "The phone number is missing. Ask the user for their phone number, then call this "
-    "tool again with that number in the phone parameter (e.g. caller_number, "
-    "customer_phone, or param_caller_number for this request)."
+    "The phone number is missing. Phone Number is required to process the order."
 )
 
 
