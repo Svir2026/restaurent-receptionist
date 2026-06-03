@@ -46,9 +46,6 @@ class SubmitOrderRequest(BaseModel):
                 raise ValueError("order_items must be a JSON array")
             self.order_items = [OrderItem.model_validate(x) for x in parsed]
 
-        if self.order_type == "dine_in":
-            if self.party_size is None:
-                raise ValueError("party_size is required for dine_in orders")
         if self.order_type == "takeaway":
             if self.pickup_time is None:
                 raise ValueError("pickup_time is required for takeaway orders")

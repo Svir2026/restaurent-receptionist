@@ -366,11 +366,8 @@ def update_order(payload: UpdateOrderRequest) -> UpdateOrderResponse:
     fields_set = payload.model_fields_set
 
     final_order_type = payload.order_type if "order_type" in fields_set else _row_order_type(row)
-    final_party_size = payload.party_size if "party_size" in fields_set else (row.data.get("party_size") or "")
     final_pickup_time = payload.pickup_time if "pickup_time" in fields_set else _parse_dt(row.data.get("pickup_time") or "")
 
-    if final_order_type == "dine_in" and not final_party_size:
-        raise HTTPException(status_code=422, detail="party_size is required for dine_in orders")
     if final_order_type == "takeaway" and not final_pickup_time:
         raise HTTPException(status_code=422, detail="pickup_time is required for takeaway orders")
 
