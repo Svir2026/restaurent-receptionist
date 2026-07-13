@@ -156,3 +156,41 @@ class CancelOrderResponse(BaseModel):
     message: str | None = None
     cancelled: bool
     cancelled_orders: list[dict[str, Any]]
+
+
+class CalculateOrderTotalItem(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    quantity: int = Field(default=1, ge=1)
+    price: float = Field(..., ge=0)
+
+
+class CalculateOrderTotalRequest(BaseModel):
+    order_items: list[CalculateOrderTotalItem] | str = Field(..., min_length=1)
+
+    @model_validator(mode="after")
+    def _parse_order_items(self) -> "CalculateOrderTotalRequest":
+        if isinstance(self.order_items, str):
+            raw = self.order_items.strip()
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as e:
+                raise ValueError("order_items must be a JSON array or a JSON-stringified array") from e
+            if not isinstance(parsed, list):
+                raise ValueError("order_items must be a JSON array")
+            self.order_items = [CalculateOrderTotalItem.model_validate(x) for x in parsed]
+
+        if not self.order_items:
+            raise ValueError("order_items must contain at least one item")
+        return self
+
+
+class CalculateOrderTotalLine(BaseModel):
+    name: str
+    quantity: int
+    price: float
+    line_total: float
+
+
+class CalculateOrderTotalResponse(BaseModel):
+    total: float
+    items: list[CalculateOrderTotalLine]
