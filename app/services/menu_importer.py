@@ -221,3 +221,29 @@ def import_structured_menu(
         )
 
     return row
+    class ImportMenuResponse(MenuSchema):
+    success: bool = True
+
+    restaurant_id: UUID
+    provisioning_job_id: UUID
+    import_id: UUID
+
+    idempotent_replay: bool
+
+    category_count: int = Field(default=0, ge=0)
+    item_count: int = Field(default=0, ge=0)
+    alias_count: int = Field(default=0, ge=0)
+    option_group_count: int = Field(default=0, ge=0)
+    option_count: int = Field(default=0, ge=0)
+    ingredient_count: int = Field(default=0, ge=0)
+    allergen_count: int = Field(default=0, ge=0)
+
+    next_step: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+    )
+
+    warnings: list[MenuValidationIssue] = Field(
+        default_factory=list,
+    )
