@@ -15,15 +15,8 @@ class Settings(BaseSettings):
     app_name: str = "Restaurant Inbound API"
     app_version: str = "0.1.0"
 
-    # Sheets
-    google_sheet_id: str = Field(..., alias="GOOGLE_SHEET_ID")
-    google_sheet_tab: str = Field(default="Orders", alias="GOOGLE_SHEET_TAB")
-    google_sheet_logs_tab: str = Field(default="Logs", alias="GOOGLE_SHEET_LOGS_TAB")
     restaurant_timezone: str = Field(..., alias="RESTAURANT_TIMEZONE")
     lookahead_hours: int = Field(default=12, alias="LOOKAHEAD_HOURS")
-
-    # Service account JSON content or path to a JSON key file.
-    google_service_account_json: str = Field(..., alias="GOOGLE_SERVICE_ACCOUNT_JSON")
 
     # ElevenLabs post-call webhook HMAC secret (from ElevenLabs dashboard).
     elevenlabs_webhook_secret: str = Field(

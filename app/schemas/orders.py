@@ -141,7 +141,6 @@ class UpdateOrderResponse(BaseModel):
     updated: bool
     order_id: str | None = None
     order_status: str | None = None
-    row_number: int | None = None
     updated_fields: list[str] = Field(default_factory=list)
     total: float | None = None
 

@@ -42,14 +42,11 @@ async def elevenlabs_post_call_webhook(request: Request) -> dict[str, str]:
         raise HTTPException(status_code=400, detail="Webhook body must be a JSON object")
 
     row = build_log_row(body)
-    repo = LogsRepository.from_settings()
+    repo = LogsRepository()
     try:
         repo.append_log_row(row)
-    except RuntimeError as e:
-        logger.exception("Logs sheet header or configuration error")
-        raise HTTPException(status_code=500, detail=str(e)) from e
     except Exception as e:
-        logger.exception("Failed to append log row to Google Sheets")
-        raise HTTPException(status_code=502, detail="Failed to write to Google Sheets") from e
+        logger.exception("Failed to append log row to database")
+        raise HTTPException(status_code=502, detail="Failed to write log to database") from e
 
     return {"ok": "true"}

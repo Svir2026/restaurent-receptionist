@@ -18,13 +18,12 @@ from app.schemas.orders import (
     UpdateOrderRequest,
     UpdateOrderResponse,
 )
-from app.services.orders_repo import OrdersRepository, OrderRow
+from app.services.orders_repo import OrderRow, OrdersRepository
 from app.utils.phone import normalize_phone, phone_suffix_match
 from app.utils.time import coerce_to_tz, make_window, tz_now
 
 router = APIRouter(tags=["orders"])
 
-# Returned in HTTP 200 `message` when caller phone is absent so voice agents can recover.
 MISSING_PHONE_DETAIL = (
     "The phone number is missing. Phone Number is required to process the order."
 )
@@ -40,10 +39,8 @@ def _try_resolve_caller_phone(raw: str | None) -> tuple[str | None, str | None]:
         return None, MISSING_PHONE_DETAIL
 
 
-# Sheet / staff workflow: new order → preparing → ready → completed | cancelled
 ACTIVE_STATUSES = {"new order", "preparing", "ready"}
 CANCELLABLE_STATUSES = {"new order"}
-# Legacy rows (before status rename) remain valid for lookups and cancel until migrated
 LEGACY_ACTIVE_STATUSES = {"submitted", "confirmed"}
 ACTIVE_STATUSES |= LEGACY_ACTIVE_STATUSES
 CANCELLABLE_STATUSES |= LEGACY_ACTIVE_STATUSES
@@ -58,8 +55,8 @@ def _parse_dt(value: str) -> datetime | None:
     except ValueError:
         return None
 
- 
-def _fmt_sheet_dt(value: datetime | None) -> str:
+
+def _fmt_dt(value: datetime | None) -> str:
     if not value:
         return ""
     return value.strftime("%Y-%m-%d %H:%M")
@@ -151,7 +148,7 @@ def _row_to_check_status_item(row: OrderRow) -> CheckOrderStatusResponseItem:
 
 
 def _orders_repo() -> OrdersRepository:
-    return OrdersRepository.from_settings()
+    return OrdersRepository()
 
 
 def _lookahead_window() -> tuple[datetime, datetime, datetime]:
@@ -279,8 +276,8 @@ def submit_order(payload: SubmitOrderRequest) -> SubmitOrderResponse:
         "order_type": payload.order_type,
         "order_items": items,
         "party_size": payload.party_size,
-        "dine_in_time": _fmt_sheet_dt(dine_in_time),
-        "pickup_time": _fmt_sheet_dt(pickup_time),
+        "dine_in_time": _fmt_dt(dine_in_time),
+        "pickup_time": _fmt_dt(pickup_time),
         "total": total,
         "notes": payload.notes or "",
         "source": payload.source or "elevenlabs",
@@ -388,10 +385,10 @@ def update_order(payload: UpdateOrderRequest) -> UpdateOrderResponse:
         dine_in_time = (
             coerce_to_tz(payload.dine_in_time, settings.restaurant_timezone) if payload.dine_in_time else None
         )
-        updates["dine_in_time"] = _fmt_sheet_dt(dine_in_time)
+        updates["dine_in_time"] = _fmt_dt(dine_in_time)
     if "pickup_time" in fields_set:
         pickup_time = coerce_to_tz(payload.pickup_time, settings.restaurant_timezone) if payload.pickup_time else None
-        updates["pickup_time"] = _fmt_sheet_dt(pickup_time)
+        updates["pickup_time"] = _fmt_dt(pickup_time)
     if "notes" in fields_set:
         updates["notes"] = payload.notes or ""
 
@@ -400,11 +397,8 @@ def update_order(payload: UpdateOrderRequest) -> UpdateOrderResponse:
     if final_order_type == "takeaway":
         updates["dine_in_time"] = ""
 
-    repo.update_order(
-        row.row_number,
-        (row.data.get("order_id") or "").strip(),
-        updates,
-    )
+    resolved_order_id = row.order_id
+    repo.update_order(resolved_order_id, updates)
     updated_fields = list(updates.keys())
     total_out: float | None
     if "total" in updates:
@@ -415,9 +409,8 @@ def update_order(payload: UpdateOrderRequest) -> UpdateOrderResponse:
 
     return UpdateOrderResponse(
         updated=True,
-        order_id=(row.data.get("order_id") or "").strip(),
+        order_id=resolved_order_id,
         order_status=order_status,
-        row_number=row.row_number,
         updated_fields=updated_fields,
         total=total_out,
     )
@@ -444,13 +437,11 @@ def cancel_order(payload: CancelOrderRequest) -> CancelOrderResponse:
         _assert_order_belongs_to_caller(row, phone)
         _cancellable_status_or_error(row)
         repo.update_status(
-            row.row_number,
             oid,
             "cancelled",
             cancellation_reason=(payload.reason or ""),
-            strike_through=True,
         )
-        cancelled.append({"order_id": oid, "row_number": str(row.row_number)})
+        cancelled.append({"order_id": oid})
         return CancelOrderResponse(cancelled=True, cancelled_orders=cancelled)
 
     rows = repo.find_by_phone(phone)
@@ -465,17 +456,9 @@ def cancel_order(payload: CancelOrderRequest) -> CancelOrderResponse:
         return CancelOrderResponse(cancelled=False, cancelled_orders=[])
 
     repo.update_status(
-        chosen.row_number,
-        (chosen.data.get("order_id") or "").strip(),
+        chosen.order_id,
         "cancelled",
         cancellation_reason=(payload.reason or ""),
-        strike_through=True,
     )
-    cancelled.append(
-        {
-            "order_id": (chosen.data.get("order_id") or "").strip(),
-            "row_number": str(chosen.row_number),
-        }
-    )
+    cancelled.append({"order_id": chosen.order_id})
     return CancelOrderResponse(cancelled=True, cancelled_orders=cancelled)
-
