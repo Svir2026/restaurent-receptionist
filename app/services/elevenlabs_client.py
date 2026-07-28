@@ -1,7 +1,7 @@
 import json
 from typing import Optional
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from app.core.config import settings
@@ -136,6 +136,95 @@ def get_template_agent_summary() -> dict:
     )
 
     return get_agent_summary(template_agent_id)
+
+
+def find_agent_by_exact_name(
+    agent_name: str,
+) -> Optional[dict]:
+    """
+    Search ElevenLabs for an owned, non-archived agent
+    whose name matches exactly.
+
+    Returns None when no exact match exists.
+
+    Raises an error if multiple exact matches exist because
+    provisioning cannot safely decide which agent to reuse.
+    """
+
+    normalized_name = agent_name.strip()
+
+    if not normalized_name:
+        raise ElevenLabsClientError(
+            "An agent name is required for agent search."
+        )
+
+    query = urlencode(
+        {
+            "search": normalized_name,
+            "page_size": 100,
+            "archived": "false",
+            "created_by_user_id": "@me",
+            "sort_by": "name",
+            "sort_direction": "asc",
+        }
+    )
+
+    url = (
+        f"{ELEVENLABS_API_BASE_URL}/convai/agents?"
+        f"{query}"
+    )
+
+    payload = _send_json_request(
+        url=url,
+        method="GET",
+        operation="search agents",
+    )
+
+    agents = payload.get("agents")
+
+    if not isinstance(agents, list):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned an invalid agents list."
+        )
+
+    exact_matches: list[dict] = []
+
+    for agent in agents:
+        if not isinstance(agent, dict):
+            continue
+
+        returned_name = agent.get("name")
+        returned_agent_id = agent.get("agent_id")
+
+        if (
+            isinstance(returned_name, str)
+            and returned_name.strip() == normalized_name
+            and isinstance(returned_agent_id, str)
+            and returned_agent_id.strip()
+        ):
+            exact_matches.append(
+                {
+                    "agent_id": returned_agent_id.strip(),
+                    "name": returned_name,
+                    "archived": bool(
+                        agent.get("archived", False)
+                    ),
+                    "created_at_unix_secs": agent.get(
+                        "created_at_unix_secs"
+                    ),
+                }
+            )
+
+    if len(exact_matches) > 1:
+        raise ElevenLabsClientError(
+            "Multiple ElevenLabs agents have the exact "
+            "provisioning name. Manual review is required."
+        )
+
+    if not exact_matches:
+        return None
+
+    return exact_matches[0]
 
 
 def duplicate_template_agent(
