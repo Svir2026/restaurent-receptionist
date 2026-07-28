@@ -12,6 +12,10 @@ from app.schemas.menu_import import (
     ValidateMenuImportRequest,
     ValidateMenuImportResponse,
 )
+from app.services.elevenlabs_client import (
+    ElevenLabsClientError,
+    get_template_agent_summary,
+)
 from app.services.menu_importer import (
     MenuImportError,
     import_structured_menu,
@@ -115,3 +119,36 @@ def import_validated_menu(
         next_step=str(result["next_step"]),
         warnings=validation.warnings,
     )
+
+
+@router.get("/elevenlabs/template/check")
+def check_elevenlabs_template(
+    _: Annotated[
+        None,
+        Depends(require_svir_internal_secret),
+    ],
+) -> dict[str, object]:
+    """
+    Check that Railway can read the ElevenLabs template agent.
+
+    This endpoint is read-only. It does not create, duplicate,
+    update, publish, or delete any ElevenLabs agent.
+    """
+
+    try:
+        template_agent = get_template_agent_summary()
+
+    except ElevenLabsClientError as error:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": "elevenlabs_template_check_failed",
+                "message": str(error),
+            },
+        ) from error
+
+    return {
+        "success": True,
+        "read_only": True,
+        "template_agent": template_agent,
+    }
