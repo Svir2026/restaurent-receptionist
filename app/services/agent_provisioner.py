@@ -104,7 +104,7 @@ def _load_provisioning_job(
             extra={
                 "job_id": str(job_id),
                 "error_type": type(error).__name__,
-                "message": _safe_log_value(
+                "error_message": _safe_log_value(
                     getattr(error, "message", None)
                     or str(error)
                 ),
@@ -205,7 +205,7 @@ def _claim_provisioning_job(
             extra={
                 "job_id": str(job["id"]),
                 "error_type": type(error).__name__,
-                "message": _safe_log_value(
+                "error_message": _safe_log_value(
                     getattr(error, "message", None)
                     or str(error)
                 ),
@@ -331,7 +331,7 @@ def _record_provisioning_failure(
             extra={
                 "job_id": str(job_id),
                 "error_type": type(error).__name__,
-                "message": _safe_log_value(
+                "error_message": _safe_log_value(
                     getattr(error, "message", None)
                     or str(error)
                 ),
@@ -376,7 +376,7 @@ def _complete_duplicate_agent(
                 "restaurant_id": str(restaurant_id),
                 "agent_id": agent_id,
                 "error_type": type(error).__name__,
-                "message": _safe_log_value(
+                "error_message": _safe_log_value(
                     getattr(error, "message", None)
                     or str(error)
                 ),
@@ -654,7 +654,7 @@ def provision_duplicate_agent(
                 "job_id": str(job_id),
                 "restaurant_id": str(restaurant_id),
                 "error_type": type(error).__name__,
-                "message": _safe_log_value(
+                "error_message": _safe_log_value(
                     str(error),
                     500,
                 ),
