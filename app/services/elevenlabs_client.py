@@ -138,6 +138,198 @@ def get_template_agent_summary() -> dict:
     return get_agent_summary(template_agent_id)
 
 
+def get_agent_configuration_snapshot(agent_id: str) -> dict:
+    """
+    Read the fields needed before a controlled agent update.
+
+    This function is read-only. It returns the current prompt,
+    first message, voice settings, tool references, and a safe
+    structural summary of workflow and platform settings.
+    """
+
+    normalized_agent_id = agent_id.strip()
+
+    if not normalized_agent_id:
+        raise ElevenLabsClientError(
+            "ElevenLabs agent ID is missing."
+        )
+
+    url = (
+        f"{ELEVENLABS_API_BASE_URL}/convai/agents/"
+        f"{quote(normalized_agent_id, safe='')}"
+    )
+
+    payload = _send_json_request(
+        url=url,
+        method="GET",
+        operation="read agent configuration",
+    )
+
+    returned_agent_id = payload.get("agent_id")
+
+    if not isinstance(returned_agent_id, str):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned an agent without an agent_id."
+        )
+
+    if returned_agent_id.strip() != normalized_agent_id:
+        raise ElevenLabsClientError(
+            "ElevenLabs returned a different agent than requested."
+        )
+
+    conversation_config = payload.get("conversation_config")
+
+    if not isinstance(conversation_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid conversation_config."
+        )
+
+    agent_config = conversation_config.get("agent")
+
+    if not isinstance(agent_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid agent configuration."
+        )
+
+    prompt_config = agent_config.get("prompt")
+
+    if not isinstance(prompt_config, dict):
+        prompt_config = {}
+
+    asr_config = conversation_config.get("asr")
+    turn_config = conversation_config.get("turn")
+    tts_config = conversation_config.get("tts")
+
+    if not isinstance(asr_config, dict):
+        asr_config = {}
+
+    if not isinstance(turn_config, dict):
+        turn_config = {}
+
+    if not isinstance(tts_config, dict):
+        tts_config = {}
+
+    tool_ids = prompt_config.get("tool_ids") or []
+    knowledge_base = prompt_config.get("knowledge_base") or []
+    built_in_tools = prompt_config.get("built_in_tools") or {}
+    phone_numbers = payload.get("phone_numbers") or []
+    workflow = payload.get("workflow")
+    platform_settings = payload.get("platform_settings")
+    tags = payload.get("tags") or []
+
+    if not isinstance(tool_ids, list):
+        tool_ids = []
+
+    if not isinstance(knowledge_base, list):
+        knowledge_base = []
+
+    if not isinstance(built_in_tools, dict):
+        built_in_tools = {}
+
+    if not isinstance(phone_numbers, list):
+        phone_numbers = []
+
+    if not isinstance(tags, list):
+        tags = []
+
+    workflow_keys: list[str] = []
+    workflow_node_count = 0
+    workflow_edge_count = 0
+
+    if isinstance(workflow, dict):
+        workflow_keys = sorted(str(key) for key in workflow.keys())
+
+        workflow_nodes = workflow.get("nodes")
+        workflow_edges = workflow.get("edges")
+
+        if isinstance(workflow_nodes, list):
+            workflow_node_count = len(workflow_nodes)
+
+        if isinstance(workflow_edges, list):
+            workflow_edge_count = len(workflow_edges)
+
+    platform_setting_keys: list[str] = []
+
+    if isinstance(platform_settings, dict):
+        platform_setting_keys = sorted(
+            str(key) for key in platform_settings.keys()
+        )
+
+    return {
+        "read_only": True,
+        "agent_id": returned_agent_id,
+        "name": payload.get("name"),
+        "branch_id": payload.get("branch_id"),
+        "version_id": payload.get("version_id"),
+        "main_branch_id": payload.get("main_branch_id"),
+        "phone_number_count": len(phone_numbers),
+        "tags": tags,
+        "agent": {
+            "first_message": agent_config.get("first_message"),
+            "language": agent_config.get("language"),
+            "disable_first_message_interruptions": (
+                agent_config.get(
+                    "disable_first_message_interruptions"
+                )
+            ),
+            "dynamic_variables": agent_config.get(
+                "dynamic_variables"
+            ),
+            "prompt": {
+                "text": prompt_config.get("prompt"),
+                "llm": prompt_config.get("llm"),
+                "temperature": prompt_config.get("temperature"),
+                "max_tokens": prompt_config.get("max_tokens"),
+                "tool_ids": tool_ids,
+                "built_in_tool_names": sorted(
+                    str(key) for key in built_in_tools.keys()
+                ),
+                "knowledge_base": knowledge_base,
+            },
+        },
+        "tts": {
+            "model_id": tts_config.get("model_id"),
+            "voice_id": tts_config.get("voice_id"),
+            "stability": tts_config.get("stability"),
+            "speed": tts_config.get("speed"),
+            "similarity_boost": tts_config.get(
+                "similarity_boost"
+            ),
+        },
+        "asr": {
+            "provider": asr_config.get("provider"),
+            "quality": asr_config.get("quality"),
+            "user_input_audio_format": asr_config.get(
+                "user_input_audio_format"
+            ),
+            "keywords": asr_config.get("keywords"),
+        },
+        "turn": {
+            "turn_timeout": turn_config.get("turn_timeout"),
+            "initial_wait_time": turn_config.get(
+                "initial_wait_time"
+            ),
+            "silence_end_call_timeout": turn_config.get(
+                "silence_end_call_timeout"
+            ),
+            "turn_eagerness": turn_config.get(
+                "turn_eagerness"
+            ),
+            "mode": turn_config.get("mode"),
+        },
+        "workflow": {
+            "present": isinstance(workflow, dict),
+            "keys": workflow_keys,
+            "node_count": workflow_node_count,
+            "edge_count": workflow_edge_count,
+        },
+        "platform_settings": {
+            "present": isinstance(platform_settings, dict),
+            "keys": platform_setting_keys,
+        },
+    }
+
+
 def find_agent_by_exact_name(
     agent_name: str,
 ) -> Optional[dict]:
