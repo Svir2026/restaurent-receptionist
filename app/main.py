@@ -3,8 +3,11 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from app.api.routes.calculate import router as calculate_router
-from app.api.routes.elevenlabs_webhook import router as elevenlabs_webhook_router
+from app.api.routes.elevenlabs_webhook import (
+    router as elevenlabs_webhook_router,
+)
 from app.api.routes.orders import router as orders_router
+from app.api.routes.provisioning import router as provisioning_router
 from app.core.config import settings
 
 
@@ -17,6 +20,8 @@ def create_app() -> FastAPI:
     app.include_router(orders_router)
     app.include_router(calculate_router)
     app.include_router(elevenlabs_webhook_router)
+    app.include_router(provisioning_router)
+
     return app
 
 
