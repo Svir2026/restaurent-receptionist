@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,11 +25,28 @@ class Settings(BaseSettings):
         min_length=1,
     )
 
+    # Secret for secure communication between Svir Kök and Railway.
+    svir_internal_api_secret: SecretStr = Field(
+        ...,
+        alias="SVIR_INTERNAL_API_SECRET",
+        min_length=32,
+    )
+
     # Supabase (service role: server-side only; bypasses RLS)
     supabase_url: str = Field(..., alias="SUPABASE_URL", min_length=1)
-    supabase_service_role_key: str = Field(..., alias="SUPABASE_SERVICE_ROLE_KEY", min_length=1)
-    supabase_orders_table: str = Field(default="orders", alias="SUPABASE_ORDERS_TABLE")
-    supabase_logs_table: str = Field(default="call_logs", alias="SUPABASE_LOGS_TABLE")
+    supabase_service_role_key: str = Field(
+        ...,
+        alias="SUPABASE_SERVICE_ROLE_KEY",
+        min_length=1,
+    )
+    supabase_orders_table: str = Field(
+        default="orders",
+        alias="SUPABASE_ORDERS_TABLE",
+    )
+    supabase_logs_table: str = Field(
+        default="call_logs",
+        alias="SUPABASE_LOGS_TABLE",
+    )
 
 
 settings = Settings()
