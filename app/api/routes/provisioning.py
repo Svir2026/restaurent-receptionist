@@ -7,10 +7,18 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from app.core.internal_auth import require_svir_internal_secret
+from app.schemas.agent_provisioning import (
+    DuplicateAgentRequest,
+    DuplicateAgentResponse,
+)
 from app.schemas.menu_import import (
     ImportMenuResponse,
     ValidateMenuImportRequest,
     ValidateMenuImportResponse,
+)
+from app.services.agent_provisioner import (
+    AgentProvisioningError,
+    provision_duplicate_agent,
 )
 from app.services.elevenlabs_client import (
     ElevenLabsClientError,
@@ -152,3 +160,61 @@ def check_elevenlabs_template(
         "read_only": True,
         "template_agent": template_agent,
     }
+
+
+@router.post(
+    "/elevenlabs/duplicate",
+    response_model=DuplicateAgentResponse,
+)
+def duplicate_elevenlabs_agent(
+    payload: DuplicateAgentRequest,
+    _: Annotated[
+        None,
+        Depends(require_svir_internal_secret),
+    ],
+) -> DuplicateAgentResponse:
+    """
+    Duplicate or recover the ElevenLabs agent for one
+    provisioning job.
+
+    A valid internal secret and the explicit confirmation
+    CREATE_TEST_AGENT are required.
+    """
+
+    try:
+        result = provision_duplicate_agent(
+            job_id=payload.provisioning_job_id,
+            restaurant_id=payload.restaurant_id,
+        )
+
+    except AgentProvisioningError as error:
+        raise HTTPException(
+            status_code=error.status_code,
+            detail={
+                "code": error.code,
+                "message": error.message,
+            },
+        ) from error
+
+    return DuplicateAgentResponse(
+        success=bool(result["success"]),
+        restaurant_id=result["restaurant_id"],
+        provisioning_job_id=(
+            result["provisioning_job_id"]
+        ),
+        agent_id=str(result["agent_id"]),
+        agent_name=str(result["agent_name"]),
+        created_new_agent=bool(
+            result["created_new_agent"]
+        ),
+        recovered_existing_agent=bool(
+            result["recovered_existing_agent"]
+        ),
+        phone_number_count=int(
+            result["phone_number_count"]
+        ),
+        idempotent_replay=bool(
+            result["idempotent_replay"]
+        ),
+        next_step="update_agent",
+    )
