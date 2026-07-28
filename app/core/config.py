@@ -31,7 +31,18 @@ class Settings(BaseSettings):
         alias="SVIR_INTERNAL_API_SECRET",
         min_length=32,
     )
+    # ElevenLabs provisioning
+    elevenlabs_api_key: SecretStr = Field(
+        ...,
+        alias="ELEVENLABS_API_KEY",
+        min_length=1,
+    )
 
+    elevenlabs_template_agent_id: str = Field(
+        ...,
+        alias="ELEVENLABS_TEMPLATE_AGENT_ID",
+        min_length=1,
+    )
     # Supabase (service role: server-side only; bypasses RLS)
     supabase_url: str = Field(..., alias="SUPABASE_URL", min_length=1)
     supabase_service_role_key: str = Field(
