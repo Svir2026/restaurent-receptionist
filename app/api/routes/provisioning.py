@@ -25,6 +25,9 @@ from app.services.elevenlabs_client import (
     get_agent_configuration_snapshot,
     get_template_agent_summary,
 )
+from app.services.elevenlabs_resource_auditor import (
+    get_agent_resource_audit,
+)
 from app.services.menu_importer import (
     MenuImportError,
     import_structured_menu,
@@ -201,6 +204,45 @@ def read_elevenlabs_agent_configuration(
         "success": True,
         "read_only": True,
         "configuration": configuration,
+    }
+
+
+@router.get(
+    "/elevenlabs/agents/{agent_id}/resources"
+)
+def read_elevenlabs_agent_resources(
+    agent_id: str,
+    _: Annotated[
+        None,
+        Depends(require_svir_internal_secret),
+    ],
+) -> dict[str, object]:
+    """
+    Read a safe audit of the tools and knowledge-base
+    documents connected to an ElevenLabs agent.
+
+    This endpoint is read-only. Secret header values,
+    authentication values, and URL query values are excluded.
+    """
+
+    try:
+        resources = get_agent_resource_audit(agent_id)
+
+    except ElevenLabsClientError as error:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": (
+                    "elevenlabs_agent_resource_audit_failed"
+                ),
+                "message": str(error),
+            },
+        ) from error
+
+    return {
+        "success": True,
+        "read_only": True,
+        "resources": resources,
     }
 
 
