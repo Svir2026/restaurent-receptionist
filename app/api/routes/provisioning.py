@@ -22,6 +22,7 @@ from app.services.agent_provisioner import (
 )
 from app.services.elevenlabs_client import (
     ElevenLabsClientError,
+    get_agent_configuration_snapshot,
     get_template_agent_summary,
 )
 from app.services.menu_importer import (
@@ -159,6 +160,47 @@ def check_elevenlabs_template(
         "success": True,
         "read_only": True,
         "template_agent": template_agent,
+    }
+
+
+@router.get(
+    "/elevenlabs/agents/{agent_id}/configuration"
+)
+def read_elevenlabs_agent_configuration(
+    agent_id: str,
+    _: Annotated[
+        None,
+        Depends(require_svir_internal_secret),
+    ],
+) -> dict[str, object]:
+    """
+    Read the current ElevenLabs agent configuration.
+
+    This endpoint is read-only. It does not update the agent,
+    connect a phone number, or write anything to Supabase.
+    """
+
+    try:
+        configuration = get_agent_configuration_snapshot(
+            agent_id
+        )
+
+    except ElevenLabsClientError as error:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": (
+                    "elevenlabs_agent_configuration_"
+                    "read_failed"
+                ),
+                "message": str(error),
+            },
+        ) from error
+
+    return {
+        "success": True,
+        "read_only": True,
+        "configuration": configuration,
     }
 
 
