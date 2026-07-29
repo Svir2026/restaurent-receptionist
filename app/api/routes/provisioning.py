@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
@@ -31,6 +31,10 @@ from app.services.elevenlabs_client import (
 from app.services.elevenlabs_resource_auditor import (
     get_agent_resource_audit,
 )
+from app.services.elevenlabs_tool_provisioner import (
+    ElevenLabsToolProvisioningError,
+    ensure_testkok2_calculate_order_total_v2_tool,
+)
 from app.services.menu_importer import (
     MenuImportError,
     import_structured_menu,
@@ -41,6 +45,11 @@ from app.services.menu_validator import validate_menu_import
 router = APIRouter(
     prefix="/internal/provisioning",
     tags=["internal-provisioning"],
+)
+
+
+TESTKOK2_CALCULATE_TOOL_CONFIRMATION = (
+    "CREATE_TESTKOK2_CALCULATE_TOOL"
 )
 
 
@@ -323,6 +332,86 @@ def read_elevenlabs_tool_by_exact_name(
         "found": tool is not None,
         "tool": tool,
     }
+
+
+@router.post(
+    "/elevenlabs/tools/testkok2/"
+    "calculate-order-total-v2/ensure"
+)
+def ensure_testkok2_calculate_order_total_tool(
+    _: Annotated[
+        None,
+        Depends(require_svir_internal_secret),
+    ],
+    confirmation: Annotated[
+        str | None,
+        Header(alias="X-Svir-Confirmation"),
+    ] = None,
+    tool_token: Annotated[
+        str | None,
+        Header(alias="X-Svir-Tool-Token"),
+    ] = None,
+) -> dict[str, object]:
+    """
+    Reuse or create only testkok2's secure v2
+    calculate-order-total workspace tool.
+
+    Deployment alone does not execute this endpoint.
+
+    The endpoint requires:
+    - the existing X-Svir-Internal-Secret
+    - an explicit X-Svir-Confirmation header
+
+    X-Svir-Tool-Token is required only when the tool
+    does not already exist and must be created.
+
+    This endpoint does not connect the tool to an agent,
+    update an agent, change a phone number, update
+    Supabase, or advance a provisioning step.
+    """
+
+    if (
+        not isinstance(confirmation, str)
+        or confirmation.strip()
+        != TESTKOK2_CALCULATE_TOOL_CONFIRMATION
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "explicit_confirmation_required",
+                "message": (
+                    "The exact X-Svir-Confirmation header "
+                    "is required."
+                ),
+            },
+        )
+
+    try:
+        result = (
+            ensure_testkok2_calculate_order_total_v2_tool(
+                tool_token=tool_token,
+            )
+        )
+
+    except ElevenLabsToolProvisioningError as error:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "elevenlabs_tool_provisioning_blocked",
+                "message": str(error),
+            },
+        ) from error
+
+    except ElevenLabsClientError as error:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": "elevenlabs_tool_request_failed",
+                "message": str(error),
+            },
+        ) from error
+
+    return result
 
 
 @router.get(
