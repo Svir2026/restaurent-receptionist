@@ -15,6 +15,8 @@ from app.schemas.restaurant_tools_v2 import (
     CheckOrderStatusV2Response,
     SubmitOrderV2Request,
     SubmitOrderV2Response,
+    UpdateOrderV2Request,
+    UpdateOrderV2Response,
 )
 from app.services.restaurant_menu_pricing import (
     RestaurantMenuPricingError,
@@ -27,6 +29,10 @@ from app.services.restaurant_order_status import (
 from app.services.restaurant_order_submitter import (
     RestaurantOrderSubmissionError,
     submit_restaurant_order,
+)
+from app.services.restaurant_order_updater import (
+    RestaurantOrderUpdateError,
+    update_restaurant_order,
 )
 
 
@@ -154,5 +160,48 @@ def check_order_status_v2(
         ) from error
 
     return CheckOrderStatusV2Response.model_validate(
+        result
+    )
+
+
+@router.post(
+    "/update-order",
+    response_model=UpdateOrderV2Response,
+)
+def update_order_v2(
+    payload: UpdateOrderV2Request,
+    context: Annotated[
+        ToolRestaurantContext,
+        Depends(require_restaurant_tool_context),
+    ],
+) -> UpdateOrderV2Response:
+    """
+    Safely update one restaurant-scoped v2 order.
+
+    Railway resolves the restaurant from X-Svir-Tool-Token,
+    verifies the order, caller, current status, and revision,
+    and recalculates prices from the restaurant's active menu
+    whenever the product list changes.
+
+    The caller cannot provide restaurant_id, price, total,
+    currency, order status, or order revision.
+    """
+
+    try:
+        result = update_restaurant_order(
+            context=context,
+            request=payload,
+        )
+
+    except RestaurantOrderUpdateError as error:
+        raise HTTPException(
+            status_code=error.status_code,
+            detail={
+                "code": error.code,
+                "message": error.message,
+            },
+        ) from error
+
+    return UpdateOrderV2Response.model_validate(
         result
     )
