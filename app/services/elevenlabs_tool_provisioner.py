@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
@@ -15,6 +16,8 @@ from app.services.elevenlabs_tool_definitions import (
     TESTKOK2_CALCULATE_ORDER_TOTAL_V2_URL,
     YZ_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME,
     YZ_CALCULATE_ORDER_TOTAL_V2_URL,
+    YZ_CANCEL_ORDER_V2_TOOL_NAME,
+    YZ_CANCEL_ORDER_V2_URL,
     YZ_CHECK_ORDER_STATUS_V2_TOOL_NAME,
     YZ_CHECK_ORDER_STATUS_V2_URL,
     YZ_SUBMIT_ORDER_V2_TOOL_NAME,
@@ -23,6 +26,7 @@ from app.services.elevenlabs_tool_definitions import (
     YZ_UPDATE_ORDER_V2_URL,
     build_testkok2_calculate_order_total_v2_tool_config,
     build_yz_calculate_order_total_v2_tool_config,
+    build_yz_cancel_order_v2_tool_config,
     build_yz_check_order_status_v2_tool_config,
     build_yz_submit_order_v2_tool_config,
     build_yz_update_order_v2_tool_config,
@@ -1559,6 +1563,254 @@ def ensure_yz_update_order_v2_tool(
     )
 
     return _build_yz_update_order_result(
+        created_tool,
+        created_new_tool=True,
+    )
+
+def _validate_yz_cancel_order_request_body_schema(
+    schema: Any,
+) -> None:
+    """
+    Validate YZ's ElevenLabs-compatible cancel-order request body.
+    """
+
+    body_schema = _require_mapping(
+        schema,
+        field_name="api_schema.request_body_schema",
+    )
+
+    if body_schema.get("type") != "object":
+        raise ElevenLabsToolProvisioningError(
+            "The cancel-order request body must be an object."
+        )
+
+    body_properties = _require_mapping(
+        body_schema.get("properties"),
+        field_name="api_schema.request_body_schema.properties",
+    )
+
+    _require_exact_keys(
+        body_properties,
+        expected_keys={
+            "order_id",
+            "customer_phone",
+            "reason",
+        },
+        field_name="api_schema.request_body_schema.properties",
+    )
+    _require_exact_required(
+        body_schema.get("required"),
+        expected_values={
+            "order_id",
+            "customer_phone",
+        },
+        field_name="api_schema.request_body_schema.required",
+    )
+
+    order_id_schema = _require_mapping(
+        body_properties.get("order_id"),
+        field_name="cancel_order.order_id",
+    )
+
+    if order_id_schema.get("type") != "string":
+        raise ElevenLabsToolProvisioningError(
+            "The cancel-order order ID schema is invalid."
+        )
+
+    customer_phone_schema = _require_mapping(
+        body_properties.get("customer_phone"),
+        field_name="cancel_order.customer_phone",
+    )
+
+    if (
+        customer_phone_schema.get("type") != "string"
+        or customer_phone_schema.get("dynamic_variable")
+        != "system__caller_id"
+    ):
+        raise ElevenLabsToolProvisioningError(
+            "The cancel-order customer phone schema is invalid."
+        )
+
+    reason_schema = _require_mapping(
+        body_properties.get("reason"),
+        field_name="cancel_order.reason",
+    )
+
+    if reason_schema.get("type") != "string":
+        raise ElevenLabsToolProvisioningError(
+            "The cancel-order reason schema is invalid."
+        )
+
+
+def _validate_yz_cancel_order_tool_snapshot(
+    tool_snapshot: Mapping[str, Any],
+) -> None:
+    tool_id = tool_snapshot.get("tool_id")
+
+    if not isinstance(tool_id, str) or not tool_id.strip():
+        raise ElevenLabsToolProvisioningError(
+            "ElevenLabs returned a cancel-order tool without "
+            "a valid tool ID."
+        )
+
+    if tool_snapshot.get("name") != YZ_CANCEL_ORDER_V2_TOOL_NAME:
+        raise ElevenLabsToolProvisioningError(
+            "ElevenLabs returned a different cancel-order tool name."
+        )
+
+    if tool_snapshot.get("type") != "webhook":
+        raise ElevenLabsToolProvisioningError(
+            "The existing YZ cancel-order tool is not a webhook tool."
+        )
+
+    api_schema = _require_mapping(
+        tool_snapshot.get("api_schema"),
+        field_name="api_schema",
+    )
+
+    if api_schema.get("url") != YZ_CANCEL_ORDER_V2_URL:
+        raise ElevenLabsToolProvisioningError(
+            "The existing YZ cancel-order tool points to the "
+            "wrong URL."
+        )
+
+    method = api_schema.get("method")
+
+    if not isinstance(method, str) or method.strip().upper() != "POST":
+        raise ElevenLabsToolProvisioningError(
+            "The existing YZ cancel-order tool uses the wrong "
+            "HTTP method."
+        )
+
+    path_params_schema = _require_mapping(
+        api_schema.get("path_params_schema"),
+        field_name="api_schema.path_params_schema",
+    )
+    _require_exact_keys(
+        path_params_schema,
+        expected_keys=set(),
+        field_name="api_schema.path_params_schema",
+    )
+
+    if api_schema.get("query_params_schema") is not None:
+        raise ElevenLabsToolProvisioningError(
+            "The existing YZ cancel-order tool has unexpected "
+            "query parameters."
+        )
+
+    _validate_yz_cancel_order_request_body_schema(
+        api_schema.get("request_body_schema")
+    )
+
+    header_names = api_schema.get("request_header_names")
+
+    if not isinstance(header_names, list):
+        raise ElevenLabsToolProvisioningError(
+            "ElevenLabs returned invalid cancel-order "
+            "request-header metadata."
+        )
+
+    normalized_header_names = {
+        str(header_name).strip().lower()
+        for header_name in header_names
+    }
+    expected_header_names = {
+        SVIR_TOOL_TOKEN_HEADER_NAME.lower(),
+    }
+
+    if (
+        normalized_header_names != expected_header_names
+        or len(header_names) != len(expected_header_names)
+    ):
+        raise ElevenLabsToolProvisioningError(
+            "The existing YZ cancel-order tool has unsafe "
+            "request headers."
+        )
+
+
+def _build_yz_cancel_order_result(
+    tool_snapshot: Mapping[str, Any],
+    *,
+    created_new_tool: bool,
+) -> dict:
+    return {
+        "success": True,
+        "tool_id": str(tool_snapshot["tool_id"]),
+        "name": YZ_CANCEL_ORDER_V2_TOOL_NAME,
+        "created_new_tool": created_new_tool,
+        "reused_existing_tool": not created_new_tool,
+        "tool": dict(tool_snapshot),
+    }
+
+
+def ensure_yz_cancel_order_v2_tool(
+    tool_token_provider: Callable[[], str],
+) -> dict:
+    """
+    Idempotently ensure only YZ Thai Wok & Sushi's secure
+    cancel-order-v2 workspace tool.
+
+    The exact unique tool name is searched first. A matching tool is
+    reused only after its URL, method, request-body schema, caller-ID
+    dynamic variable, and secure request-header name are verified.
+
+    The token provider is called only when no matching tool exists.
+    This function does not connect the tool to an agent, read or
+    cancel an order, update Supabase, or advance a provisioning step.
+    """
+
+    if not callable(tool_token_provider):
+        raise TypeError("tool_token_provider must be callable")
+
+    try:
+        existing_tool = find_tool_by_exact_name(
+            YZ_CANCEL_ORDER_V2_TOOL_NAME
+        )
+    except ElevenLabsClientError as error:
+        raise ElevenLabsToolProvisioningError(
+            "Could not safely search ElevenLabs workspace "
+            "cancel-order tools."
+        ) from error
+
+    if existing_tool is not None:
+        _validate_yz_cancel_order_tool_snapshot(
+            existing_tool
+        )
+        return _build_yz_cancel_order_result(
+            existing_tool,
+            created_new_tool=False,
+        )
+
+    try:
+        tool_token = tool_token_provider()
+        desired_config = (
+            build_yz_cancel_order_v2_tool_config(
+                tool_token
+            )
+        )
+    except (TypeError, ValueError) as error:
+        raise ElevenLabsToolProvisioningError(
+            "Could not obtain a valid runtime tool token."
+        ) from error
+
+    try:
+        created_tool = create_webhook_tool(
+            desired_config
+        )
+    except ElevenLabsClientError as error:
+        sanitized_error = _sanitize_yz_tool_creation_error(
+            error
+        )
+        raise ElevenLabsToolProvisioningError(
+            "Could not create the secure YZ cancel-order "
+            f"workspace tool. ElevenLabs details: {sanitized_error}"
+        ) from error
+
+    _validate_yz_cancel_order_tool_snapshot(
+        created_tool
+    )
+
+    return _build_yz_cancel_order_result(
         created_tool,
         created_new_tool=True,
     )
