@@ -419,14 +419,47 @@ def _validate_yz_calculate_order_total_tool_snapshot(
             "The existing ElevenLabs tool uses the wrong HTTP method."
         )
 
-    _validate_empty_object_schema(
+    path_params_schema = _require_mapping(
         api_schema.get("path_params_schema"),
         field_name="api_schema.path_params_schema",
     )
-    _validate_empty_object_schema(
+    _require_exact_keys(
+        path_params_schema,
+        expected_keys=set(),
+        field_name="api_schema.path_params_schema",
+    )
+
+    query_params_schema = _require_mapping(
         api_schema.get("query_params_schema"),
         field_name="api_schema.query_params_schema",
     )
+    _require_exact_keys(
+        query_params_schema,
+        expected_keys={"properties", "required"},
+        field_name="api_schema.query_params_schema",
+    )
+
+    query_properties = _require_mapping(
+        query_params_schema.get("properties"),
+        field_name=(
+            "api_schema.query_params_schema.properties"
+        ),
+    )
+    _require_exact_keys(
+        query_properties,
+        expected_keys=set(),
+        field_name=(
+            "api_schema.query_params_schema.properties"
+        ),
+    )
+    _require_exact_required(
+        query_params_schema.get("required"),
+        expected_values=set(),
+        field_name=(
+            "api_schema.query_params_schema.required"
+        ),
+    )
+
     _validate_calculate_request_body_schema(
         api_schema.get("request_body_schema")
     )
