@@ -22,8 +22,11 @@ from app.services.agent_provisioner import (
 )
 from app.services.elevenlabs_client import (
     ElevenLabsClientError,
+    find_tool_by_exact_name,
     get_agent_configuration_snapshot,
     get_template_agent_summary,
+    get_tool_configuration,
+    list_workspace_tools,
 )
 from app.services.elevenlabs_resource_auditor import (
     get_agent_resource_audit,
@@ -243,6 +246,121 @@ def read_elevenlabs_agent_resources(
         "success": True,
         "read_only": True,
         "resources": resources,
+    }
+
+
+@router.get("/elevenlabs/tools")
+def read_elevenlabs_workspace_tools(
+    _: Annotated[
+        None,
+        Depends(require_svir_internal_secret),
+    ],
+) -> dict[str, object]:
+    """
+    List safe summaries of owned ElevenLabs webhook tools.
+
+    This endpoint is read-only. It never returns request-header
+    values and does not create, update, connect, or delete tools.
+    """
+
+    try:
+        tools = list_workspace_tools()
+
+    except ElevenLabsClientError as error:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": (
+                    "elevenlabs_workspace_tools_"
+                    "read_failed"
+                ),
+                "message": str(error),
+            },
+        ) from error
+
+    return {
+        "success": True,
+        "read_only": True,
+        "tool_count": len(tools),
+        "tools": tools,
+    }
+
+
+@router.get("/elevenlabs/tools/by-name")
+def read_elevenlabs_tool_by_exact_name(
+    tool_name: str,
+    _: Annotated[
+        None,
+        Depends(require_svir_internal_secret),
+    ],
+) -> dict[str, object]:
+    """
+    Search for one owned ElevenLabs webhook tool by exact name.
+
+    This endpoint is read-only. It returns found=false when no
+    exact match exists and fails safely if the name is ambiguous.
+    """
+
+    try:
+        tool = find_tool_by_exact_name(tool_name)
+
+    except ElevenLabsClientError as error:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": (
+                    "elevenlabs_tool_exact_name_"
+                    "read_failed"
+                ),
+                "message": str(error),
+            },
+        ) from error
+
+    return {
+        "success": True,
+        "read_only": True,
+        "requested_name": tool_name.strip(),
+        "found": tool is not None,
+        "tool": tool,
+    }
+
+
+@router.get(
+    "/elevenlabs/tools/{tool_id}/configuration"
+)
+def read_elevenlabs_tool_configuration(
+    tool_id: str,
+    _: Annotated[
+        None,
+        Depends(require_svir_internal_secret),
+    ],
+) -> dict[str, object]:
+    """
+    Read a safe configuration snapshot for one workspace tool.
+
+    This endpoint is read-only. Request-header names may be shown,
+    but secret request-header values are never returned.
+    """
+
+    try:
+        configuration = get_tool_configuration(tool_id)
+
+    except ElevenLabsClientError as error:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": (
+                    "elevenlabs_tool_configuration_"
+                    "read_failed"
+                ),
+                "message": str(error),
+            },
+        ) from error
+
+    return {
+        "success": True,
+        "read_only": True,
+        "configuration": configuration,
     }
 
 
