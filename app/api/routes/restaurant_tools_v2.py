@@ -11,10 +11,16 @@ from app.core.tool_auth import (
 from app.schemas.restaurant_tools_v2 import (
     CalculateOrderTotalV2Request,
     CalculateOrderTotalV2Response,
+    SubmitOrderV2Request,
+    SubmitOrderV2Response,
 )
 from app.services.restaurant_menu_pricing import (
     RestaurantMenuPricingError,
     calculate_restaurant_menu_total,
+)
+from app.services.restaurant_order_submitter import (
+    RestaurantOrderSubmissionError,
+    submit_restaurant_order,
 )
 
 
@@ -60,5 +66,47 @@ def calculate_order_total_v2(
         ) from error
 
     return CalculateOrderTotalV2Response.model_validate(
+        result
+    )
+
+
+@router.post(
+    "/submit-order",
+    response_model=SubmitOrderV2Response,
+)
+def submit_order_v2(
+    payload: SubmitOrderV2Request,
+    context: Annotated[
+        ToolRestaurantContext,
+        Depends(require_restaurant_tool_context),
+    ],
+) -> SubmitOrderV2Response:
+    """
+    Verify and submit one restaurant-scoped order.
+
+    Railway resolves the restaurant from X-Svir-Tool-Token,
+    verifies every product and price against that restaurant's
+    active Supabase menu, and saves the order atomically.
+
+    The caller cannot provide restaurant_id, price, total,
+    currency, or order status.
+    """
+
+    try:
+        result = submit_restaurant_order(
+            context=context,
+            request=payload,
+        )
+
+    except RestaurantOrderSubmissionError as error:
+        raise HTTPException(
+            status_code=error.status_code,
+            detail={
+                "code": error.code,
+                "message": error.message,
+            },
+        ) from error
+
+    return SubmitOrderV2Response.model_validate(
         result
     )
