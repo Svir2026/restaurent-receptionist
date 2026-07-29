@@ -205,12 +205,10 @@ def build_yz_calculate_order_total_v2_tool_config(
                                 },
                             },
                             "required": ["name", "quantity"],
-                            "additionalProperties": False,
                         },
                     }
                 },
                 "required": ["order_items"],
-                "additionalProperties": False,
             },
             "request_headers": {
                 SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
