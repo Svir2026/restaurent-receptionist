@@ -36,6 +36,7 @@ from app.services.elevenlabs_tool_provisioner import (
     ElevenLabsToolProvisioningError,
     ensure_testkok2_calculate_order_total_v2_tool,
     ensure_yz_calculate_order_total_v2_tool,
+    ensure_yz_submit_order_v2_tool,
 )
 from app.services.menu_importer import (
     MenuImportError,
@@ -64,6 +65,9 @@ YZ_RESTAURANT_ID = UUID(
 )
 YZ_CALCULATE_TOOL_CONFIRMATION = (
     "CREATE_YZ_CALCULATE_TOOL"
+)
+YZ_SUBMIT_TOOL_CONFIRMATION = (
+    "CREATE_YZ_SUBMIT_TOOL"
 )
 
 
@@ -484,6 +488,95 @@ def ensure_yz_calculate_order_total_tool(
 
     try:
         result = ensure_yz_calculate_order_total_v2_tool(
+            tool_token_provider=load_yz_tool_token,
+        )
+
+    except RestaurantToolTokenProviderError as error:
+        raise HTTPException(
+            status_code=error.status_code,
+            detail={
+                "code": error.code,
+                "message": error.message,
+            },
+        ) from error
+
+    except ElevenLabsToolProvisioningError as error:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "elevenlabs_tool_provisioning_blocked",
+                "message": str(error),
+            },
+        ) from error
+
+    except ElevenLabsClientError as error:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": "elevenlabs_tool_request_failed",
+                "message": str(error),
+            },
+        ) from error
+
+    return result
+
+
+@router.post(
+    "/elevenlabs/tools/yz-thai-wok-sushi/"
+    "submit-order-v2/ensure"
+)
+def ensure_yz_submit_order_tool(
+    _: Annotated[
+        None,
+        Depends(require_svir_internal_secret),
+    ],
+    confirmation: Annotated[
+        str | None,
+        Header(alias="X-Svir-Confirmation"),
+    ] = None,
+) -> dict[str, object]:
+    """
+    Reuse or create only YZ Thai Wok & Sushi's secure
+    v2 submit-order workspace tool.
+
+    Deployment alone does not execute this endpoint.
+
+    The endpoint requires:
+    - the existing X-Svir-Internal-Secret
+    - the exact X-Svir-Confirmation header
+
+    The restaurant tool token is loaded server-side from
+    Supabase Vault only if the tool does not already exist.
+
+    This endpoint does not accept a tool token from the caller.
+    It does not connect the tool to an agent, submit an order,
+    update an agent, change a phone number, update the menu,
+    activate the restaurant, or advance a provisioning step.
+    """
+
+    if (
+        not isinstance(confirmation, str)
+        or confirmation.strip()
+        != YZ_SUBMIT_TOOL_CONFIRMATION
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "explicit_confirmation_required",
+                "message": (
+                    "The exact X-Svir-Confirmation header "
+                    "is required."
+                ),
+            },
+        )
+
+    def load_yz_tool_token() -> str:
+        return get_restaurant_tool_token_from_vault(
+            YZ_RESTAURANT_ID
+        )
+
+    try:
+        result = ensure_yz_submit_order_v2_tool(
             tool_token_provider=load_yz_tool_token,
         )
 
