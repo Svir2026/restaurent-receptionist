@@ -1,6 +1,4 @@
-
-
-
+import hashlib
 import json
 from typing import Optional
 from urllib.error import HTTPError, URLError
@@ -1297,5 +1295,497 @@ def attach_agent_prompt_tool_ids(
         "reused_existing_attachment": False,
         "changed_fields": [
             "conversation_config.agent.prompt.tool_ids",
+        ],
+    }
+
+
+def _extract_agent_prompt_text(
+    payload: dict,
+) -> str:
+    """
+    Read the full prompt text from one ElevenLabs agent payload.
+    """
+
+    conversation_config = payload.get("conversation_config")
+
+    if not isinstance(conversation_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid conversation_config."
+        )
+
+    agent_config = conversation_config.get("agent")
+
+    if not isinstance(agent_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid agent configuration."
+        )
+
+    prompt_config = agent_config.get("prompt")
+
+    if not isinstance(prompt_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid prompt configuration."
+        )
+
+    prompt_text = prompt_config.get("prompt")
+
+    if not isinstance(prompt_text, str):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid prompt text."
+        )
+
+    return prompt_text
+
+
+def _extract_agent_knowledge_base_document_ids(
+    payload: dict,
+) -> list[str]:
+    """
+    Read deterministic knowledge-base document IDs from one agent.
+    """
+
+    conversation_config = payload.get("conversation_config")
+
+    if not isinstance(conversation_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid conversation_config."
+        )
+
+    agent_config = conversation_config.get("agent")
+
+    if not isinstance(agent_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid agent configuration."
+        )
+
+    prompt_config = agent_config.get("prompt")
+
+    if not isinstance(prompt_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid prompt configuration."
+        )
+
+    knowledge_base = prompt_config.get("knowledge_base")
+
+    if not isinstance(knowledge_base, list):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid knowledge-base list."
+        )
+
+    document_ids: list[str] = []
+
+    for entry in knowledge_base:
+        if not isinstance(entry, dict):
+            raise ElevenLabsClientError(
+                "ElevenLabs returned an invalid knowledge-base entry."
+            )
+
+        document_id = entry.get("id")
+
+        if not isinstance(document_id, str):
+            raise ElevenLabsClientError(
+                "A knowledge-base entry has no valid document ID."
+            )
+
+        normalized_document_id = document_id.strip()
+
+        if not normalized_document_id:
+            raise ElevenLabsClientError(
+                "A knowledge-base entry has an empty document ID."
+            )
+
+        document_ids.append(normalized_document_id)
+
+    if len(document_ids) != len(set(document_ids)):
+        raise ElevenLabsClientError(
+            "The agent contains duplicate knowledge-base document IDs."
+        )
+
+    return document_ids
+
+
+def _normalize_prompt_update_document_ids(
+    values: object,
+    *,
+    field_name: str,
+) -> list[str]:
+    """
+    Normalize an exact expected knowledge-base document ID list.
+    """
+
+    if not isinstance(values, list):
+        raise ElevenLabsClientError(
+            f"{field_name} must be a list."
+        )
+
+    normalized_values: list[str] = []
+
+    for value in values:
+        if not isinstance(value, str):
+            raise ElevenLabsClientError(
+                f"{field_name} items must be strings."
+            )
+
+        normalized_value = value.strip()
+
+        if not normalized_value:
+            raise ElevenLabsClientError(
+                f"{field_name} contains an empty document ID."
+            )
+
+        normalized_values.append(normalized_value)
+
+    if len(normalized_values) != len(set(normalized_values)):
+        raise ElevenLabsClientError(
+            f"{field_name} contains duplicate document IDs."
+        )
+
+    if not normalized_values:
+        raise ElevenLabsClientError(
+            f"{field_name} must contain at least one document ID."
+        )
+
+    return normalized_values
+
+
+def _normalize_expected_prompt_sha256(
+    value: object,
+) -> str:
+    """
+    Normalize one lowercase SHA-256 prompt precondition.
+    """
+
+    if not isinstance(value, str):
+        raise ElevenLabsClientError(
+            "expected_current_prompt_sha256 must be a string."
+        )
+
+    normalized_value = value.strip().lower()
+
+    if (
+        len(normalized_value) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in normalized_value
+        )
+    ):
+        raise ElevenLabsClientError(
+            "expected_current_prompt_sha256 is invalid."
+        )
+
+    return normalized_value
+
+
+def _build_prompt_update_protected_state(
+    payload: dict,
+) -> dict:
+    """
+    Build a stable snapshot of fields that a prompt-only update must
+    not change.
+
+    Automatic metadata, version IDs and platform-generated state are
+    intentionally excluded. The prompt text itself is also excluded.
+    """
+
+    try:
+        normalized_payload = json.loads(
+            json.dumps(payload)
+        )
+    except (
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise ElevenLabsClientError(
+            "ElevenLabs returned a non-serializable agent payload."
+        ) from exc
+
+    conversation_config = normalized_payload.get(
+        "conversation_config"
+    )
+
+    if not isinstance(conversation_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid conversation_config."
+        )
+
+    agent_config = conversation_config.get("agent")
+
+    if not isinstance(agent_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid agent configuration."
+        )
+
+    prompt_config = agent_config.get("prompt")
+
+    if not isinstance(prompt_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid prompt configuration."
+        )
+
+    protected_prompt = dict(prompt_config)
+    protected_prompt.pop("prompt", None)
+
+    return {
+        "agent_id": normalized_payload.get("agent_id"),
+        "name": normalized_payload.get("name"),
+        "branch_id": normalized_payload.get("branch_id"),
+        "main_branch_id": normalized_payload.get(
+            "main_branch_id"
+        ),
+        "phone_numbers": normalized_payload.get(
+            "phone_numbers"
+        ),
+        "tags": normalized_payload.get("tags"),
+        "agent": {
+            "first_message": agent_config.get("first_message"),
+            "language": agent_config.get("language"),
+            "disable_first_message_interruptions": (
+                agent_config.get(
+                    "disable_first_message_interruptions"
+                )
+            ),
+            "dynamic_variables": agent_config.get(
+                "dynamic_variables"
+            ),
+            "prompt": protected_prompt,
+        },
+        "tts": conversation_config.get("tts"),
+        "asr": conversation_config.get("asr"),
+        "turn": conversation_config.get("turn"),
+        "workflow": normalized_payload.get("workflow"),
+    }
+
+
+def update_agent_prompt_text(
+    *,
+    agent_id: str,
+    branch_id: str,
+    prompt_text: str,
+    expected_current_prompt_sha256: str,
+    required_tool_ids: list[str],
+    required_knowledge_base_document_ids: list[str],
+) -> dict:
+    """
+    Update only the prompt text on one explicit ElevenLabs branch.
+
+    The exact current prompt hash, five tool IDs and knowledge-base
+    document IDs are required before any PATCH is attempted.
+    """
+
+    normalized_agent_id = (
+        _normalize_agent_attachment_identifier(
+            agent_id,
+            field_name="agent_id",
+            required_prefix="agent_",
+        )
+    )
+    normalized_branch_id = (
+        _normalize_agent_attachment_identifier(
+            branch_id,
+            field_name="branch_id",
+            required_prefix="agtbrch_",
+        )
+    )
+
+    if not isinstance(prompt_text, str):
+        raise ElevenLabsClientError(
+            "prompt_text must be a string."
+        )
+
+    normalized_prompt_text = prompt_text.strip()
+
+    if not normalized_prompt_text:
+        raise ElevenLabsClientError(
+            "prompt_text must not be empty."
+        )
+
+    normalized_expected_sha256 = (
+        _normalize_expected_prompt_sha256(
+            expected_current_prompt_sha256
+        )
+    )
+    normalized_required_tool_ids = (
+        _normalize_agent_attachment_tool_ids(
+            required_tool_ids,
+            field_name="required_tool_ids",
+            require_exactly_five=True,
+        )
+    )
+    normalized_required_document_ids = (
+        _normalize_prompt_update_document_ids(
+            required_knowledge_base_document_ids,
+            field_name=(
+                "required_knowledge_base_document_ids"
+            ),
+        )
+    )
+
+    before_payload = _read_agent_branch_payload(
+        agent_id=normalized_agent_id,
+        branch_id=normalized_branch_id,
+        operation="read agent branch before prompt update",
+    )
+    current_prompt_text = _extract_agent_prompt_text(
+        before_payload
+    )
+    current_prompt_sha256 = hashlib.sha256(
+        current_prompt_text.encode("utf-8")
+    ).hexdigest()
+
+    if current_prompt_sha256 != normalized_expected_sha256:
+        raise ElevenLabsClientError(
+            "The current agent prompt does not match the approved "
+            "prompt precondition. No update was attempted."
+        )
+
+    current_tool_ids = _extract_agent_prompt_tool_ids(
+        before_payload
+    )
+
+    if current_tool_ids != normalized_required_tool_ids:
+        raise ElevenLabsClientError(
+            "The agent does not contain the exact required tool list. "
+            "No prompt update was attempted."
+        )
+
+    current_document_ids = (
+        _extract_agent_knowledge_base_document_ids(
+            before_payload
+        )
+    )
+
+    if current_document_ids != normalized_required_document_ids:
+        raise ElevenLabsClientError(
+            "The agent does not contain the exact required "
+            "knowledge-base document list. No prompt update was "
+            "attempted."
+        )
+
+    if current_prompt_text == normalized_prompt_text:
+        return {
+            "success": True,
+            "agent_id": normalized_agent_id,
+            "branch_id": normalized_branch_id,
+            "version_id": before_payload.get("version_id"),
+            "prompt_sha256": current_prompt_sha256,
+            "updated_prompt_text": False,
+            "reused_existing_prompt": True,
+            "changed_fields": [],
+        }
+
+    before_protected_state = (
+        _build_prompt_update_protected_state(
+            before_payload
+        )
+    )
+
+    query = urlencode(
+        {
+            "branch_id": normalized_branch_id,
+        }
+    )
+    url = (
+        f"{ELEVENLABS_API_BASE_URL}/convai/agents/"
+        f"{quote(normalized_agent_id, safe='')}?{query}"
+    )
+    request_body = {
+        "conversation_config": {
+            "agent": {
+                "prompt": {
+                    "prompt": normalized_prompt_text,
+                },
+            },
+        },
+    }
+
+    updated_payload = _send_json_request(
+        url=url,
+        method="PATCH",
+        operation="update agent prompt text",
+        body=request_body,
+    )
+
+    if updated_payload.get("agent_id") != normalized_agent_id:
+        raise ElevenLabsClientError(
+            "ElevenLabs returned a different agent after "
+            "the prompt update."
+        )
+
+    if updated_payload.get("branch_id") != normalized_branch_id:
+        raise ElevenLabsClientError(
+            "ElevenLabs returned a different branch after "
+            "the prompt update."
+        )
+
+    returned_prompt_text = _extract_agent_prompt_text(
+        updated_payload
+    )
+
+    if returned_prompt_text != normalized_prompt_text:
+        raise ElevenLabsClientError(
+            "ElevenLabs did not return the exact requested "
+            "prompt text."
+        )
+
+    after_payload = _read_agent_branch_payload(
+        agent_id=normalized_agent_id,
+        branch_id=normalized_branch_id,
+        operation="verify agent branch after prompt update",
+    )
+
+    if (
+        _extract_agent_prompt_text(after_payload)
+        != normalized_prompt_text
+    ):
+        raise ElevenLabsClientError(
+            "The agent branch does not contain the exact requested "
+            "prompt text after the update."
+        )
+
+    if (
+        _extract_agent_prompt_tool_ids(after_payload)
+        != normalized_required_tool_ids
+    ):
+        raise ElevenLabsClientError(
+            "The agent tool list changed during the prompt update."
+        )
+
+    if (
+        _extract_agent_knowledge_base_document_ids(
+            after_payload
+        )
+        != normalized_required_document_ids
+    ):
+        raise ElevenLabsClientError(
+            "The agent knowledge-base list changed during "
+            "the prompt update."
+        )
+
+    after_protected_state = (
+        _build_prompt_update_protected_state(
+            after_payload
+        )
+    )
+
+    if after_protected_state != before_protected_state:
+        raise ElevenLabsClientError(
+            "Unexpected protected agent fields changed during "
+            "the prompt update."
+        )
+
+    prompt_sha256 = hashlib.sha256(
+        normalized_prompt_text.encode("utf-8")
+    ).hexdigest()
+
+    return {
+        "success": True,
+        "agent_id": normalized_agent_id,
+        "branch_id": normalized_branch_id,
+        "version_id": after_payload.get("version_id"),
+        "prompt_sha256": prompt_sha256,
+        "updated_prompt_text": True,
+        "reused_existing_prompt": False,
+        "changed_fields": [
+            "conversation_config.agent.prompt.prompt",
         ],
     }
