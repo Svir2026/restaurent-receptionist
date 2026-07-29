@@ -1,1815 +1,715 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
-import re
-from typing import Any
 
-from app.services.elevenlabs_client import (
-    ElevenLabsClientError,
-    create_webhook_tool,
-    find_tool_by_exact_name,
+TESTKOK2_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME = (
+    "svir_testkok2_calculate_order_total_v2"
 )
-from app.services.elevenlabs_tool_definitions import (
-    SVIR_TOOL_TOKEN_HEADER_NAME,
-    TESTKOK2_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME,
-    TESTKOK2_CALCULATE_ORDER_TOTAL_V2_URL,
-    YZ_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME,
-    YZ_CALCULATE_ORDER_TOTAL_V2_URL,
-    YZ_CANCEL_ORDER_V2_TOOL_NAME,
-    YZ_CANCEL_ORDER_V2_URL,
-    YZ_CHECK_ORDER_STATUS_V2_TOOL_NAME,
-    YZ_CHECK_ORDER_STATUS_V2_URL,
-    YZ_SUBMIT_ORDER_V2_TOOL_NAME,
-    YZ_SUBMIT_ORDER_V2_URL,
-    YZ_UPDATE_ORDER_V2_TOOL_NAME,
-    YZ_UPDATE_ORDER_V2_URL,
-    build_testkok2_calculate_order_total_v2_tool_config,
-    build_yz_calculate_order_total_v2_tool_config,
-    build_yz_cancel_order_v2_tool_config,
-    build_yz_check_order_status_v2_tool_config,
-    build_yz_submit_order_v2_tool_config,
-    build_yz_update_order_v2_tool_config,
+TESTKOK2_CALCULATE_ORDER_TOTAL_V2_URL = (
+    "https://web-production-f25f2.up.railway.app/"
+    "v2/calculate-order-total"
+)
+SVIR_TOOL_TOKEN_HEADER_NAME = "X-Svir-Tool-Token"
+
+YZ_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME = (
+    "svir_yz_thai_wok_sushi_calculate_order_total_v2"
+)
+YZ_CALCULATE_ORDER_TOTAL_V2_URL = (
+    "https://web-production-f25f2.up.railway.app/"
+    "v2/calculate-order-total"
 )
 
+YZ_SUBMIT_ORDER_V2_TOOL_NAME = (
+    "svir_yz_thai_wok_sushi_submit_order_v2"
+)
+YZ_SUBMIT_ORDER_V2_URL = (
+    "https://web-production-f25f2.up.railway.app/"
+    "v2/submit-order"
+)
 
-YZ_TOOL_TOKEN_REDACTION_PATTERN = re.compile(
-    r"svir_tool_[0-9a-fA-F]{64}"
+YZ_CHECK_ORDER_STATUS_V2_TOOL_NAME = (
+    "svir_yz_thai_wok_sushi_check_order_status_v2"
+)
+YZ_CHECK_ORDER_STATUS_V2_URL = (
+    "https://web-production-f25f2.up.railway.app/"
+    "v2/check-order-status"
+)
+
+YZ_UPDATE_ORDER_V2_TOOL_NAME = (
+    "svir_yz_thai_wok_sushi_update_order_v2"
+)
+YZ_UPDATE_ORDER_V2_URL = (
+    "https://web-production-f25f2.up.railway.app/"
+    "v2/update-order"
+)
+
+YZ_CANCEL_ORDER_V2_TOOL_NAME = (
+    "svir_yz_thai_wok_sushi_cancel_order_v2"
+)
+YZ_CANCEL_ORDER_V2_URL = (
+    "https://web-production-f25f2.up.railway.app/"
+    "v2/cancel-order"
 )
 
 
-def _sanitize_yz_tool_creation_error(
-    error: Exception,
-) -> str:
-    """
-    Return ElevenLabs' error text with any complete Svir tool token
-    replaced before it is exposed through the protected YZ route.
-    """
-
-    message = str(error).strip()
-
-    if not message:
-        return "ElevenLabs returned no diagnostic message."
-
-    return YZ_TOOL_TOKEN_REDACTION_PATTERN.sub(
-        "[REDACTED_TOOL_TOKEN]",
-        message,
-    )
-
-
-class ElevenLabsToolProvisioningError(RuntimeError):
-    """Raised when a Svir workspace tool cannot be safely ensured."""
-
-
-def _require_mapping(value: Any, *, field_name: str) -> Mapping[str, Any]:
-    if not isinstance(value, Mapping):
-        raise ElevenLabsToolProvisioningError(
-            f"ElevenLabs tool field '{field_name}' is invalid."
-        )
-
-    return value
-
-
-def _require_exact_keys(
-    value: Mapping[str, Any],
-    *,
-    expected_keys: set[str],
-    field_name: str,
-) -> None:
-    actual_keys = {str(key) for key in value.keys()}
-
-    if actual_keys != expected_keys:
-        raise ElevenLabsToolProvisioningError(
-            f"ElevenLabs tool field '{field_name}' has an unsafe schema."
-        )
-
-
-def _require_exact_required(
-    value: Any,
-    *,
-    expected_values: set[str],
-    field_name: str,
-) -> None:
-    if not isinstance(value, list):
-        raise ElevenLabsToolProvisioningError(
-            f"ElevenLabs tool field '{field_name}' is invalid."
-        )
-
-    actual_values = {str(item) for item in value}
-
-    if actual_values != expected_values or len(value) != len(expected_values):
-        raise ElevenLabsToolProvisioningError(
-            f"ElevenLabs tool field '{field_name}' has an unsafe schema."
-        )
-
-
-def _validate_empty_object_schema(
-    schema: Any,
-    *,
-    field_name: str,
-) -> None:
-    normalized_schema = _require_mapping(
-        schema,
-        field_name=field_name,
-    )
-
-    if normalized_schema.get("type") != "object":
-        raise ElevenLabsToolProvisioningError(
-            f"ElevenLabs tool field '{field_name}' must be an object schema."
-        )
-
-    properties = _require_mapping(
-        normalized_schema.get("properties"),
-        field_name=f"{field_name}.properties",
-    )
-    _require_exact_keys(
-        properties,
-        expected_keys=set(),
-        field_name=f"{field_name}.properties",
-    )
-    _require_exact_required(
-        normalized_schema.get("required"),
-        expected_values=set(),
-        field_name=f"{field_name}.required",
-    )
-
-    if normalized_schema.get("additionalProperties") is not False:
-        raise ElevenLabsToolProvisioningError(
-            f"ElevenLabs tool field '{field_name}' allows extra values."
-        )
-
-
-def _validate_calculate_request_body_schema(schema: Any) -> None:
-    body_schema = _require_mapping(
-        schema,
-        field_name="api_schema.request_body_schema",
-    )
-
-    if body_schema.get("type") != "object":
-        raise ElevenLabsToolProvisioningError(
-            "The calculate-order-total request body must be an object."
-        )
-
-    body_properties = _require_mapping(
-        body_schema.get("properties"),
-        field_name="api_schema.request_body_schema.properties",
-    )
-    _require_exact_keys(
-        body_properties,
-        expected_keys={"order_items"},
-        field_name="api_schema.request_body_schema.properties",
-    )
-    _require_exact_required(
-        body_schema.get("required"),
-        expected_values={"order_items"},
-        field_name="api_schema.request_body_schema.required",
-    )
-
-    if body_schema.get("additionalProperties") is not False:
-        raise ElevenLabsToolProvisioningError(
-            "The calculate-order-total request body allows extra fields."
-        )
-
-    order_items = _require_mapping(
-        body_properties.get("order_items"),
-        field_name="order_items",
-    )
-
-    if order_items.get("type") != "array":
-        raise ElevenLabsToolProvisioningError(
-            "The calculate-order-total order_items field must be an array."
-        )
-
-    if order_items.get("minItems") != 1 or order_items.get("maxItems") != 100:
-        raise ElevenLabsToolProvisioningError(
-            "The calculate-order-total order_items limits are invalid."
-        )
-
-    item_schema = _require_mapping(
-        order_items.get("items"),
-        field_name="order_items.items",
-    )
-
-    if item_schema.get("type") != "object":
-        raise ElevenLabsToolProvisioningError(
-            "Each calculate-order-total order item must be an object."
-        )
-
-    item_properties = _require_mapping(
-        item_schema.get("properties"),
-        field_name="order_items.items.properties",
-    )
-    _require_exact_keys(
-        item_properties,
-        expected_keys={"name", "quantity"},
-        field_name="order_items.items.properties",
-    )
-    _require_exact_required(
-        item_schema.get("required"),
-        expected_values={"name", "quantity"},
-        field_name="order_items.items.required",
-    )
-
-    if item_schema.get("additionalProperties") is not False:
-        raise ElevenLabsToolProvisioningError(
-            "The calculate-order-total order item allows extra fields."
-        )
-
-    name_schema = _require_mapping(
-        item_properties.get("name"),
-        field_name="order_items.items.name",
-    )
-
-    if (
-        name_schema.get("type") != "string"
-        or name_schema.get("minLength") != 1
-        or name_schema.get("maxLength") != 200
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The calculate-order-total item name schema is invalid."
-        )
-
-    quantity_schema = _require_mapping(
-        item_properties.get("quantity"),
-        field_name="order_items.items.quantity",
-    )
-
-    if (
-        quantity_schema.get("type") != "integer"
-        or quantity_schema.get("minimum") != 1
-        or quantity_schema.get("maximum") != 100
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The calculate-order-total quantity schema is invalid."
-        )
-
-
-def _validate_calculate_order_total_tool_snapshot(
-    tool_snapshot: Mapping[str, Any],
-) -> None:
-    tool_id = tool_snapshot.get("tool_id")
-
-    if not isinstance(tool_id, str) or not tool_id.strip():
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned a tool without a valid tool ID."
-        )
-
-    if tool_snapshot.get("name") != TESTKOK2_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME:
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned a different tool name."
-        )
-
-    if tool_snapshot.get("type") != "webhook":
-        raise ElevenLabsToolProvisioningError(
-            "The existing ElevenLabs tool is not a webhook tool."
-        )
-
-    api_schema = _require_mapping(
-        tool_snapshot.get("api_schema"),
-        field_name="api_schema",
-    )
-
-    if api_schema.get("url") != TESTKOK2_CALCULATE_ORDER_TOTAL_V2_URL:
-        raise ElevenLabsToolProvisioningError(
-            "The existing ElevenLabs tool points to the wrong URL."
-        )
-
-    method = api_schema.get("method")
-
-    if not isinstance(method, str) or method.strip().upper() != "POST":
-        raise ElevenLabsToolProvisioningError(
-            "The existing ElevenLabs tool uses the wrong HTTP method."
-        )
-
-    _validate_empty_object_schema(
-        api_schema.get("path_params_schema"),
-        field_name="api_schema.path_params_schema",
-    )
-    _validate_empty_object_schema(
-        api_schema.get("query_params_schema"),
-        field_name="api_schema.query_params_schema",
-    )
-    _validate_calculate_request_body_schema(
-        api_schema.get("request_body_schema")
-    )
-
-    header_names = api_schema.get("request_header_names")
-
-    if not isinstance(header_names, list):
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned invalid request-header metadata."
-        )
-
-    normalized_header_names = {
-        str(header_name).strip().lower()
-        for header_name in header_names
-    }
-    expected_header_names = {
-        SVIR_TOOL_TOKEN_HEADER_NAME.lower(),
-    }
-
-    if (
-        normalized_header_names != expected_header_names
-        or len(header_names) != len(expected_header_names)
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The existing ElevenLabs tool has unsafe request headers."
-        )
-
-
-def _build_result(
-    tool_snapshot: Mapping[str, Any],
-    *,
-    created_new_tool: bool,
+def build_testkok2_calculate_order_total_v2_tool_config(
+    tool_token: str,
 ) -> dict:
+    """
+    Build the ElevenLabs webhook configuration for testkok2's
+    secure v2 price-calculation tool.
+
+    This function only returns a JSON-serializable dictionary. It
+    does not call ElevenLabs, connect a tool to an agent, update an
+    agent, or modify any external resource.
+
+    The token is supplied at runtime and is never stored in this
+    source file.
+    """
+
+    if not isinstance(tool_token, str):
+        raise TypeError("tool_token must be a string")
+
+    normalized_tool_token = tool_token.strip()
+
+    if not normalized_tool_token:
+        raise ValueError("tool_token must not be empty")
+
     return {
-        "success": True,
-        "tool_id": str(tool_snapshot["tool_id"]),
+        "type": "webhook",
         "name": TESTKOK2_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME,
-        "created_new_tool": created_new_tool,
-        "reused_existing_tool": not created_new_tool,
-        "tool": dict(tool_snapshot),
+        "description": (
+            "Calculate a verified order total for testkok2 using "
+            "prices from the restaurant's active Supabase menu. "
+            "Use this only to calculate a total before order "
+            "confirmation. It does not create or update an order."
+        ),
+        "response_timeout_secs": 20,
+        "api_schema": {
+            "url": TESTKOK2_CALCULATE_ORDER_TOTAL_V2_URL,
+            "method": "POST",
+            "path_params_schema": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False,
+            },
+            "query_params_schema": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False,
+            },
+            "request_body_schema": {
+                "type": "object",
+                "description": (
+                    "Order items whose prices must be verified "
+                    "against testkok2's active menu."
+                ),
+                "properties": {
+                    "order_items": {
+                        "type": "array",
+                        "description": (
+                            "Products and quantities requested by "
+                            "the caller."
+                        ),
+                        "minItems": 1,
+                        "maxItems": 100,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": (
+                                        "Product name as stated by "
+                                        "the caller."
+                                    ),
+                                    "minLength": 1,
+                                    "maxLength": 200,
+                                },
+                                "quantity": {
+                                    "type": "integer",
+                                    "description": (
+                                        "Requested number of this "
+                                        "product."
+                                    ),
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                },
+                            },
+                            "required": ["name", "quantity"],
+                            "additionalProperties": False,
+                        },
+                    }
+                },
+                "required": ["order_items"],
+                "additionalProperties": False,
+            },
+            "request_headers": {
+                SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
+            },
+        },
+        "dynamic_variables": {
+            "dynamic_variable_placeholders": {},
+        },
     }
 
 
-def ensure_testkok2_calculate_order_total_v2_tool(
-    tool_token_provider: Callable[[], str],
+def build_yz_calculate_order_total_v2_tool_config(
+    tool_token: str,
 ) -> dict:
     """
-    Idempotently ensure testkok2's secure price-calculation tool.
+    Build the ElevenLabs webhook configuration for YZ Thai Wok &
+    Sushi's secure v2 price-calculation tool.
 
-    The function first searches by the exact unique tool name. A
-    matching tool is reused only after its URL, method, schemas and
-    request-header name have been verified. The token provider is
-    called only when no matching tool exists and a new tool must be
-    created. This allows safe retries without storing or exposing the
-    full token after successful creation.
+    This function only returns a JSON-serializable dictionary. It
+    does not call ElevenLabs, connect a tool to an agent, update an
+    agent, or modify any external resource.
 
-    This function never connects a tool to an agent, never updates an
-    agent, and never changes or removes any existing Lebanon resource.
+    The token is supplied at runtime and is never stored in this
+    source file.
     """
 
-    if not callable(tool_token_provider):
-        raise TypeError("tool_token_provider must be callable")
+    if not isinstance(tool_token, str):
+        raise TypeError("tool_token must be a string")
 
-    try:
-        existing_tool = find_tool_by_exact_name(
-            TESTKOK2_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME
-        )
-    except ElevenLabsClientError as error:
-        raise ElevenLabsToolProvisioningError(
-            "Could not safely search ElevenLabs workspace tools."
-        ) from error
+    normalized_tool_token = tool_token.strip()
 
-    if existing_tool is not None:
-        _validate_calculate_order_total_tool_snapshot(existing_tool)
-        return _build_result(
-            existing_tool,
-            created_new_tool=False,
-        )
+    if not normalized_tool_token:
+        raise ValueError("tool_token must not be empty")
 
-    try:
-        tool_token = tool_token_provider()
-        desired_config = (
-            build_testkok2_calculate_order_total_v2_tool_config(
-                tool_token
-            )
-        )
-    except (TypeError, ValueError) as error:
-        raise ElevenLabsToolProvisioningError(
-            "Could not obtain a valid runtime tool token."
-        ) from error
-
-    try:
-        created_tool = create_webhook_tool(desired_config)
-    except ElevenLabsClientError as error:
-        raise ElevenLabsToolProvisioningError(
-            "Could not create the secure ElevenLabs workspace tool."
-        ) from error
-
-    _validate_calculate_order_total_tool_snapshot(created_tool)
-
-    return _build_result(
-        created_tool,
-        created_new_tool=True,
-    )
-
-
-def _validate_yz_calculate_request_body_schema(
-    schema: Any,
-) -> None:
-    """Validate YZ's ElevenLabs-compatible calculate request body."""
-
-    body_schema = _require_mapping(
-        schema,
-        field_name="api_schema.request_body_schema",
-    )
-
-    if body_schema.get("type") != "object":
-        raise ElevenLabsToolProvisioningError(
-            "The calculate-order-total request body must be an object."
-        )
-
-    body_properties = _require_mapping(
-        body_schema.get("properties"),
-        field_name="api_schema.request_body_schema.properties",
-    )
-    _require_exact_keys(
-        body_properties,
-        expected_keys={"order_items"},
-        field_name="api_schema.request_body_schema.properties",
-    )
-    _require_exact_required(
-        body_schema.get("required"),
-        expected_values={"order_items"},
-        field_name="api_schema.request_body_schema.required",
-    )
-
-    order_items = _require_mapping(
-        body_properties.get("order_items"),
-        field_name="order_items",
-    )
-
-    if order_items.get("type") != "array":
-        raise ElevenLabsToolProvisioningError(
-            "The calculate-order-total order_items field must be an array."
-        )
-
-    item_schema = _require_mapping(
-        order_items.get("items"),
-        field_name="order_items.items",
-    )
-
-    if item_schema.get("type") != "object":
-        raise ElevenLabsToolProvisioningError(
-            "Each calculate-order-total order item must be an object."
-        )
-
-    item_properties = _require_mapping(
-        item_schema.get("properties"),
-        field_name="order_items.items.properties",
-    )
-    _require_exact_keys(
-        item_properties,
-        expected_keys={"name", "quantity"},
-        field_name="order_items.items.properties",
-    )
-    _require_exact_required(
-        item_schema.get("required"),
-        expected_values={"name", "quantity"},
-        field_name="order_items.items.required",
-    )
-
-    name_schema = _require_mapping(
-        item_properties.get("name"),
-        field_name="order_items.items.name",
-    )
-
-    if name_schema.get("type") != "string":
-        raise ElevenLabsToolProvisioningError(
-            "The calculate-order-total item name schema is invalid."
-        )
-
-    quantity_schema = _require_mapping(
-        item_properties.get("quantity"),
-        field_name="order_items.items.quantity",
-    )
-
-    if quantity_schema.get("type") != "integer":
-        raise ElevenLabsToolProvisioningError(
-            "The calculate-order-total quantity schema is invalid."
-        )
-
-
-def _validate_yz_calculate_order_total_tool_snapshot(
-    tool_snapshot: Mapping[str, Any],
-) -> None:
-    tool_id = tool_snapshot.get("tool_id")
-
-    if not isinstance(tool_id, str) or not tool_id.strip():
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned a tool without a valid tool ID."
-        )
-
-    if tool_snapshot.get("name") != YZ_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME:
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned a different tool name."
-        )
-
-    if tool_snapshot.get("type") != "webhook":
-        raise ElevenLabsToolProvisioningError(
-            "The existing ElevenLabs tool is not a webhook tool."
-        )
-
-    api_schema = _require_mapping(
-        tool_snapshot.get("api_schema"),
-        field_name="api_schema",
-    )
-
-    if api_schema.get("url") != YZ_CALCULATE_ORDER_TOTAL_V2_URL:
-        raise ElevenLabsToolProvisioningError(
-            "The existing ElevenLabs tool points to the wrong URL."
-        )
-
-    method = api_schema.get("method")
-
-    if not isinstance(method, str) or method.strip().upper() != "POST":
-        raise ElevenLabsToolProvisioningError(
-            "The existing ElevenLabs tool uses the wrong HTTP method."
-        )
-
-    path_params_schema = _require_mapping(
-        api_schema.get("path_params_schema"),
-        field_name="api_schema.path_params_schema",
-    )
-    _require_exact_keys(
-        path_params_schema,
-        expected_keys=set(),
-        field_name="api_schema.path_params_schema",
-    )
-
-    if api_schema.get("query_params_schema") is not None:
-        raise ElevenLabsToolProvisioningError(
-            "The existing ElevenLabs tool has unexpected "
-            "query parameters."
-        )
-
-    _validate_yz_calculate_request_body_schema(
-        api_schema.get("request_body_schema")
-    )
-
-    header_names = api_schema.get("request_header_names")
-
-    if not isinstance(header_names, list):
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned invalid request-header metadata."
-        )
-
-    normalized_header_names = {
-        str(header_name).strip().lower()
-        for header_name in header_names
-    }
-    expected_header_names = {
-        SVIR_TOOL_TOKEN_HEADER_NAME.lower(),
-    }
-
-    if (
-        normalized_header_names != expected_header_names
-        or len(header_names) != len(expected_header_names)
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The existing ElevenLabs tool has unsafe request headers."
-        )
-
-
-def _build_yz_result(
-    tool_snapshot: Mapping[str, Any],
-    *,
-    created_new_tool: bool,
-) -> dict:
     return {
-        "success": True,
-        "tool_id": str(tool_snapshot["tool_id"]),
+        "type": "webhook",
         "name": YZ_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME,
-        "created_new_tool": created_new_tool,
-        "reused_existing_tool": not created_new_tool,
-        "tool": dict(tool_snapshot),
-    }
-
-
-def ensure_yz_calculate_order_total_v2_tool(
-    tool_token_provider: Callable[[], str],
-) -> dict:
-    """
-    Idempotently ensure YZ Thai Wok & Sushi's secure
-    price-calculation tool.
-
-    The function first searches by the exact unique tool name. A
-    matching tool is reused only after its URL, method, schemas and
-    request-header name have been verified. The token provider is
-    called only when no matching tool exists and a new tool must be
-    created. This allows safe retries without storing or exposing the
-    full token after successful creation.
-
-    This function never connects a tool to an agent, never updates an
-    agent, and never changes or removes any existing Lebanon resource.
-    """
-
-    if not callable(tool_token_provider):
-        raise TypeError("tool_token_provider must be callable")
-
-    try:
-        existing_tool = find_tool_by_exact_name(
-            YZ_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME
-        )
-    except ElevenLabsClientError as error:
-        raise ElevenLabsToolProvisioningError(
-            "Could not safely search ElevenLabs workspace tools."
-        ) from error
-
-    if existing_tool is not None:
-        _validate_yz_calculate_order_total_tool_snapshot(
-            existing_tool
-        )
-        return _build_yz_result(
-            existing_tool,
-            created_new_tool=False,
-        )
-
-    try:
-        tool_token = tool_token_provider()
-        desired_config = (
-            build_yz_calculate_order_total_v2_tool_config(
-                tool_token
-            )
-        )
-    except (TypeError, ValueError) as error:
-        raise ElevenLabsToolProvisioningError(
-            "Could not obtain a valid runtime tool token."
-        ) from error
-
-    try:
-        created_tool = create_webhook_tool(desired_config)
-    except ElevenLabsClientError as error:
-        sanitized_error = _sanitize_yz_tool_creation_error(
-            error
-        )
-        raise ElevenLabsToolProvisioningError(
-            "Could not create the secure ElevenLabs workspace "
-            f"tool. ElevenLabs details: {sanitized_error}"
-        ) from error
-
-    _validate_yz_calculate_order_total_tool_snapshot(created_tool)
-
-    return _build_yz_result(
-        created_tool,
-        created_new_tool=True,
-    )
-
-def _validate_yz_submit_order_request_body_schema(
-    schema: Any,
-) -> None:
-    """
-    Validate YZ's ElevenLabs-compatible submit-order request body.
-    """
-
-    body_schema = _require_mapping(
-        schema,
-        field_name="api_schema.request_body_schema",
-    )
-
-    if body_schema.get("type") != "object":
-        raise ElevenLabsToolProvisioningError(
-            "The submit-order request body must be an object."
-        )
-
-    body_properties = _require_mapping(
-        body_schema.get("properties"),
-        field_name="api_schema.request_body_schema.properties",
-    )
-
-    expected_body_properties = {
-        "conversation_id",
-        "customer_name",
-        "customer_phone",
-        "order_type",
-        "order_items",
-        "party_size",
-        "dine_in_time",
-        "pickup_time",
-        "notes",
-    }
-
-    _require_exact_keys(
-        body_properties,
-        expected_keys=expected_body_properties,
-        field_name="api_schema.request_body_schema.properties",
-    )
-    _require_exact_required(
-        body_schema.get("required"),
-        expected_values={
-            "conversation_id",
-            "customer_name",
-            "customer_phone",
-            "order_type",
-            "order_items",
+        "description": (
+            "Calculate a verified order total for YZ Thai Wok & "
+            "Sushi using prices from the restaurant's active "
+            "Supabase menu. Use this only after mapping every "
+            "caller phrase to the exact official Supabase menu "
+            "item name. It does not create or update an order."
+        ),
+        "response_timeout_secs": 20,
+        "api_schema": {
+            "url": YZ_CALCULATE_ORDER_TOTAL_V2_URL,
+            "method": "POST",
+            "path_params_schema": {},
+            "query_params_schema": None,
+            "request_body_schema": {
+                "type": "object",
+                "description": (
+                    "Order items whose prices must be verified "
+                    "against YZ Thai Wok & Sushi's active menu."
+                ),
+                "properties": {
+                    "order_items": {
+                        "type": "array",
+                        "description": (
+                            "Official Supabase products and "
+                            "quantities selected from the caller's "
+                            "request."
+                        ),
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": (
+                                        "Exact official Supabase "
+                                        "menu item name. Convert "
+                                        "natural caller phrases "
+                                        "before calling this tool; "
+                                        "for example, send 'Pad Med "
+                                        "Mamuang – Kyckling', not "
+                                        "'kyckling cashew'."
+                                    ),
+                                },
+                                "quantity": {
+                                    "type": "integer",
+                                    "description": (
+                                        "Requested number of this "
+                                        "official menu item."
+                                    ),
+                                },
+                            },
+                            "required": ["name", "quantity"],
+                        },
+                    }
+                },
+                "required": ["order_items"],
+            },
+            "request_headers": {
+                SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
+            },
         },
-        field_name="api_schema.request_body_schema.required",
-    )
-
-    conversation_id_schema = _require_mapping(
-        body_properties.get("conversation_id"),
-        field_name="submit_order.conversation_id",
-    )
-
-    if (
-        conversation_id_schema.get("type") != "string"
-        or conversation_id_schema.get("dynamic_variable")
-        != "system__conversation_id"
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The submit-order conversation ID schema is invalid."
-        )
-
-    customer_name_schema = _require_mapping(
-        body_properties.get("customer_name"),
-        field_name="submit_order.customer_name",
-    )
-
-    if customer_name_schema.get("type") != "string":
-        raise ElevenLabsToolProvisioningError(
-            "The submit-order customer name schema is invalid."
-        )
-
-    customer_phone_schema = _require_mapping(
-        body_properties.get("customer_phone"),
-        field_name="submit_order.customer_phone",
-    )
-
-    if (
-        customer_phone_schema.get("type") != "string"
-        or customer_phone_schema.get("dynamic_variable")
-        != "system__caller_id"
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The submit-order customer phone schema is invalid."
-        )
-
-    order_type_schema = _require_mapping(
-        body_properties.get("order_type"),
-        field_name="submit_order.order_type",
-    )
-
-    if order_type_schema.get("type") != "string":
-        raise ElevenLabsToolProvisioningError(
-            "The submit-order order type schema is invalid."
-        )
-
-    order_items_schema = _require_mapping(
-        body_properties.get("order_items"),
-        field_name="submit_order.order_items",
-    )
-
-    if order_items_schema.get("type") != "array":
-        raise ElevenLabsToolProvisioningError(
-            "The submit-order order_items field must be an array."
-        )
-
-    item_schema = _require_mapping(
-        order_items_schema.get("items"),
-        field_name="submit_order.order_items.items",
-    )
-
-    if item_schema.get("type") != "object":
-        raise ElevenLabsToolProvisioningError(
-            "Each submit-order item must be an object."
-        )
-
-    item_properties = _require_mapping(
-        item_schema.get("properties"),
-        field_name="submit_order.order_items.items.properties",
-    )
-    _require_exact_keys(
-        item_properties,
-        expected_keys={"name", "quantity", "notes"},
-        field_name="submit_order.order_items.items.properties",
-    )
-    _require_exact_required(
-        item_schema.get("required"),
-        expected_values={"name", "quantity"},
-        field_name="submit_order.order_items.items.required",
-    )
-
-    item_name_schema = _require_mapping(
-        item_properties.get("name"),
-        field_name="submit_order.order_items.items.name",
-    )
-
-    if item_name_schema.get("type") != "string":
-        raise ElevenLabsToolProvisioningError(
-            "The submit-order item name schema is invalid."
-        )
-
-    item_quantity_schema = _require_mapping(
-        item_properties.get("quantity"),
-        field_name="submit_order.order_items.items.quantity",
-    )
-
-    if item_quantity_schema.get("type") != "integer":
-        raise ElevenLabsToolProvisioningError(
-            "The submit-order item quantity schema is invalid."
-        )
-
-    item_notes_schema = _require_mapping(
-        item_properties.get("notes"),
-        field_name="submit_order.order_items.items.notes",
-    )
-
-    if item_notes_schema.get("type") != "string":
-        raise ElevenLabsToolProvisioningError(
-            "The submit-order item notes schema is invalid."
-        )
-
-    simple_types = {
-        "party_size": "integer",
-        "dine_in_time": "string",
-        "pickup_time": "string",
-        "notes": "string",
+        "dynamic_variables": {
+            "dynamic_variable_placeholders": {},
+        },
     }
 
-    for field_name, expected_type in simple_types.items():
-        field_schema = _require_mapping(
-            body_properties.get(field_name),
-            field_name=f"submit_order.{field_name}",
-        )
-
-        if field_schema.get("type") != expected_type:
-            raise ElevenLabsToolProvisioningError(
-                f"The submit-order {field_name} schema is invalid."
-            )
-
-
-def _validate_yz_submit_order_tool_snapshot(
-    tool_snapshot: Mapping[str, Any],
-) -> None:
-    tool_id = tool_snapshot.get("tool_id")
-
-    if not isinstance(tool_id, str) or not tool_id.strip():
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned a submit tool without a valid tool ID."
-        )
-
-    if tool_snapshot.get("name") != YZ_SUBMIT_ORDER_V2_TOOL_NAME:
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned a different submit tool name."
-        )
-
-    if tool_snapshot.get("type") != "webhook":
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ submit tool is not a webhook tool."
-        )
-
-    api_schema = _require_mapping(
-        tool_snapshot.get("api_schema"),
-        field_name="api_schema",
-    )
-
-    if api_schema.get("url") != YZ_SUBMIT_ORDER_V2_URL:
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ submit tool points to the wrong URL."
-        )
-
-    method = api_schema.get("method")
-
-    if not isinstance(method, str) or method.strip().upper() != "POST":
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ submit tool uses the wrong HTTP method."
-        )
-
-    path_params_schema = _require_mapping(
-        api_schema.get("path_params_schema"),
-        field_name="api_schema.path_params_schema",
-    )
-    _require_exact_keys(
-        path_params_schema,
-        expected_keys=set(),
-        field_name="api_schema.path_params_schema",
-    )
-
-    if api_schema.get("query_params_schema") is not None:
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ submit tool has unexpected "
-            "query parameters."
-        )
-
-    _validate_yz_submit_order_request_body_schema(
-        api_schema.get("request_body_schema")
-    )
-
-    header_names = api_schema.get("request_header_names")
-
-    if not isinstance(header_names, list):
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned invalid submit-tool "
-            "request-header metadata."
-        )
-
-    normalized_header_names = {
-        str(header_name).strip().lower()
-        for header_name in header_names
-    }
-    expected_header_names = {
-        SVIR_TOOL_TOKEN_HEADER_NAME.lower(),
-    }
-
-    if (
-        normalized_header_names != expected_header_names
-        or len(header_names) != len(expected_header_names)
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ submit tool has unsafe request headers."
-        )
-
-
-def _build_yz_submit_result(
-    tool_snapshot: Mapping[str, Any],
-    *,
-    created_new_tool: bool,
+def build_yz_submit_order_v2_tool_config(
+    tool_token: str,
 ) -> dict:
+    """
+    Build the ElevenLabs webhook configuration for YZ Thai Wok &
+    Sushi's secure v2 order-submission tool.
+
+    This function only returns a JSON-serializable dictionary. It
+    does not call ElevenLabs, connect a tool to an agent, submit an
+    order, update an agent, or modify any external resource.
+
+    The token is supplied at runtime and is never stored in this
+    source file.
+    """
+
+    if not isinstance(tool_token, str):
+        raise TypeError("tool_token must be a string")
+
+    normalized_tool_token = tool_token.strip()
+
+    if not normalized_tool_token:
+        raise ValueError("tool_token must not be empty")
+
     return {
-        "success": True,
-        "tool_id": str(tool_snapshot["tool_id"]),
+        "type": "webhook",
         "name": YZ_SUBMIT_ORDER_V2_TOOL_NAME,
-        "created_new_tool": created_new_tool,
-        "reused_existing_tool": not created_new_tool,
-        "tool": dict(tool_snapshot),
+        "description": (
+            "Submit one final order to YZ Thai Wok & Sushi only "
+            "after the caller has explicitly confirmed the complete "
+            "order summary, including every product, quantity, "
+            "order type, requested time, customer name, and special "
+            "requests. Send exact official Supabase menu item names. "
+            "Never send prices, totals, currency, restaurant_id, or "
+            "order status; Railway verifies prices and saves the "
+            "restaurant-scoped order."
+        ),
+        "response_timeout_secs": 25,
+        "api_schema": {
+            "url": YZ_SUBMIT_ORDER_V2_URL,
+            "method": "POST",
+            "path_params_schema": {},
+            "query_params_schema": None,
+            "request_body_schema": {
+                "type": "object",
+                "description": (
+                    "Final confirmed YZ Thai Wok & Sushi order. "
+                    "Use pickup_time for takeaway or dine_in_time "
+                    "for dine_in, never both."
+                ),
+                "properties": {
+                    "conversation_id": {
+                        "type": "string",
+                        "dynamic_variable": (
+                            "system__conversation_id"
+                        ),
+                    },
+                    "customer_name": {
+                        "type": "string",
+                        "description": (
+                            "Customer's confirmed name."
+                        ),
+                    },
+                    "customer_phone": {
+                        "type": "string",
+                        "dynamic_variable": "system__caller_id",
+                    },
+                    "order_type": {
+                        "type": "string",
+                        "description": (
+                            "Use exactly 'takeaway' for pickup or "
+                            "'dine_in' for eating at the restaurant."
+                        ),
+                    },
+                    "order_items": {
+                        "type": "array",
+                        "description": (
+                            "Complete final product list using exact "
+                            "official Supabase menu item names."
+                        ),
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": (
+                                        "Exact official Supabase "
+                                        "menu item name. Convert "
+                                        "natural caller phrases "
+                                        "before submitting."
+                                    ),
+                                },
+                                "quantity": {
+                                    "type": "integer",
+                                    "description": (
+                                        "Confirmed quantity of this "
+                                        "official menu item."
+                                    ),
+                                },
+                                "notes": {
+                                    "type": "string",
+                                    "description": (
+                                        "Optional confirmed choices "
+                                        "or special requests for "
+                                        "this product, such as no "
+                                        "onion or a free same-price "
+                                        "choice."
+                                    ),
+                                },
+                            },
+                            "required": ["name", "quantity"],
+                        },
+                    },
+                    "party_size": {
+                        "type": "integer",
+                        "description": (
+                            "Optional confirmed number of guests "
+                            "for dine_in."
+                        ),
+                    },
+                    "dine_in_time": {
+                        "type": "string",
+                        "description": (
+                            "Required when order_type is dine_in. "
+                            "Use an ISO 8601 datetime with timezone "
+                            "offset. Omit for takeaway."
+                        ),
+                    },
+                    "pickup_time": {
+                        "type": "string",
+                        "description": (
+                            "Required when order_type is takeaway. "
+                            "Use an ISO 8601 datetime with timezone "
+                            "offset. Omit for dine_in."
+                        ),
+                    },
+                    "notes": {
+                        "type": "string",
+                        "description": (
+                            "Optional confirmed notes applying to "
+                            "the whole order."
+                        ),
+                    },
+                },
+                "required": [
+                    "conversation_id",
+                    "customer_name",
+                    "customer_phone",
+                    "order_type",
+                    "order_items",
+                ],
+            },
+            "request_headers": {
+                SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
+            },
+        },
+        "dynamic_variables": {
+            "dynamic_variable_placeholders": {},
+        },
     }
 
-
-def ensure_yz_submit_order_v2_tool(
-    tool_token_provider: Callable[[], str],
+def build_yz_check_order_status_v2_tool_config(
+    tool_token: str,
 ) -> dict:
     """
-    Idempotently ensure only YZ Thai Wok & Sushi's secure
-    submit-order-v2 workspace tool.
+    Build the ElevenLabs webhook configuration for YZ Thai Wok &
+    Sushi's secure v2 order-status tool.
 
-    The exact unique tool name is searched first. A matching tool is
-    reused only after its URL, method, body schema, dynamic variables,
-    and secure request-header name have been verified.
+    This function only returns a JSON-serializable dictionary. It
+    does not call ElevenLabs, read an order, connect a tool to an
+    agent, update an agent, or modify any external resource.
 
-    The token provider is called only when no matching tool exists.
-    This function does not connect the tool to an agent, submit an
-    order, update Supabase, or advance a provisioning step.
+    The token is supplied at runtime and is never stored in this
+    source file.
     """
 
-    if not callable(tool_token_provider):
-        raise TypeError("tool_token_provider must be callable")
+    if not isinstance(tool_token, str):
+        raise TypeError("tool_token must be a string")
 
-    try:
-        existing_tool = find_tool_by_exact_name(
-            YZ_SUBMIT_ORDER_V2_TOOL_NAME
-        )
-    except ElevenLabsClientError as error:
-        raise ElevenLabsToolProvisioningError(
-            "Could not safely search ElevenLabs workspace "
-            "submit tools."
-        ) from error
+    normalized_tool_token = tool_token.strip()
 
-    if existing_tool is not None:
-        _validate_yz_submit_order_tool_snapshot(
-            existing_tool
-        )
-        return _build_yz_submit_result(
-            existing_tool,
-            created_new_tool=False,
-        )
+    if not normalized_tool_token:
+        raise ValueError("tool_token must not be empty")
 
-    try:
-        tool_token = tool_token_provider()
-        desired_config = (
-            build_yz_submit_order_v2_tool_config(
-                tool_token
-            )
-        )
-    except (TypeError, ValueError) as error:
-        raise ElevenLabsToolProvisioningError(
-            "Could not obtain a valid runtime tool token."
-        ) from error
-
-    try:
-        created_tool = create_webhook_tool(
-            desired_config
-        )
-    except ElevenLabsClientError as error:
-        sanitized_error = _sanitize_yz_tool_creation_error(
-            error
-        )
-        raise ElevenLabsToolProvisioningError(
-            "Could not create the secure YZ submit-order "
-            f"workspace tool. ElevenLabs details: {sanitized_error}"
-        ) from error
-
-    _validate_yz_submit_order_tool_snapshot(
-        created_tool
-    )
-
-    return _build_yz_submit_result(
-        created_tool,
-        created_new_tool=True,
-    )
-
-def _validate_yz_check_order_status_request_body_schema(
-    schema: Any,
-) -> None:
-    """
-    Validate YZ's ElevenLabs-compatible order-status request body.
-    """
-
-    body_schema = _require_mapping(
-        schema,
-        field_name="api_schema.request_body_schema",
-    )
-
-    if body_schema.get("type") != "object":
-        raise ElevenLabsToolProvisioningError(
-            "The order-status request body must be an object."
-        )
-
-    body_properties = _require_mapping(
-        body_schema.get("properties"),
-        field_name="api_schema.request_body_schema.properties",
-    )
-    _require_exact_keys(
-        body_properties,
-        expected_keys={"customer_phone"},
-        field_name="api_schema.request_body_schema.properties",
-    )
-    _require_exact_required(
-        body_schema.get("required"),
-        expected_values={"customer_phone"},
-        field_name="api_schema.request_body_schema.required",
-    )
-
-    customer_phone_schema = _require_mapping(
-        body_properties.get("customer_phone"),
-        field_name="check_order_status.customer_phone",
-    )
-
-    if (
-        customer_phone_schema.get("type") != "string"
-        or customer_phone_schema.get("dynamic_variable")
-        != "system__caller_id"
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The order-status customer phone schema is invalid."
-        )
-
-
-def _validate_yz_check_order_status_tool_snapshot(
-    tool_snapshot: Mapping[str, Any],
-) -> None:
-    tool_id = tool_snapshot.get("tool_id")
-
-    if not isinstance(tool_id, str) or not tool_id.strip():
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned an order-status tool without "
-            "a valid tool ID."
-        )
-
-    if (
-        tool_snapshot.get("name")
-        != YZ_CHECK_ORDER_STATUS_V2_TOOL_NAME
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned a different order-status tool name."
-        )
-
-    if tool_snapshot.get("type") != "webhook":
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ order-status tool is not a webhook tool."
-        )
-
-    api_schema = _require_mapping(
-        tool_snapshot.get("api_schema"),
-        field_name="api_schema",
-    )
-
-    if api_schema.get("url") != YZ_CHECK_ORDER_STATUS_V2_URL:
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ order-status tool points to the "
-            "wrong URL."
-        )
-
-    method = api_schema.get("method")
-
-    if not isinstance(method, str) or method.strip().upper() != "POST":
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ order-status tool uses the wrong "
-            "HTTP method."
-        )
-
-    path_params_schema = _require_mapping(
-        api_schema.get("path_params_schema"),
-        field_name="api_schema.path_params_schema",
-    )
-    _require_exact_keys(
-        path_params_schema,
-        expected_keys=set(),
-        field_name="api_schema.path_params_schema",
-    )
-
-    if api_schema.get("query_params_schema") is not None:
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ order-status tool has unexpected "
-            "query parameters."
-        )
-
-    _validate_yz_check_order_status_request_body_schema(
-        api_schema.get("request_body_schema")
-    )
-
-    header_names = api_schema.get("request_header_names")
-
-    if not isinstance(header_names, list):
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned invalid order-status "
-            "request-header metadata."
-        )
-
-    normalized_header_names = {
-        str(header_name).strip().lower()
-        for header_name in header_names
-    }
-    expected_header_names = {
-        SVIR_TOOL_TOKEN_HEADER_NAME.lower(),
-    }
-
-    if (
-        normalized_header_names != expected_header_names
-        or len(header_names) != len(expected_header_names)
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ order-status tool has unsafe "
-            "request headers."
-        )
-
-
-def _build_yz_check_order_status_result(
-    tool_snapshot: Mapping[str, Any],
-    *,
-    created_new_tool: bool,
-) -> dict:
     return {
-        "success": True,
-        "tool_id": str(tool_snapshot["tool_id"]),
+        "type": "webhook",
         "name": YZ_CHECK_ORDER_STATUS_V2_TOOL_NAME,
-        "created_new_tool": created_new_tool,
-        "reused_existing_tool": not created_new_tool,
-        "tool": dict(tool_snapshot),
+        "description": (
+            "Read the caller's recent YZ Thai Wok & Sushi orders. "
+            "Use this before attempting to update or cancel an "
+            "existing order, or when the caller asks whether an "
+            "order was received or what its current status is. "
+            "Railway identifies YZ from the secure tool token and "
+            "restricts the lookup to the current caller's phone "
+            "number. This tool is read-only and never creates, "
+            "updates, or cancels an order."
+        ),
+        "response_timeout_secs": 20,
+        "api_schema": {
+            "url": YZ_CHECK_ORDER_STATUS_V2_URL,
+            "method": "POST",
+            "path_params_schema": {},
+            "query_params_schema": None,
+            "request_body_schema": {
+                "type": "object",
+                "description": (
+                    "Read recent YZ Thai Wok & Sushi orders for the "
+                    "current caller."
+                ),
+                "properties": {
+                    "customer_phone": {
+                        "type": "string",
+                        "dynamic_variable": "system__caller_id",
+                    },
+                },
+                "required": ["customer_phone"],
+            },
+            "request_headers": {
+                SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
+            },
+        },
+        "dynamic_variables": {
+            "dynamic_variable_placeholders": {},
+        },
     }
 
-
-def ensure_yz_check_order_status_v2_tool(
-    tool_token_provider: Callable[[], str],
+def build_yz_update_order_v2_tool_config(
+    tool_token: str,
 ) -> dict:
     """
-    Idempotently ensure only YZ Thai Wok & Sushi's secure
-    check-order-status-v2 workspace tool.
+    Build the ElevenLabs webhook configuration for YZ Thai Wok &
+    Sushi's secure v2 order-update tool.
 
-    The exact unique tool name is searched first. A matching tool is
-    reused only after its URL, method, caller-ID body schema, and
-    secure request-header name have been verified.
+    This function only returns a JSON-serializable dictionary. It
+    does not call ElevenLabs, read or update an order, connect a tool
+    to an agent, update an agent, or modify any external resource.
 
-    The token provider is called only when no matching tool exists.
-    This function does not connect the tool to an agent, read or
-    modify an order, update Supabase, or advance a provisioning step.
+    The token is supplied at runtime and is never stored in this
+    source file.
     """
 
-    if not callable(tool_token_provider):
-        raise TypeError("tool_token_provider must be callable")
+    if not isinstance(tool_token, str):
+        raise TypeError("tool_token must be a string")
 
-    try:
-        existing_tool = find_tool_by_exact_name(
-            YZ_CHECK_ORDER_STATUS_V2_TOOL_NAME
-        )
-    except ElevenLabsClientError as error:
-        raise ElevenLabsToolProvisioningError(
-            "Could not safely search ElevenLabs workspace "
-            "order-status tools."
-        ) from error
+    normalized_tool_token = tool_token.strip()
 
-    if existing_tool is not None:
-        _validate_yz_check_order_status_tool_snapshot(
-            existing_tool
-        )
-        return _build_yz_check_order_status_result(
-            existing_tool,
-            created_new_tool=False,
-        )
+    if not normalized_tool_token:
+        raise ValueError("tool_token must not be empty")
 
-    try:
-        tool_token = tool_token_provider()
-        desired_config = (
-            build_yz_check_order_status_v2_tool_config(
-                tool_token
-            )
-        )
-    except (TypeError, ValueError) as error:
-        raise ElevenLabsToolProvisioningError(
-            "Could not obtain a valid runtime tool token."
-        ) from error
-
-    try:
-        created_tool = create_webhook_tool(
-            desired_config
-        )
-    except ElevenLabsClientError as error:
-        sanitized_error = _sanitize_yz_tool_creation_error(
-            error
-        )
-        raise ElevenLabsToolProvisioningError(
-            "Could not create the secure YZ order-status "
-            f"workspace tool. ElevenLabs details: {sanitized_error}"
-        ) from error
-
-    _validate_yz_check_order_status_tool_snapshot(
-        created_tool
-    )
-
-    return _build_yz_check_order_status_result(
-        created_tool,
-        created_new_tool=True,
-    )
-
-def _validate_yz_update_order_request_body_schema(
-    schema: Any,
-) -> None:
-    """
-    Validate YZ's ElevenLabs-compatible update-order request body.
-    """
-
-    body_schema = _require_mapping(
-        schema,
-        field_name="api_schema.request_body_schema",
-    )
-
-    if body_schema.get("type") != "object":
-        raise ElevenLabsToolProvisioningError(
-            "The update-order request body must be an object."
-        )
-
-    body_properties = _require_mapping(
-        body_schema.get("properties"),
-        field_name="api_schema.request_body_schema.properties",
-    )
-
-    expected_body_properties = {
-        "order_id",
-        "customer_phone",
-        "customer_name",
-        "order_type",
-        "order_items",
-        "party_size",
-        "dine_in_time",
-        "pickup_time",
-        "notes",
-    }
-
-    _require_exact_keys(
-        body_properties,
-        expected_keys=expected_body_properties,
-        field_name="api_schema.request_body_schema.properties",
-    )
-    _require_exact_required(
-        body_schema.get("required"),
-        expected_values={"order_id", "customer_phone"},
-        field_name="api_schema.request_body_schema.required",
-    )
-
-    order_id_schema = _require_mapping(
-        body_properties.get("order_id"),
-        field_name="update_order.order_id",
-    )
-
-    if order_id_schema.get("type") != "string":
-        raise ElevenLabsToolProvisioningError(
-            "The update-order order ID schema is invalid."
-        )
-
-    customer_phone_schema = _require_mapping(
-        body_properties.get("customer_phone"),
-        field_name="update_order.customer_phone",
-    )
-
-    if (
-        customer_phone_schema.get("type") != "string"
-        or customer_phone_schema.get("dynamic_variable")
-        != "system__caller_id"
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The update-order customer phone schema is invalid."
-        )
-
-    customer_name_schema = _require_mapping(
-        body_properties.get("customer_name"),
-        field_name="update_order.customer_name",
-    )
-
-    if customer_name_schema.get("type") != "string":
-        raise ElevenLabsToolProvisioningError(
-            "The update-order customer name schema is invalid."
-        )
-
-    order_type_schema = _require_mapping(
-        body_properties.get("order_type"),
-        field_name="update_order.order_type",
-    )
-
-    if order_type_schema.get("type") != "string":
-        raise ElevenLabsToolProvisioningError(
-            "The update-order order type schema is invalid."
-        )
-
-    order_items_schema = _require_mapping(
-        body_properties.get("order_items"),
-        field_name="update_order.order_items",
-    )
-
-    if order_items_schema.get("type") != "array":
-        raise ElevenLabsToolProvisioningError(
-            "The update-order order_items field must be an array."
-        )
-
-    item_schema = _require_mapping(
-        order_items_schema.get("items"),
-        field_name="update_order.order_items.items",
-    )
-
-    if item_schema.get("type") != "object":
-        raise ElevenLabsToolProvisioningError(
-            "Each update-order item must be an object."
-        )
-
-    item_properties = _require_mapping(
-        item_schema.get("properties"),
-        field_name="update_order.order_items.items.properties",
-    )
-    _require_exact_keys(
-        item_properties,
-        expected_keys={"name", "quantity", "notes"},
-        field_name="update_order.order_items.items.properties",
-    )
-    _require_exact_required(
-        item_schema.get("required"),
-        expected_values={"name", "quantity"},
-        field_name="update_order.order_items.items.required",
-    )
-
-    item_name_schema = _require_mapping(
-        item_properties.get("name"),
-        field_name="update_order.order_items.items.name",
-    )
-
-    if item_name_schema.get("type") != "string":
-        raise ElevenLabsToolProvisioningError(
-            "The update-order item name schema is invalid."
-        )
-
-    item_quantity_schema = _require_mapping(
-        item_properties.get("quantity"),
-        field_name="update_order.order_items.items.quantity",
-    )
-
-    if item_quantity_schema.get("type") != "integer":
-        raise ElevenLabsToolProvisioningError(
-            "The update-order item quantity schema is invalid."
-        )
-
-    item_notes_schema = _require_mapping(
-        item_properties.get("notes"),
-        field_name="update_order.order_items.items.notes",
-    )
-
-    if item_notes_schema.get("type") != "string":
-        raise ElevenLabsToolProvisioningError(
-            "The update-order item notes schema is invalid."
-        )
-
-    simple_types = {
-        "party_size": "integer",
-        "dine_in_time": "string",
-        "pickup_time": "string",
-        "notes": "string",
-    }
-
-    for field_name, expected_type in simple_types.items():
-        field_schema = _require_mapping(
-            body_properties.get(field_name),
-            field_name=f"update_order.{field_name}",
-        )
-
-        if field_schema.get("type") != expected_type:
-            raise ElevenLabsToolProvisioningError(
-                f"The update-order {field_name} schema is invalid."
-            )
-
-
-def _validate_yz_update_order_tool_snapshot(
-    tool_snapshot: Mapping[str, Any],
-) -> None:
-    tool_id = tool_snapshot.get("tool_id")
-
-    if not isinstance(tool_id, str) or not tool_id.strip():
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned an update-order tool without "
-            "a valid tool ID."
-        )
-
-    if tool_snapshot.get("name") != YZ_UPDATE_ORDER_V2_TOOL_NAME:
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned a different update-order tool name."
-        )
-
-    if tool_snapshot.get("type") != "webhook":
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ update-order tool is not a webhook tool."
-        )
-
-    api_schema = _require_mapping(
-        tool_snapshot.get("api_schema"),
-        field_name="api_schema",
-    )
-
-    if api_schema.get("url") != YZ_UPDATE_ORDER_V2_URL:
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ update-order tool points to the "
-            "wrong URL."
-        )
-
-    method = api_schema.get("method")
-
-    if not isinstance(method, str) or method.strip().upper() != "POST":
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ update-order tool uses the wrong "
-            "HTTP method."
-        )
-
-    path_params_schema = _require_mapping(
-        api_schema.get("path_params_schema"),
-        field_name="api_schema.path_params_schema",
-    )
-    _require_exact_keys(
-        path_params_schema,
-        expected_keys=set(),
-        field_name="api_schema.path_params_schema",
-    )
-
-    if api_schema.get("query_params_schema") is not None:
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ update-order tool has unexpected "
-            "query parameters."
-        )
-
-    _validate_yz_update_order_request_body_schema(
-        api_schema.get("request_body_schema")
-    )
-
-    header_names = api_schema.get("request_header_names")
-
-    if not isinstance(header_names, list):
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned invalid update-order "
-            "request-header metadata."
-        )
-
-    normalized_header_names = {
-        str(header_name).strip().lower()
-        for header_name in header_names
-    }
-    expected_header_names = {
-        SVIR_TOOL_TOKEN_HEADER_NAME.lower(),
-    }
-
-    if (
-        normalized_header_names != expected_header_names
-        or len(header_names) != len(expected_header_names)
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ update-order tool has unsafe "
-            "request headers."
-        )
-
-
-def _build_yz_update_order_result(
-    tool_snapshot: Mapping[str, Any],
-    *,
-    created_new_tool: bool,
-) -> dict:
     return {
-        "success": True,
-        "tool_id": str(tool_snapshot["tool_id"]),
+        "type": "webhook",
         "name": YZ_UPDATE_ORDER_V2_TOOL_NAME,
-        "created_new_tool": created_new_tool,
-        "reused_existing_tool": not created_new_tool,
-        "tool": dict(tool_snapshot),
+        "description": (
+            "Update one existing YZ Thai Wok & Sushi order only "
+            "after check-order-status has returned the exact order_id "
+            "and the caller has explicitly confirmed the final change. "
+            "Send at least one changed order field. When changing "
+            "products, send the complete final product list using "
+            "exact official Supabase menu item names, not only the "
+            "changed item. Never send restaurant_id, prices, totals, "
+            "currency, order status, or order revision; Railway "
+            "verifies the caller, order, current status and prices."
+        ),
+        "response_timeout_secs": 25,
+        "api_schema": {
+            "url": YZ_UPDATE_ORDER_V2_URL,
+            "method": "POST",
+            "path_params_schema": {},
+            "query_params_schema": None,
+            "request_body_schema": {
+                "type": "object",
+                "description": (
+                    "Confirmed update to one existing YZ Thai Wok & "
+                    "Sushi order. Include order_id, automatic caller "
+                    "phone, and at least one field that must change."
+                ),
+                "properties": {
+                    "order_id": {
+                        "type": "string",
+                        "description": (
+                            "Exact order_id returned by "
+                            "check-order-status. Do not invent or "
+                            "modify it."
+                        ),
+                    },
+                    "customer_phone": {
+                        "type": "string",
+                        "dynamic_variable": "system__caller_id",
+                    },
+                    "customer_name": {
+                        "type": "string",
+                        "description": (
+                            "New confirmed customer name. Omit when "
+                            "the name is not changing."
+                        ),
+                    },
+                    "order_type": {
+                        "type": "string",
+                        "description": (
+                            "New order type. Use exactly 'takeaway' "
+                            "or 'dine_in'. Omit when unchanged."
+                        ),
+                    },
+                    "order_items": {
+                        "type": "array",
+                        "description": (
+                            "Complete final product list after the "
+                            "confirmed change. Send exact official "
+                            "Supabase menu item names. Omit when the "
+                            "products are not changing."
+                        ),
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": (
+                                        "Exact official Supabase "
+                                        "menu item name."
+                                    ),
+                                },
+                                "quantity": {
+                                    "type": "integer",
+                                    "description": (
+                                        "Final confirmed quantity "
+                                        "for this product."
+                                    ),
+                                },
+                                "notes": {
+                                    "type": "string",
+                                    "description": (
+                                        "Optional confirmed choices "
+                                        "or special requests for "
+                                        "this product."
+                                    ),
+                                },
+                            },
+                            "required": ["name", "quantity"],
+                        },
+                    },
+                    "party_size": {
+                        "type": "integer",
+                        "description": (
+                            "New confirmed guest count for dine_in. "
+                            "Omit when unchanged."
+                        ),
+                    },
+                    "dine_in_time": {
+                        "type": "string",
+                        "description": (
+                            "New dine-in time as ISO 8601 with "
+                            "timezone offset. Required when changing "
+                            "order_type to dine_in. Omit otherwise."
+                        ),
+                    },
+                    "pickup_time": {
+                        "type": "string",
+                        "description": (
+                            "New pickup time as ISO 8601 with "
+                            "timezone offset. Required when changing "
+                            "order_type to takeaway. Omit otherwise."
+                        ),
+                    },
+                    "notes": {
+                        "type": "string",
+                        "description": (
+                            "New confirmed notes for the whole order. "
+                            "Omit when unchanged."
+                        ),
+                    },
+                },
+                "required": [
+                    "order_id",
+                    "customer_phone",
+                ],
+            },
+            "request_headers": {
+                SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
+            },
+        },
+        "dynamic_variables": {
+            "dynamic_variable_placeholders": {},
+        },
     }
 
-
-def ensure_yz_update_order_v2_tool(
-    tool_token_provider: Callable[[], str],
+def build_yz_cancel_order_v2_tool_config(
+    tool_token: str,
 ) -> dict:
     """
-    Idempotently ensure only YZ Thai Wok & Sushi's secure
-    update-order-v2 workspace tool.
+    Build the ElevenLabs webhook configuration for YZ Thai Wok &
+    Sushi's secure v2 order-cancellation tool.
 
-    The exact unique tool name is searched first. A matching tool is
-    reused only after its URL, method, request-body schema, caller-ID
-    dynamic variable, and secure request-header name are verified.
+    This function only returns a JSON-serializable dictionary. It
+    does not call ElevenLabs, read or cancel an order, connect a tool
+    to an agent, update an agent, or modify any external resource.
 
-    The token provider is called only when no matching tool exists.
-    This function does not connect the tool to an agent, read or
-    update an order, update Supabase, or advance a provisioning step.
+    The token is supplied at runtime and is never stored in this
+    source file.
     """
 
-    if not callable(tool_token_provider):
-        raise TypeError("tool_token_provider must be callable")
+    if not isinstance(tool_token, str):
+        raise TypeError("tool_token must be a string")
 
-    try:
-        existing_tool = find_tool_by_exact_name(
-            YZ_UPDATE_ORDER_V2_TOOL_NAME
-        )
-    except ElevenLabsClientError as error:
-        raise ElevenLabsToolProvisioningError(
-            "Could not safely search ElevenLabs workspace "
-            "update-order tools."
-        ) from error
+    normalized_tool_token = tool_token.strip()
 
-    if existing_tool is not None:
-        _validate_yz_update_order_tool_snapshot(
-            existing_tool
-        )
-        return _build_yz_update_order_result(
-            existing_tool,
-            created_new_tool=False,
-        )
+    if not normalized_tool_token:
+        raise ValueError("tool_token must not be empty")
 
-    try:
-        tool_token = tool_token_provider()
-        desired_config = (
-            build_yz_update_order_v2_tool_config(
-                tool_token
-            )
-        )
-    except (TypeError, ValueError) as error:
-        raise ElevenLabsToolProvisioningError(
-            "Could not obtain a valid runtime tool token."
-        ) from error
-
-    try:
-        created_tool = create_webhook_tool(
-            desired_config
-        )
-    except ElevenLabsClientError as error:
-        sanitized_error = _sanitize_yz_tool_creation_error(
-            error
-        )
-        raise ElevenLabsToolProvisioningError(
-            "Could not create the secure YZ update-order "
-            f"workspace tool. ElevenLabs details: {sanitized_error}"
-        ) from error
-
-    _validate_yz_update_order_tool_snapshot(
-        created_tool
-    )
-
-    return _build_yz_update_order_result(
-        created_tool,
-        created_new_tool=True,
-    )
-
-def _validate_yz_cancel_order_request_body_schema(
-    schema: Any,
-) -> None:
-    """
-    Validate YZ's ElevenLabs-compatible cancel-order request body.
-    """
-
-    body_schema = _require_mapping(
-        schema,
-        field_name="api_schema.request_body_schema",
-    )
-
-    if body_schema.get("type") != "object":
-        raise ElevenLabsToolProvisioningError(
-            "The cancel-order request body must be an object."
-        )
-
-    body_properties = _require_mapping(
-        body_schema.get("properties"),
-        field_name="api_schema.request_body_schema.properties",
-    )
-
-    _require_exact_keys(
-        body_properties,
-        expected_keys={
-            "order_id",
-            "customer_phone",
-            "reason",
-        },
-        field_name="api_schema.request_body_schema.properties",
-    )
-    _require_exact_required(
-        body_schema.get("required"),
-        expected_values={
-            "order_id",
-            "customer_phone",
-        },
-        field_name="api_schema.request_body_schema.required",
-    )
-
-    order_id_schema = _require_mapping(
-        body_properties.get("order_id"),
-        field_name="cancel_order.order_id",
-    )
-
-    if order_id_schema.get("type") != "string":
-        raise ElevenLabsToolProvisioningError(
-            "The cancel-order order ID schema is invalid."
-        )
-
-    customer_phone_schema = _require_mapping(
-        body_properties.get("customer_phone"),
-        field_name="cancel_order.customer_phone",
-    )
-
-    if (
-        customer_phone_schema.get("type") != "string"
-        or customer_phone_schema.get("dynamic_variable")
-        != "system__caller_id"
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The cancel-order customer phone schema is invalid."
-        )
-
-    reason_schema = _require_mapping(
-        body_properties.get("reason"),
-        field_name="cancel_order.reason",
-    )
-
-    if reason_schema.get("type") != "string":
-        raise ElevenLabsToolProvisioningError(
-            "The cancel-order reason schema is invalid."
-        )
-
-
-def _validate_yz_cancel_order_tool_snapshot(
-    tool_snapshot: Mapping[str, Any],
-) -> None:
-    tool_id = tool_snapshot.get("tool_id")
-
-    if not isinstance(tool_id, str) or not tool_id.strip():
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned a cancel-order tool without "
-            "a valid tool ID."
-        )
-
-    if tool_snapshot.get("name") != YZ_CANCEL_ORDER_V2_TOOL_NAME:
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned a different cancel-order tool name."
-        )
-
-    if tool_snapshot.get("type") != "webhook":
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ cancel-order tool is not a webhook tool."
-        )
-
-    api_schema = _require_mapping(
-        tool_snapshot.get("api_schema"),
-        field_name="api_schema",
-    )
-
-    if api_schema.get("url") != YZ_CANCEL_ORDER_V2_URL:
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ cancel-order tool points to the "
-            "wrong URL."
-        )
-
-    method = api_schema.get("method")
-
-    if not isinstance(method, str) or method.strip().upper() != "POST":
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ cancel-order tool uses the wrong "
-            "HTTP method."
-        )
-
-    path_params_schema = _require_mapping(
-        api_schema.get("path_params_schema"),
-        field_name="api_schema.path_params_schema",
-    )
-    _require_exact_keys(
-        path_params_schema,
-        expected_keys=set(),
-        field_name="api_schema.path_params_schema",
-    )
-
-    if api_schema.get("query_params_schema") is not None:
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ cancel-order tool has unexpected "
-            "query parameters."
-        )
-
-    _validate_yz_cancel_order_request_body_schema(
-        api_schema.get("request_body_schema")
-    )
-
-    header_names = api_schema.get("request_header_names")
-
-    if not isinstance(header_names, list):
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned invalid cancel-order "
-            "request-header metadata."
-        )
-
-    normalized_header_names = {
-        str(header_name).strip().lower()
-        for header_name in header_names
-    }
-    expected_header_names = {
-        SVIR_TOOL_TOKEN_HEADER_NAME.lower(),
-    }
-
-    if (
-        normalized_header_names != expected_header_names
-        or len(header_names) != len(expected_header_names)
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The existing YZ cancel-order tool has unsafe "
-            "request headers."
-        )
-
-
-def _build_yz_cancel_order_result(
-    tool_snapshot: Mapping[str, Any],
-    *,
-    created_new_tool: bool,
-) -> dict:
     return {
-        "success": True,
-        "tool_id": str(tool_snapshot["tool_id"]),
+        "type": "webhook",
         "name": YZ_CANCEL_ORDER_V2_TOOL_NAME,
-        "created_new_tool": created_new_tool,
-        "reused_existing_tool": not created_new_tool,
-        "tool": dict(tool_snapshot),
+        "description": (
+            "Cancel one existing YZ Thai Wok & Sushi order only "
+            "after check-order-status has returned the exact "
+            "order_id and the caller has explicitly confirmed that "
+            "the order should be cancelled. Never claim that the "
+            "order is cancelled before this tool confirms success. "
+            "Never send restaurant_id, order status, order revision, "
+            "prices, totals, or currency; Railway verifies the "
+            "restaurant, caller, current status, and revision and "
+            "keeps the order history."
+        ),
+        "response_timeout_secs": 20,
+        "api_schema": {
+            "url": YZ_CANCEL_ORDER_V2_URL,
+            "method": "POST",
+            "path_params_schema": {},
+            "query_params_schema": None,
+            "request_body_schema": {
+                "type": "object",
+                "description": (
+                    "Confirmed cancellation of one existing YZ Thai "
+                    "Wok & Sushi order."
+                ),
+                "properties": {
+                    "order_id": {
+                        "type": "string",
+                        "description": (
+                            "Exact order_id returned by "
+                            "check-order-status. Do not invent or "
+                            "modify it."
+                        ),
+                    },
+                    "customer_phone": {
+                        "type": "string",
+                        "dynamic_variable": "system__caller_id",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": (
+                            "Optional confirmed reason for the "
+                            "cancellation. Omit when the caller gives "
+                            "no reason."
+                        ),
+                    },
+                },
+                "required": [
+                    "order_id",
+                    "customer_phone",
+                ],
+            },
+            "request_headers": {
+                SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
+            },
+        },
+        "dynamic_variables": {
+            "dynamic_variable_placeholders": {},
+        },
     }
-
-
-def ensure_yz_cancel_order_v2_tool(
-    tool_token_provider: Callable[[], str],
-) -> dict:
-    """
-    Idempotently ensure only YZ Thai Wok & Sushi's secure
-    cancel-order-v2 workspace tool.
-
-    The exact unique tool name is searched first. A matching tool is
-    reused only after its URL, method, request-body schema, caller-ID
-    dynamic variable, and secure request-header name are verified.
-
-    The token provider is called only when no matching tool exists.
-    This function does not connect the tool to an agent, read or
-    cancel an order, update Supabase, or advance a provisioning step.
-    """
-
-    if not callable(tool_token_provider):
-        raise TypeError("tool_token_provider must be callable")
-
-    try:
-        existing_tool = find_tool_by_exact_name(
-            YZ_CANCEL_ORDER_V2_TOOL_NAME
-        )
-    except ElevenLabsClientError as error:
-        raise ElevenLabsToolProvisioningError(
-            "Could not safely search ElevenLabs workspace "
-            "cancel-order tools."
-        ) from error
-
-    if existing_tool is not None:
-        _validate_yz_cancel_order_tool_snapshot(
-            existing_tool
-        )
-        return _build_yz_cancel_order_result(
-            existing_tool,
-            created_new_tool=False,
-        )
-
-    try:
-        tool_token = tool_token_provider()
-        desired_config = (
-            build_yz_cancel_order_v2_tool_config(
-                tool_token
-            )
-        )
-    except (TypeError, ValueError) as error:
-        raise ElevenLabsToolProvisioningError(
-            "Could not obtain a valid runtime tool token."
-        ) from error
-
-    try:
-        created_tool = create_webhook_tool(
-            desired_config
-        )
-    except ElevenLabsClientError as error:
-        sanitized_error = _sanitize_yz_tool_creation_error(
-            error
-        )
-        raise ElevenLabsToolProvisioningError(
-            "Could not create the secure YZ cancel-order "
-            f"workspace tool. ElevenLabs details: {sanitized_error}"
-        ) from error
-
-    _validate_yz_cancel_order_tool_snapshot(
-        created_tool
-    )
-
-    return _build_yz_cancel_order_result(
-        created_tool,
-        created_new_tool=True,
-    )
