@@ -273,11 +273,6 @@ def build_yz_submit_order_v2_tool_config(
                 "properties": {
                     "conversation_id": {
                         "type": "string",
-                        "description": (
-                            "Current ElevenLabs conversation ID. "
-                            "Filled automatically from the active "
-                            "conversation."
-                        ),
                         "dynamic_variable": (
                             "system__conversation_id"
                         ),
@@ -290,10 +285,6 @@ def build_yz_submit_order_v2_tool_config(
                     },
                     "customer_phone": {
                         "type": "string",
-                        "description": (
-                            "Caller's phone number. Filled "
-                            "automatically from caller ID."
-                        ),
                         "dynamic_variable": "system__caller_id",
                     },
                     "order_type": {
@@ -389,3 +380,4 @@ def build_yz_submit_order_v2_tool_config(
             "dynamic_variable_placeholders": {},
         },
     }
+
