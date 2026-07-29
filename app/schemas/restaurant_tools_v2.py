@@ -734,3 +734,99 @@ class UpdateOrderV2Response(BaseModel):
         default=None,
         max_length=1000,
     )
+
+class CancelOrderV2Request(BaseModel):
+    """
+    Restaurant-scoped cancellation request.
+
+    Railway resolves restaurant_id from X-Svir-Tool-Token.
+    The agent cannot provide restaurant identity, status,
+    revision, price, or total.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+        str_strip_whitespace=True,
+    )
+
+    order_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+    )
+
+    customer_phone: str = Field(
+        ...,
+        min_length=5,
+        max_length=32,
+    )
+
+    reason: str | None = Field(
+        default=None,
+        max_length=500,
+    )
+
+
+class CancelOrderV2Response(BaseModel):
+    """
+    Safe response after one restaurant-scoped order has been
+    cancelled without deleting the order row.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    success: bool
+    cancelled: bool
+
+    restaurant_id: UUID
+    restaurant_name: str = Field(min_length=1)
+
+    order_id: str = Field(
+        min_length=1,
+        max_length=64,
+    )
+
+    order_status: Literal["cancelled"]
+
+    order_revision: int = Field(
+        ge=1,
+    )
+
+    customer_name: str = Field(
+        min_length=1,
+        max_length=120,
+    )
+
+    customer_phone: str = Field(
+        min_length=5,
+        max_length=32,
+    )
+
+    order_type: OrderTypeV2
+
+    created_at: datetime
+    updated_at: datetime
+
+    dine_in_time: datetime | None = None
+    pickup_time: datetime | None = None
+
+    currency: str = Field(
+        min_length=3,
+        max_length=3,
+    )
+
+    total: float = Field(ge=0)
+
+    items: list[CheckOrderStatusV2Item] = Field(
+        min_length=1,
+    )
+
+    notes: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    cancellation_reason: str | None = Field(
+        default=None,
+        max_length=500,
+    )
