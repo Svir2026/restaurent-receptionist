@@ -1,3 +1,6 @@
+
+
+
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
@@ -422,14 +425,6 @@ def _validate_yz_calculate_request_body_schema(
             "The calculate-order-total order_items field must be an array."
         )
 
-    if (
-        order_items.get("minItems") != 1
-        or order_items.get("maxItems") != 100
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The calculate-order-total order_items limits are invalid."
-        )
-
     item_schema = _require_mapping(
         order_items.get("items"),
         field_name="order_items.items",
@@ -460,11 +455,7 @@ def _validate_yz_calculate_request_body_schema(
         field_name="order_items.items.name",
     )
 
-    if (
-        name_schema.get("type") != "string"
-        or name_schema.get("minLength") != 1
-        or name_schema.get("maxLength") != 200
-    ):
+    if name_schema.get("type") != "string":
         raise ElevenLabsToolProvisioningError(
             "The calculate-order-total item name schema is invalid."
         )
@@ -474,11 +465,7 @@ def _validate_yz_calculate_request_body_schema(
         field_name="order_items.items.quantity",
     )
 
-    if (
-        quantity_schema.get("type") != "integer"
-        or quantity_schema.get("minimum") != 1
-        or quantity_schema.get("maximum") != 100
-    ):
+    if quantity_schema.get("type") != "integer":
         raise ElevenLabsToolProvisioningError(
             "The calculate-order-total quantity schema is invalid."
         )
