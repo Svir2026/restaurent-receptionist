@@ -1,3 +1,6 @@
+
+
+
 import json
 from typing import Optional
 from urllib.error import HTTPError, URLError
@@ -906,4 +909,393 @@ def create_webhook_tool(tool_config: dict) -> dict:
     return {
         "success": True,
         **snapshot,
+    }
+
+def _normalize_agent_attachment_identifier(
+    value: object,
+    *,
+    field_name: str,
+    required_prefix: str,
+) -> str:
+    """
+    Normalize one ElevenLabs identifier used by the controlled
+    agent-tool attachment client.
+    """
+
+    if not isinstance(value, str):
+        raise ElevenLabsClientError(
+            f"{field_name} must be a string."
+        )
+
+    normalized_value = value.strip()
+
+    if not normalized_value:
+        raise ElevenLabsClientError(
+            f"{field_name} is missing."
+        )
+
+    if not normalized_value.startswith(required_prefix):
+        raise ElevenLabsClientError(
+            f"{field_name} has an unexpected format."
+        )
+
+    return normalized_value
+
+
+def _normalize_agent_attachment_tool_ids(
+    values: object,
+    *,
+    field_name: str,
+    require_exactly_five: bool,
+) -> list[str]:
+    """
+    Normalize a deterministic list of ElevenLabs workspace tool IDs.
+    """
+
+    if not isinstance(values, list):
+        raise ElevenLabsClientError(
+            f"{field_name} must be a list."
+        )
+
+    normalized_values: list[str] = []
+
+    for value in values:
+        normalized_values.append(
+            _normalize_agent_attachment_identifier(
+                value,
+                field_name=f"{field_name} item",
+                required_prefix="tool_",
+            )
+        )
+
+    if len(normalized_values) != len(set(normalized_values)):
+        raise ElevenLabsClientError(
+            f"{field_name} contains duplicate tool IDs."
+        )
+
+    if require_exactly_five and len(normalized_values) != 5:
+        raise ElevenLabsClientError(
+            f"{field_name} must contain exactly five tool IDs."
+        )
+
+    return normalized_values
+
+
+def _read_agent_branch_payload(
+    *,
+    agent_id: str,
+    branch_id: str,
+    operation: str,
+) -> dict:
+    """
+    Read exactly one ElevenLabs agent branch without modifying it.
+    """
+
+    query = urlencode(
+        {
+            "branch_id": branch_id,
+        }
+    )
+    url = (
+        f"{ELEVENLABS_API_BASE_URL}/convai/agents/"
+        f"{quote(agent_id, safe='')}?{query}"
+    )
+
+    payload = _send_json_request(
+        url=url,
+        method="GET",
+        operation=operation,
+    )
+
+    returned_agent_id = payload.get("agent_id")
+    returned_branch_id = payload.get("branch_id")
+
+    if returned_agent_id != agent_id:
+        raise ElevenLabsClientError(
+            "ElevenLabs returned a different agent than requested."
+        )
+
+    if returned_branch_id != branch_id:
+        raise ElevenLabsClientError(
+            "ElevenLabs returned a different branch than requested."
+        )
+
+    return payload
+
+
+def _extract_agent_prompt_tool_ids(
+    payload: dict,
+) -> list[str]:
+    """
+    Read and validate prompt.tool_ids from one full agent payload.
+    """
+
+    conversation_config = payload.get("conversation_config")
+
+    if not isinstance(conversation_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid conversation_config."
+        )
+
+    agent_config = conversation_config.get("agent")
+
+    if not isinstance(agent_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid agent configuration."
+        )
+
+    prompt_config = agent_config.get("prompt")
+
+    if not isinstance(prompt_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid prompt configuration."
+        )
+
+    raw_tool_ids = prompt_config.get("tool_ids")
+
+    if raw_tool_ids is None:
+        raw_tool_ids = []
+
+    return _normalize_agent_attachment_tool_ids(
+        raw_tool_ids,
+        field_name="current prompt.tool_ids",
+        require_exactly_five=False,
+    )
+
+
+def _build_agent_state_without_prompt_tool_ids(
+    payload: dict,
+) -> dict:
+    """
+    Build a deep JSON-safe comparison snapshot while excluding only
+    prompt.tool_ids and fields expected to change after a draft edit.
+    """
+
+    try:
+        normalized_payload = json.loads(
+            json.dumps(payload)
+        )
+    except (
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise ElevenLabsClientError(
+            "ElevenLabs returned a non-serializable agent payload."
+        ) from exc
+
+    conversation_config = normalized_payload.get(
+        "conversation_config"
+    )
+
+    if not isinstance(conversation_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid conversation_config."
+        )
+
+    agent_config = conversation_config.get("agent")
+
+    if not isinstance(agent_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid agent configuration."
+        )
+
+    prompt_config = agent_config.get("prompt")
+
+    if not isinstance(prompt_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned no valid prompt configuration."
+        )
+
+    prompt_config.pop("tool_ids", None)
+
+    return {
+        "agent_id": normalized_payload.get("agent_id"),
+        "name": normalized_payload.get("name"),
+        "branch_id": normalized_payload.get("branch_id"),
+        "main_branch_id": normalized_payload.get(
+            "main_branch_id"
+        ),
+        "conversation_config": conversation_config,
+        "platform_settings": normalized_payload.get(
+            "platform_settings"
+        ),
+        "workflow": normalized_payload.get("workflow"),
+        "phone_numbers": normalized_payload.get(
+            "phone_numbers"
+        ),
+        "whatsapp_accounts": normalized_payload.get(
+            "whatsapp_accounts"
+        ),
+        "tags": normalized_payload.get("tags"),
+    }
+
+
+def attach_agent_prompt_tool_ids(
+    *,
+    agent_id: str,
+    branch_id: str,
+    tool_ids: list[str],
+    expected_current_tool_ids: list[str],
+) -> dict:
+    """
+    Attach exactly five workspace tools to one explicit agent branch.
+
+    Safety properties:
+    - Reads the exact branch before writing.
+    - Is idempotent when the exact desired tool list already exists.
+    - Refuses to overwrite an unexpected current tool list.
+    - Sends a PATCH body containing only
+      conversation_config.agent.prompt.tool_ids.
+    - Reads the branch again and verifies that all other inspected
+      agent state remained unchanged.
+    - Does not publish, deploy, connect a phone number, update a
+      prompt, change a knowledge base, or write to Supabase.
+    """
+
+    normalized_agent_id = (
+        _normalize_agent_attachment_identifier(
+            agent_id,
+            field_name="agent_id",
+            required_prefix="agent_",
+        )
+    )
+    normalized_branch_id = (
+        _normalize_agent_attachment_identifier(
+            branch_id,
+            field_name="branch_id",
+            required_prefix="agtbrch_",
+        )
+    )
+    normalized_tool_ids = (
+        _normalize_agent_attachment_tool_ids(
+            tool_ids,
+            field_name="tool_ids",
+            require_exactly_five=True,
+        )
+    )
+    normalized_expected_tool_ids = (
+        _normalize_agent_attachment_tool_ids(
+            expected_current_tool_ids,
+            field_name="expected_current_tool_ids",
+            require_exactly_five=False,
+        )
+    )
+
+    before_payload = _read_agent_branch_payload(
+        agent_id=normalized_agent_id,
+        branch_id=normalized_branch_id,
+        operation="read agent branch before tool attachment",
+    )
+    current_tool_ids = _extract_agent_prompt_tool_ids(
+        before_payload
+    )
+
+    if current_tool_ids == normalized_tool_ids:
+        return {
+            "success": True,
+            "agent_id": normalized_agent_id,
+            "branch_id": normalized_branch_id,
+            "version_id": before_payload.get("version_id"),
+            "tool_ids": normalized_tool_ids,
+            "attached_new_tools": False,
+            "reused_existing_attachment": True,
+            "changed_fields": [],
+        }
+
+    if current_tool_ids != normalized_expected_tool_ids:
+        raise ElevenLabsClientError(
+            "The agent branch has an unexpected current tool list. "
+            "No attachment was attempted."
+        )
+
+    before_state = (
+        _build_agent_state_without_prompt_tool_ids(
+            before_payload
+        )
+    )
+
+    query = urlencode(
+        {
+            "branch_id": normalized_branch_id,
+        }
+    )
+    url = (
+        f"{ELEVENLABS_API_BASE_URL}/convai/agents/"
+        f"{quote(normalized_agent_id, safe='')}?{query}"
+    )
+    request_body = {
+        "conversation_config": {
+            "agent": {
+                "prompt": {
+                    "tool_ids": normalized_tool_ids,
+                },
+            },
+        },
+    }
+
+    updated_payload = _send_json_request(
+        url=url,
+        method="PATCH",
+        operation="attach tools to agent branch",
+        body=request_body,
+    )
+
+    if updated_payload.get("agent_id") != normalized_agent_id:
+        raise ElevenLabsClientError(
+            "ElevenLabs returned a different agent after "
+            "tool attachment."
+        )
+
+    if updated_payload.get("branch_id") != normalized_branch_id:
+        raise ElevenLabsClientError(
+            "ElevenLabs returned a different branch after "
+            "tool attachment."
+        )
+
+    returned_tool_ids = _extract_agent_prompt_tool_ids(
+        updated_payload
+    )
+
+    if returned_tool_ids != normalized_tool_ids:
+        raise ElevenLabsClientError(
+            "ElevenLabs did not return the exact requested tool list."
+        )
+
+    after_payload = _read_agent_branch_payload(
+        agent_id=normalized_agent_id,
+        branch_id=normalized_branch_id,
+        operation="verify agent branch after tool attachment",
+    )
+    verified_tool_ids = _extract_agent_prompt_tool_ids(
+        after_payload
+    )
+
+    if verified_tool_ids != normalized_tool_ids:
+        raise ElevenLabsClientError(
+            "The agent branch does not contain the exact requested "
+            "tool list after attachment."
+        )
+
+    after_state = (
+        _build_agent_state_without_prompt_tool_ids(
+            after_payload
+        )
+    )
+
+    if after_state != before_state:
+        raise ElevenLabsClientError(
+            "Unexpected agent fields changed during tool attachment."
+        )
+
+    return {
+        "success": True,
+        "agent_id": normalized_agent_id,
+        "branch_id": normalized_branch_id,
+        "version_id": after_payload.get("version_id"),
+        "tool_ids": normalized_tool_ids,
+        "attached_new_tools": True,
+        "reused_existing_attachment": False,
+        "changed_fields": [
+            "conversation_config.agent.prompt.tool_ids",
+        ],
     }
