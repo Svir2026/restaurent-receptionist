@@ -429,36 +429,11 @@ def _validate_yz_calculate_order_total_tool_snapshot(
         field_name="api_schema.path_params_schema",
     )
 
-    query_params_schema = _require_mapping(
-        api_schema.get("query_params_schema"),
-        field_name="api_schema.query_params_schema",
-    )
-    _require_exact_keys(
-        query_params_schema,
-        expected_keys={"properties", "required"},
-        field_name="api_schema.query_params_schema",
-    )
-
-    query_properties = _require_mapping(
-        query_params_schema.get("properties"),
-        field_name=(
-            "api_schema.query_params_schema.properties"
-        ),
-    )
-    _require_exact_keys(
-        query_properties,
-        expected_keys=set(),
-        field_name=(
-            "api_schema.query_params_schema.properties"
-        ),
-    )
-    _require_exact_required(
-        query_params_schema.get("required"),
-        expected_values=set(),
-        field_name=(
-            "api_schema.query_params_schema.required"
-        ),
-    )
+    if api_schema.get("query_params_schema") is not None:
+        raise ElevenLabsToolProvisioningError(
+            "The existing ElevenLabs tool has unexpected "
+            "query parameters."
+        )
 
     _validate_calculate_request_body_schema(
         api_schema.get("request_body_schema")
