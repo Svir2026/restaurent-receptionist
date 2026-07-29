@@ -473,3 +473,264 @@ class CheckOrderStatusV2Response(BaseModel):
     orders: list[CheckOrderStatusV2Order]
 
     order_count: int = Field(ge=0)
+
+class UpdateOrderV2ItemRequest(BaseModel):
+    """
+    One product in the complete updated order.
+
+    Price fields are forbidden. Railway resolves all prices
+    again from the authenticated restaurant's active menu.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+        str_strip_whitespace=True,
+    )
+
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+    )
+
+    quantity: int = Field(
+        default=1,
+        ge=1,
+        le=100,
+    )
+
+    notes: str | None = Field(
+        default=None,
+        max_length=500,
+    )
+
+
+class UpdateOrderV2Request(BaseModel):
+    """
+    Restaurant-scoped order update request.
+
+    restaurant_id, price, total, currency, and order status
+    are never accepted from the agent.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+        str_strip_whitespace=True,
+    )
+
+    order_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+    )
+
+    customer_phone: str = Field(
+        ...,
+        min_length=5,
+        max_length=32,
+    )
+
+    customer_name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=120,
+    )
+
+    order_type: OrderTypeV2 | None = None
+
+    order_items: (
+        list[UpdateOrderV2ItemRequest] | str | None
+    ) = Field(
+        default=None,
+    )
+
+    party_size: int | None = Field(
+        default=None,
+        ge=1,
+        le=100,
+    )
+
+    dine_in_time: datetime | None = None
+    pickup_time: datetime | None = None
+
+    notes: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    @model_validator(mode="after")
+    def validate_update_order(
+        self,
+    ) -> "UpdateOrderV2Request":
+        update_fields = {
+            "customer_name",
+            "order_type",
+            "order_items",
+            "party_size",
+            "dine_in_time",
+            "pickup_time",
+            "notes",
+        }
+
+        provided_updates = (
+            self.model_fields_set
+            & update_fields
+        )
+
+        if not provided_updates:
+            raise ValueError(
+                "at least one order field must be provided"
+            )
+
+        if (
+            "customer_name" in self.model_fields_set
+            and self.customer_name is None
+        ):
+            raise ValueError(
+                "customer_name cannot be null when provided"
+            )
+
+        if (
+            "order_type" in self.model_fields_set
+            and self.order_type is None
+        ):
+            raise ValueError(
+                "order_type cannot be null when provided"
+            )
+
+        if "order_items" in self.model_fields_set:
+            if self.order_items is None:
+                raise ValueError(
+                    "order_items cannot be null when provided"
+                )
+
+            if isinstance(self.order_items, str):
+                raw_value = self.order_items.strip()
+
+                if not raw_value:
+                    raise ValueError(
+                        "order_items must not be empty"
+                    )
+
+                try:
+                    parsed_value = json.loads(
+                        raw_value
+                    )
+
+                except json.JSONDecodeError as error:
+                    raise ValueError(
+                        "order_items must be a JSON array or "
+                        "a JSON-stringified array"
+                    ) from error
+
+                if not isinstance(parsed_value, list):
+                    raise ValueError(
+                        "order_items must be a JSON array"
+                    )
+
+                self.order_items = [
+                    UpdateOrderV2ItemRequest.model_validate(
+                        item
+                    )
+                    for item in parsed_value
+                ]
+
+            if not self.order_items:
+                raise ValueError(
+                    "order_items must contain at least one item"
+                )
+
+        if (
+            self.dine_in_time is not None
+            and self.pickup_time is not None
+        ):
+            raise ValueError(
+                "dine_in_time and pickup_time cannot both "
+                "be provided"
+            )
+
+        if (
+            "order_type" in self.model_fields_set
+            and self.order_type == "takeaway"
+        ):
+            if self.pickup_time is None:
+                raise ValueError(
+                    "pickup_time is required when changing "
+                    "order_type to takeaway"
+                )
+
+            if self.dine_in_time is not None:
+                raise ValueError(
+                    "dine_in_time is not allowed for takeaway"
+                )
+
+        if (
+            "order_type" in self.model_fields_set
+            and self.order_type == "dine_in"
+        ):
+            if self.dine_in_time is None:
+                raise ValueError(
+                    "dine_in_time is required when changing "
+                    "order_type to dine_in"
+                )
+
+            if self.pickup_time is not None:
+                raise ValueError(
+                    "pickup_time is not allowed for dine_in"
+                )
+
+        return self
+
+
+class UpdateOrderV2Response(BaseModel):
+    """
+    Safe response after one restaurant-scoped order update.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    success: bool
+    updated: bool
+
+    restaurant_id: UUID
+    restaurant_name: str = Field(min_length=1)
+
+    order_id: str = Field(
+        min_length=1,
+        max_length=64,
+    )
+
+    order_status: Literal["new order"]
+    order_type: OrderTypeV2
+
+    customer_name: str = Field(
+        min_length=1,
+        max_length=120,
+    )
+
+    customer_phone: str = Field(
+        min_length=5,
+        max_length=32,
+    )
+
+    updated_fields: list[str]
+
+    created_at: datetime
+    dine_in_time: datetime | None = None
+    pickup_time: datetime | None = None
+
+    currency: str = Field(
+        min_length=3,
+        max_length=3,
+    )
+
+    total: float = Field(ge=0)
+
+    items: list[CheckOrderStatusV2Item] = Field(
+        min_length=1,
+    )
+
+    notes: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
