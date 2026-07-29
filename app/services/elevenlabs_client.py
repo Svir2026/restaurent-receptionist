@@ -476,3 +476,434 @@ def duplicate_template_agent(
         "name": normalized_name,
         "template_agent_id": template_agent_id,
     }
+
+def _build_tool_configuration_snapshot(payload: dict) -> dict:
+    """
+    Build a safe tool snapshot without returning request-header values.
+    """
+
+    tool_id = payload.get("id")
+    tool_config = payload.get("tool_config")
+
+    if not isinstance(tool_id, str) or not tool_id.strip():
+        raise ElevenLabsClientError(
+            "ElevenLabs returned a tool without an id."
+        )
+
+    if not isinstance(tool_config, dict):
+        raise ElevenLabsClientError(
+            "ElevenLabs returned a tool without a valid tool_config."
+        )
+
+    api_schema = tool_config.get("api_schema")
+
+    if not isinstance(api_schema, dict):
+        api_schema = {}
+
+    request_headers = api_schema.get("request_headers")
+
+    if not isinstance(request_headers, dict):
+        request_headers = {}
+
+    access_info = payload.get("access_info")
+
+    if not isinstance(access_info, dict):
+        access_info = {}
+
+    usage_stats = payload.get("usage_stats")
+
+    if not isinstance(usage_stats, dict):
+        usage_stats = {}
+
+    return {
+        "read_only": True,
+        "tool_id": tool_id.strip(),
+        "name": tool_config.get("name"),
+        "type": tool_config.get("type"),
+        "description": tool_config.get("description"),
+        "response_timeout_secs": tool_config.get(
+            "response_timeout_secs"
+        ),
+        "api_schema": {
+            "url": api_schema.get("url"),
+            "method": api_schema.get("method"),
+            "path_params_schema": api_schema.get(
+                "path_params_schema"
+            ),
+            "query_params_schema": api_schema.get(
+                "query_params_schema"
+            ),
+            "request_body_schema": api_schema.get(
+                "request_body_schema"
+            ),
+            "request_header_names": sorted(
+                str(name) for name in request_headers.keys()
+            ),
+        },
+        "dynamic_variables": tool_config.get(
+            "dynamic_variables"
+        ),
+        "access": {
+            "is_creator": access_info.get("is_creator"),
+            "role": access_info.get("role"),
+            "access_source": access_info.get("access_source"),
+        },
+        "usage": {
+            "avg_latency_secs": usage_stats.get(
+                "avg_latency_secs"
+            ),
+            "total_calls": usage_stats.get("total_calls"),
+        },
+    }
+
+
+def get_tool_configuration(tool_id: str) -> dict:
+    """
+    Read one ElevenLabs workspace tool without changing it.
+
+    Request-header names are returned, but their values are never
+    included in the snapshot.
+    """
+
+    normalized_tool_id = tool_id.strip()
+
+    if not normalized_tool_id:
+        raise ElevenLabsClientError(
+            "ElevenLabs tool ID is missing."
+        )
+
+    url = (
+        f"{ELEVENLABS_API_BASE_URL}/convai/tools/"
+        f"{quote(normalized_tool_id, safe='')}"
+    )
+
+    payload = _send_json_request(
+        url=url,
+        method="GET",
+        operation="read tool configuration",
+    )
+
+    snapshot = _build_tool_configuration_snapshot(payload)
+
+    if snapshot["tool_id"] != normalized_tool_id:
+        raise ElevenLabsClientError(
+            "ElevenLabs returned a different tool than requested."
+        )
+
+    return snapshot
+
+
+def list_workspace_tools() -> list[dict]:
+    """
+    List all owned webhook tools in the ElevenLabs workspace.
+
+    The function follows ElevenLabs cursor pagination and returns
+    safe summaries without request-header values.
+    """
+
+    tools: list[dict] = []
+    seen_tool_ids: set[str] = set()
+    cursor: Optional[str] = None
+
+    for _ in range(100):
+        query_values = {
+            "page_size": 100,
+            "created_by_user_id": "@me",
+            "types": "webhook",
+            "sort_by": "name",
+            "sort_direction": "asc",
+        }
+
+        if cursor:
+            query_values["cursor"] = cursor
+
+        query = urlencode(query_values)
+        url = (
+            f"{ELEVENLABS_API_BASE_URL}/convai/tools?"
+            f"{query}"
+        )
+
+        payload = _send_json_request(
+            url=url,
+            method="GET",
+            operation="list workspace tools",
+        )
+
+        returned_tools = payload.get("tools")
+
+        if not isinstance(returned_tools, list):
+            raise ElevenLabsClientError(
+                "ElevenLabs returned an invalid tools list."
+            )
+
+        for tool in returned_tools:
+            if not isinstance(tool, dict):
+                continue
+
+            snapshot = _build_tool_configuration_snapshot(tool)
+            returned_tool_id = snapshot["tool_id"]
+
+            if returned_tool_id in seen_tool_ids:
+                continue
+
+            seen_tool_ids.add(returned_tool_id)
+            tools.append(snapshot)
+
+        has_more = payload.get("has_more") is True
+        next_cursor = payload.get("next_cursor")
+
+        if not has_more:
+            return tools
+
+        if not isinstance(next_cursor, str) or not next_cursor.strip():
+            raise ElevenLabsClientError(
+                "ElevenLabs reported more tools without a cursor."
+            )
+
+        normalized_next_cursor = next_cursor.strip()
+
+        if normalized_next_cursor == cursor:
+            raise ElevenLabsClientError(
+                "ElevenLabs repeated the same tools cursor."
+            )
+
+        cursor = normalized_next_cursor
+
+    raise ElevenLabsClientError(
+        "ElevenLabs tools pagination exceeded the safety limit."
+    )
+
+
+def find_tool_by_exact_name(
+    tool_name: str,
+) -> Optional[dict]:
+    """
+    Find one owned webhook tool whose name matches exactly.
+
+    Returns None when no exact match exists. Raises an error if
+    multiple exact matches exist so provisioning never chooses an
+    ambiguous tool.
+    """
+
+    normalized_name = tool_name.strip()
+
+    if not normalized_name:
+        raise ElevenLabsClientError(
+            "A tool name is required for tool search."
+        )
+
+    exact_matches: list[dict] = []
+    seen_tool_ids: set[str] = set()
+    cursor: Optional[str] = None
+
+    for _ in range(100):
+        query_values = {
+            "search": normalized_name,
+            "page_size": 100,
+            "created_by_user_id": "@me",
+            "types": "webhook",
+            "sort_by": "name",
+            "sort_direction": "asc",
+        }
+
+        if cursor:
+            query_values["cursor"] = cursor
+
+        query = urlencode(query_values)
+        url = (
+            f"{ELEVENLABS_API_BASE_URL}/convai/tools?"
+            f"{query}"
+        )
+
+        payload = _send_json_request(
+            url=url,
+            method="GET",
+            operation="search workspace tools",
+        )
+
+        returned_tools = payload.get("tools")
+
+        if not isinstance(returned_tools, list):
+            raise ElevenLabsClientError(
+                "ElevenLabs returned an invalid tools list."
+            )
+
+        for tool in returned_tools:
+            if not isinstance(tool, dict):
+                continue
+
+            snapshot = _build_tool_configuration_snapshot(tool)
+            returned_name = snapshot.get("name")
+
+            returned_tool_id = snapshot["tool_id"]
+
+            if returned_tool_id in seen_tool_ids:
+                continue
+
+            seen_tool_ids.add(returned_tool_id)
+
+            if (
+                isinstance(returned_name, str)
+                and returned_name.strip() == normalized_name
+            ):
+                exact_matches.append(snapshot)
+
+        has_more = payload.get("has_more") is True
+        next_cursor = payload.get("next_cursor")
+
+        if not has_more:
+            break
+
+        if not isinstance(next_cursor, str) or not next_cursor.strip():
+            raise ElevenLabsClientError(
+                "ElevenLabs reported more tools without a cursor."
+            )
+
+        normalized_next_cursor = next_cursor.strip()
+
+        if normalized_next_cursor == cursor:
+            raise ElevenLabsClientError(
+                "ElevenLabs repeated the same tools cursor."
+            )
+
+        cursor = normalized_next_cursor
+
+    else:
+        raise ElevenLabsClientError(
+            "ElevenLabs tool search pagination exceeded the "
+            "safety limit."
+        )
+
+    if len(exact_matches) > 1:
+        raise ElevenLabsClientError(
+            "Multiple ElevenLabs tools have the exact provisioning "
+            "name. Manual review is required."
+        )
+
+    if not exact_matches:
+        return None
+
+    return exact_matches[0]
+
+
+def create_webhook_tool(tool_config: dict) -> dict:
+    """
+    Create one secure ElevenLabs webhook tool.
+
+    This function does not connect the created tool to an agent.
+    Svir v2 tools must use HTTPS, POST, a JSON body schema, and the
+    X-Svir-Tool-Token request header.
+    """
+
+    if not isinstance(tool_config, dict):
+        raise ElevenLabsClientError(
+            "A valid webhook tool_config is required."
+        )
+
+    try:
+        normalized_config = json.loads(
+            json.dumps(tool_config)
+        )
+    except (
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise ElevenLabsClientError(
+            "Webhook tool_config must be JSON serializable."
+        ) from exc
+
+    if normalized_config.get("type") != "webhook":
+        raise ElevenLabsClientError(
+            "Only ElevenLabs webhook tools can be created here."
+        )
+
+    tool_name = normalized_config.get("name")
+
+    if not isinstance(tool_name, str) or not tool_name.strip():
+        raise ElevenLabsClientError(
+            "The webhook tool name is missing."
+        )
+
+    normalized_name = tool_name.strip()
+    normalized_config["name"] = normalized_name
+
+    api_schema = normalized_config.get("api_schema")
+
+    if not isinstance(api_schema, dict):
+        raise ElevenLabsClientError(
+            "The webhook tool api_schema is missing."
+        )
+
+    webhook_url = api_schema.get("url")
+
+    if (
+        not isinstance(webhook_url, str)
+        or not webhook_url.strip().lower().startswith("https://")
+    ):
+        raise ElevenLabsClientError(
+            "The webhook tool must use an HTTPS URL."
+        )
+
+    api_schema["url"] = webhook_url.strip()
+
+    method = api_schema.get("method")
+
+    if not isinstance(method, str) or method.strip().upper() != "POST":
+        raise ElevenLabsClientError(
+            "Svir v2 webhook tools must use POST."
+        )
+
+    api_schema["method"] = "POST"
+
+    request_body_schema = api_schema.get("request_body_schema")
+
+    if not isinstance(request_body_schema, dict):
+        raise ElevenLabsClientError(
+            "The webhook tool request_body_schema is missing."
+        )
+
+    request_headers = api_schema.get("request_headers")
+
+    if not isinstance(request_headers, dict):
+        raise ElevenLabsClientError(
+            "The webhook tool request_headers are missing."
+        )
+
+    has_tool_token_header = any(
+        str(header_name).strip().lower()
+        == "x-svir-tool-token"
+        for header_name in request_headers.keys()
+    )
+
+    if not has_tool_token_header:
+        raise ElevenLabsClientError(
+            "The webhook tool is missing X-Svir-Tool-Token."
+        )
+
+    url = f"{ELEVENLABS_API_BASE_URL}/convai/tools"
+
+    payload = _send_json_request(
+        url=url,
+        method="POST",
+        operation="create webhook tool",
+        body={
+            "tool_config": normalized_config,
+        },
+    )
+
+    snapshot = _build_tool_configuration_snapshot(payload)
+
+    if snapshot.get("name") != normalized_name:
+        raise ElevenLabsClientError(
+            "ElevenLabs returned a different tool name after creation."
+        )
+
+    if snapshot.get("type") != "webhook":
+        raise ElevenLabsClientError(
+            "ElevenLabs returned a non-webhook tool after creation."
+        )
+
+    return {
+        "success": True,
+        **snapshot,
+    }
