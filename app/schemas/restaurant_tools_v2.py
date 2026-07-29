@@ -334,3 +334,142 @@ class SubmitOrderV2Response(BaseModel):
     items: list[CalculateOrderTotalV2Line] = Field(
         min_length=1
     )
+
+class CheckOrderStatusV2Request(BaseModel):
+    """
+    Restaurant-scoped status request.
+
+    The restaurant is resolved from X-Svir-Tool-Token.
+    The request may therefore contain only the caller's phone.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+        str_strip_whitespace=True,
+    )
+
+    customer_phone: str = Field(
+        ...,
+        min_length=5,
+        max_length=32,
+    )
+
+
+class CheckOrderStatusV2Item(BaseModel):
+    """
+    One verified product stored in a restaurant order.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    menu_item_id: UUID
+    requested_name: str = Field(
+        min_length=1,
+        max_length=200,
+    )
+    official_name: str = Field(
+        min_length=1,
+        max_length=200,
+    )
+
+    quantity: int = Field(
+        ge=1,
+        le=100,
+    )
+
+    notes: str | None = Field(
+        default=None,
+        max_length=500,
+    )
+
+    unit_price: float = Field(ge=0)
+    line_total: float = Field(ge=0)
+
+    currency: str = Field(
+        min_length=3,
+        max_length=3,
+    )
+
+
+class CheckOrderStatusV2Order(BaseModel):
+    """
+    One restaurant-isolated order returned to the agent.
+
+    order_id is returned for later update or cancellation tool
+    calls, but must never be spoken to the customer.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    order_id: str = Field(
+        min_length=1,
+        max_length=64,
+    )
+
+    order_status: str = Field(
+        min_length=1,
+        max_length=80,
+    )
+
+    order_type: OrderTypeV2
+
+    customer_name: str = Field(
+        min_length=1,
+        max_length=120,
+    )
+
+    customer_phone: str = Field(
+        min_length=5,
+        max_length=32,
+    )
+
+    created_at: datetime
+
+    dine_in_time: datetime | None = None
+    pickup_time: datetime | None = None
+
+    currency: str = Field(
+        min_length=3,
+        max_length=3,
+    )
+
+    total: float = Field(ge=0)
+
+    items: list[CheckOrderStatusV2Item] = Field(
+        min_length=1,
+    )
+
+    notes: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    cancellation_reason: str | None = Field(
+        default=None,
+        max_length=500,
+    )
+
+
+class CheckOrderStatusV2Response(BaseModel):
+    """
+    Recent orders belonging only to the authenticated
+    restaurant and normalized caller phone.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    success: bool
+
+    restaurant_id: UUID
+    restaurant_name: str = Field(min_length=1)
+
+    customer_phone: str = Field(
+        min_length=5,
+        max_length=32,
+    )
+
+    timezone: str = Field(min_length=1)
+
+    orders: list[CheckOrderStatusV2Order]
+
+    order_count: int = Field(ge=0)
