@@ -175,8 +175,6 @@ def build_yz_calculate_order_total_v2_tool_config(
                             "quantities selected from the caller's "
                             "request."
                         ),
-                        "minItems": 1,
-                        "maxItems": 100,
                         "items": {
                             "type": "object",
                             "properties": {
@@ -191,8 +189,6 @@ def build_yz_calculate_order_total_v2_tool_config(
                                         "Mamuang – Kyckling', not "
                                         "'kyckling cashew'."
                                     ),
-                                    "minLength": 1,
-                                    "maxLength": 200,
                                 },
                                 "quantity": {
                                     "type": "integer",
@@ -200,8 +196,6 @@ def build_yz_calculate_order_total_v2_tool_config(
                                         "Requested number of this "
                                         "official menu item."
                                     ),
-                                    "minimum": 1,
-                                    "maximum": 100,
                                 },
                             },
                             "required": ["name", "quantity"],
