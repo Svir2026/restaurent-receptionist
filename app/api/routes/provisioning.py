@@ -49,6 +49,10 @@ from app.services.restaurant_tool_token_provider import (
     RestaurantToolTokenProviderError,
     get_restaurant_tool_token_from_vault,
 )
+from app.services.yz_agent_prompt_connector import (
+    YZAgentPromptConnectorError,
+    connect_yz_agent_active_prompt,
+)
 from app.services.yz_agent_tool_connector import (
     YZAgentToolConnectorError,
     connect_yz_agent_tools,
@@ -87,6 +91,9 @@ YZ_CANCEL_ORDER_TOOL_CONFIRMATION = (
 )
 YZ_AGENT_TOOL_CONNECTION_CONFIRMATION = (
     "CONNECT_YZ_AGENT_TOOLS"
+)
+YZ_AGENT_PROMPT_ACTIVATION_CONFIRMATION = (
+    "ACTIVATE_YZ_AGENT_PROMPT"
 )
 
 
@@ -960,6 +967,79 @@ def connect_yz_agent_tools_route(
             status_code=409,
             detail={
                 "code": "yz_agent_tool_connection_blocked",
+                "message": str(error),
+            },
+        ) from error
+
+    return result
+
+
+@router.post(
+    "/elevenlabs/agents/yz-thai-wok-sushi/"
+    "activate-prompt"
+)
+def activate_yz_agent_prompt_route(
+    _: Annotated[
+        None,
+        Depends(require_svir_internal_secret),
+    ],
+    confirmation: Annotated[
+        str | None,
+        Header(alias="X-Svir-Confirmation"),
+    ] = None,
+) -> dict[str, object]:
+    """
+    Apply exactly the reviewed active prompt to exactly YZ Thai Wok
+    & Sushi's locked agent and main branch.
+
+    Deployment alone does not execute this endpoint.
+
+    The endpoint requires:
+    - the existing X-Svir-Internal-Secret
+    - X-Svir-Confirmation: ACTIVATE_YZ_AGENT_PROMPT
+
+    It accepts no agent ID, branch ID, prompt text, prompt hash,
+    tool ID, knowledge-base ID, phone number, or Supabase value from
+    the caller. All safety-critical values are locked inside the
+    reviewed prompt definition and the controlled connector.
+
+    When explicitly executed, the connector may change only:
+    conversation_config.agent.prompt.prompt
+
+    Because this targets YZ's main branch, a successful execution can
+    affect future YZ calls immediately after ElevenLabs saves the new
+    branch version.
+
+    This endpoint does not create, update, cancel, or read an order.
+    It does not change tool connections, the first message, voice,
+    ASR, knowledge base, phone connection, Supabase data, restaurant
+    activation, or provisioning-job state.
+    """
+
+    if (
+        not isinstance(confirmation, str)
+        or confirmation.strip()
+        != YZ_AGENT_PROMPT_ACTIVATION_CONFIRMATION
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "explicit_confirmation_required",
+                "message": (
+                    "The exact X-Svir-Confirmation header "
+                    "is required."
+                ),
+            },
+        )
+
+    try:
+        result = connect_yz_agent_active_prompt()
+
+    except YZAgentPromptConnectorError as error:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "yz_agent_prompt_activation_blocked",
                 "message": str(error),
             },
         ) from error
