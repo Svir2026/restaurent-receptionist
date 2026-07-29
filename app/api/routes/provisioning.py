@@ -50,8 +50,13 @@ from app.services.restaurant_tool_token_provider import (
     get_restaurant_tool_token_from_vault,
 )
 from app.services.yz_agent_prompt_connector import (
+    YZ_ACTIVE_PROMPT_SHA256 as YZ_CONNECTOR_ACTIVE_PROMPT_SHA256,
+    YZ_EXPECTED_CURRENT_PROMPT_SHA256 as YZ_CONNECTOR_EXPECTED_CURRENT_PROMPT_SHA256,
     YZAgentPromptConnectorError,
     connect_yz_agent_active_prompt,
+)
+from app.services.yz_agent_active_prompt import (
+    get_yz_active_prompt_definition,
 )
 from app.services.yz_agent_tool_connector import (
     YZAgentToolConnectorError,
@@ -972,6 +977,94 @@ def connect_yz_agent_tools_route(
         ) from error
 
     return result
+
+
+@router.get(
+    "/elevenlabs/agents/yz-thai-wok-sushi/"
+    "prompt-hash-audit"
+)
+def read_yz_agent_prompt_hash_audit(
+    _: Annotated[
+        None,
+        Depends(require_svir_internal_secret),
+    ],
+) -> dict[str, object]:
+    """
+    Compare the deployed YZ prompt-definition hashes with the
+    deployed connector hashes.
+
+    This endpoint is read-only. It makes no ElevenLabs request,
+    changes no agent, reads or writes no order, and exposes no
+    prompt text, token, API key, or internal secret.
+    """
+
+    try:
+        definition = get_yz_active_prompt_definition()
+
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "yz_prompt_definition_invalid",
+                "message": str(error),
+            },
+        ) from error
+
+    prompt_expected_current = definition.get(
+        "expected_current_prompt_sha256"
+    )
+    prompt_active_target = definition.get(
+        "active_prompt_sha256"
+    )
+
+    expected_current_matches = (
+        YZ_CONNECTOR_EXPECTED_CURRENT_PROMPT_SHA256
+        == prompt_expected_current
+    )
+    active_target_matches = (
+        YZ_CONNECTOR_ACTIVE_PROMPT_SHA256
+        == prompt_active_target
+    )
+    activation_inputs_match = (
+        expected_current_matches
+        and active_target_matches
+    )
+
+    return {
+        "success": True,
+        "read_only": True,
+        "agent_id": definition.get("agent_id"),
+        "branch_id": definition.get("branch_id"),
+        "connector": {
+            "expected_current_prompt_sha256": (
+                YZ_CONNECTOR_EXPECTED_CURRENT_PROMPT_SHA256
+            ),
+            "active_prompt_sha256": (
+                YZ_CONNECTOR_ACTIVE_PROMPT_SHA256
+            ),
+        },
+        "prompt_definition": {
+            "reviewed_at": definition.get("reviewed_at"),
+            "expected_current_prompt_sha256": (
+                prompt_expected_current
+            ),
+            "active_prompt_sha256": prompt_active_target,
+        },
+        "matches": {
+            "expected_current_prompt_sha256": (
+                expected_current_matches
+            ),
+            "active_prompt_sha256": active_target_matches,
+            "activation_inputs_match": (
+                activation_inputs_match
+            ),
+        },
+        "safe_to_retry_activation": activation_inputs_match,
+        "external_request_made": False,
+        "agent_changed": False,
+        "order_changed": False,
+        "supabase_changed": False,
+    }
 
 
 @router.post(
