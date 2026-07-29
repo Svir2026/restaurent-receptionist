@@ -160,10 +160,7 @@ def build_yz_calculate_order_total_v2_tool_config(
             "url": YZ_CALCULATE_ORDER_TOTAL_V2_URL,
             "method": "POST",
             "path_params_schema": {},
-            "query_params_schema": {
-                "properties": {},
-                "required": [],
-            },
+            "query_params_schema": None,
             "request_body_schema": {
                 "type": "object",
                 "description": (
