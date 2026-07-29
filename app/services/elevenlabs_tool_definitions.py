@@ -26,6 +26,14 @@ YZ_SUBMIT_ORDER_V2_URL = (
     "v2/submit-order"
 )
 
+YZ_CHECK_ORDER_STATUS_V2_TOOL_NAME = (
+    "svir_yz_thai_wok_sushi_check_order_status_v2"
+)
+YZ_CHECK_ORDER_STATUS_V2_URL = (
+    "https://web-production-f25f2.up.railway.app/"
+    "v2/check-order-status"
+)
+
 
 def build_testkok2_calculate_order_total_v2_tool_config(
     tool_token: str,
@@ -381,3 +389,67 @@ def build_yz_submit_order_v2_tool_config(
         },
     }
 
+def build_yz_check_order_status_v2_tool_config(
+    tool_token: str,
+) -> dict:
+    """
+    Build the ElevenLabs webhook configuration for YZ Thai Wok &
+    Sushi's secure v2 order-status tool.
+
+    This function only returns a JSON-serializable dictionary. It
+    does not call ElevenLabs, read an order, connect a tool to an
+    agent, update an agent, or modify any external resource.
+
+    The token is supplied at runtime and is never stored in this
+    source file.
+    """
+
+    if not isinstance(tool_token, str):
+        raise TypeError("tool_token must be a string")
+
+    normalized_tool_token = tool_token.strip()
+
+    if not normalized_tool_token:
+        raise ValueError("tool_token must not be empty")
+
+    return {
+        "type": "webhook",
+        "name": YZ_CHECK_ORDER_STATUS_V2_TOOL_NAME,
+        "description": (
+            "Read the caller's recent YZ Thai Wok & Sushi orders. "
+            "Use this before attempting to update or cancel an "
+            "existing order, or when the caller asks whether an "
+            "order was received or what its current status is. "
+            "Railway identifies YZ from the secure tool token and "
+            "restricts the lookup to the current caller's phone "
+            "number. This tool is read-only and never creates, "
+            "updates, or cancels an order."
+        ),
+        "response_timeout_secs": 20,
+        "api_schema": {
+            "url": YZ_CHECK_ORDER_STATUS_V2_URL,
+            "method": "POST",
+            "path_params_schema": {},
+            "query_params_schema": None,
+            "request_body_schema": {
+                "type": "object",
+                "description": (
+                    "Read recent YZ Thai Wok & Sushi orders for the "
+                    "current caller."
+                ),
+                "properties": {
+                    "customer_phone": {
+                        "type": "string",
+                        "dynamic_variable": "system__caller_id",
+                    },
+                },
+                "required": ["customer_phone"],
+            },
+            "request_headers": {
+                SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
+            },
+        },
+        "dynamic_variables": {
+            "dynamic_variable_placeholders": {},
+        },
+    }
