@@ -42,6 +42,14 @@ YZ_UPDATE_ORDER_V2_URL = (
     "v2/update-order"
 )
 
+YZ_CANCEL_ORDER_V2_TOOL_NAME = (
+    "svir_yz_thai_wok_sushi_cancel_order_v2"
+)
+YZ_CANCEL_ORDER_V2_URL = (
+    "https://web-production-f25f2.up.railway.app/"
+    "v2/cancel-order"
+)
+
 
 def build_testkok2_calculate_order_total_v2_tool_config(
     tool_token: str,
@@ -604,6 +612,91 @@ def build_yz_update_order_v2_tool_config(
                         "description": (
                             "New confirmed notes for the whole order. "
                             "Omit when unchanged."
+                        ),
+                    },
+                },
+                "required": [
+                    "order_id",
+                    "customer_phone",
+                ],
+            },
+            "request_headers": {
+                SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
+            },
+        },
+        "dynamic_variables": {
+            "dynamic_variable_placeholders": {},
+        },
+    }
+
+def build_yz_cancel_order_v2_tool_config(
+    tool_token: str,
+) -> dict:
+    """
+    Build the ElevenLabs webhook configuration for YZ Thai Wok &
+    Sushi's secure v2 order-cancellation tool.
+
+    This function only returns a JSON-serializable dictionary. It
+    does not call ElevenLabs, read or cancel an order, connect a tool
+    to an agent, update an agent, or modify any external resource.
+
+    The token is supplied at runtime and is never stored in this
+    source file.
+    """
+
+    if not isinstance(tool_token, str):
+        raise TypeError("tool_token must be a string")
+
+    normalized_tool_token = tool_token.strip()
+
+    if not normalized_tool_token:
+        raise ValueError("tool_token must not be empty")
+
+    return {
+        "type": "webhook",
+        "name": YZ_CANCEL_ORDER_V2_TOOL_NAME,
+        "description": (
+            "Cancel one existing YZ Thai Wok & Sushi order only "
+            "after check-order-status has returned the exact "
+            "order_id and the caller has explicitly confirmed that "
+            "the order should be cancelled. Never claim that the "
+            "order is cancelled before this tool confirms success. "
+            "Never send restaurant_id, order status, order revision, "
+            "prices, totals, or currency; Railway verifies the "
+            "restaurant, caller, current status, and revision and "
+            "keeps the order history."
+        ),
+        "response_timeout_secs": 20,
+        "api_schema": {
+            "url": YZ_CANCEL_ORDER_V2_URL,
+            "method": "POST",
+            "path_params_schema": {},
+            "query_params_schema": None,
+            "request_body_schema": {
+                "type": "object",
+                "description": (
+                    "Confirmed cancellation of one existing YZ Thai "
+                    "Wok & Sushi order."
+                ),
+                "properties": {
+                    "order_id": {
+                        "type": "string",
+                        "description": (
+                            "Exact order_id returned by "
+                            "check-order-status. Do not invent or "
+                            "modify it."
+                        ),
+                    },
+                    "customer_phone": {
+                        "type": "string",
+                        "dynamic_variable": "system__caller_id",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": (
+                            "Optional confirmed reason for the "
+                            "cancellation. Omit when the caller gives "
+                            "no reason."
                         ),
                     },
                 },
