@@ -159,17 +159,10 @@ def build_yz_calculate_order_total_v2_tool_config(
         "api_schema": {
             "url": YZ_CALCULATE_ORDER_TOTAL_V2_URL,
             "method": "POST",
-            "path_params_schema": {
-                "type": "object",
-                "properties": {},
-                "required": [],
-                "additionalProperties": False,
-            },
+            "path_params_schema": {},
             "query_params_schema": {
-                "type": "object",
                 "properties": {},
                 "required": [],
-                "additionalProperties": False,
             },
             "request_body_schema": {
                 "type": "object",
