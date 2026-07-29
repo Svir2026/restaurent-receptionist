@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+import re
 from typing import Any
 
 from app.services.elevenlabs_client import (
@@ -17,6 +18,30 @@ from app.services.elevenlabs_tool_definitions import (
     build_testkok2_calculate_order_total_v2_tool_config,
     build_yz_calculate_order_total_v2_tool_config,
 )
+
+
+YZ_TOOL_TOKEN_REDACTION_PATTERN = re.compile(
+    r"svir_tool_[0-9a-fA-F]{64}"
+)
+
+
+def _sanitize_yz_tool_creation_error(
+    error: Exception,
+) -> str:
+    """
+    Return ElevenLabs' error text with any complete Svir tool token
+    replaced before it is exposed through the protected YZ route.
+    """
+
+    message = str(error).strip()
+
+    if not message:
+        return "ElevenLabs returned no diagnostic message."
+
+    return YZ_TOOL_TOKEN_REDACTION_PATTERN.sub(
+        "[REDACTED_TOOL_TOKEN]",
+        message,
+    )
 
 
 class ElevenLabsToolProvisioningError(RuntimeError):
@@ -499,8 +524,12 @@ def ensure_yz_calculate_order_total_v2_tool(
     try:
         created_tool = create_webhook_tool(desired_config)
     except ElevenLabsClientError as error:
+        sanitized_error = _sanitize_yz_tool_creation_error(
+            error
+        )
         raise ElevenLabsToolProvisioningError(
-            "Could not create the secure ElevenLabs workspace tool."
+            "Could not create the secure ElevenLabs workspace "
+            f"tool. ElevenLabs details: {sanitized_error}"
         ) from error
 
     _validate_yz_calculate_order_total_tool_snapshot(created_tool)
