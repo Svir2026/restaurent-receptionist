@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from app.services.elevenlabs_client import (
+    ElevenLabsClientError,
     create_webhook_tool,
     find_tool_by_exact_name,
 )
@@ -10,283 +12,500 @@ from app.services.elevenlabs_tool_definitions import (
     SVIR_TOOL_TOKEN_HEADER_NAME,
     TESTKOK2_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME,
     TESTKOK2_CALCULATE_ORDER_TOTAL_V2_URL,
+    YZ_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME,
+    YZ_CALCULATE_ORDER_TOTAL_V2_URL,
     build_testkok2_calculate_order_total_v2_tool_config,
+    build_yz_calculate_order_total_v2_tool_config,
 )
 
 
 class ElevenLabsToolProvisioningError(RuntimeError):
-    """Raised when a tool cannot be safely reused or created."""
+    """Raised when a Svir workspace tool cannot be safely ensured."""
 
 
-def _require_dict(value: Any, field_name: str) -> dict:
-    if not isinstance(value, dict):
+def _require_mapping(value: Any, *, field_name: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
         raise ElevenLabsToolProvisioningError(
-            f"ElevenLabs tool has an invalid {field_name}."
+            f"ElevenLabs tool field '{field_name}' is invalid."
         )
 
     return value
 
 
-def _request_body_fingerprint(schema: Any) -> dict:
-    body = _require_dict(schema, "request_body_schema")
+def _require_exact_keys(
+    value: Mapping[str, Any],
+    *,
+    expected_keys: set[str],
+    field_name: str,
+) -> None:
+    actual_keys = {str(key) for key in value.keys()}
 
-    properties = _require_dict(
-        body.get("properties"),
-        "request body properties",
+    if actual_keys != expected_keys:
+        raise ElevenLabsToolProvisioningError(
+            f"ElevenLabs tool field '{field_name}' has an unsafe schema."
+        )
+
+
+def _require_exact_required(
+    value: Any,
+    *,
+    expected_values: set[str],
+    field_name: str,
+) -> None:
+    if not isinstance(value, list):
+        raise ElevenLabsToolProvisioningError(
+            f"ElevenLabs tool field '{field_name}' is invalid."
+        )
+
+    actual_values = {str(item) for item in value}
+
+    if actual_values != expected_values or len(value) != len(expected_values):
+        raise ElevenLabsToolProvisioningError(
+            f"ElevenLabs tool field '{field_name}' has an unsafe schema."
+        )
+
+
+def _validate_empty_object_schema(
+    schema: Any,
+    *,
+    field_name: str,
+) -> None:
+    normalized_schema = _require_mapping(
+        schema,
+        field_name=field_name,
     )
 
-    order_items = _require_dict(
-        properties.get("order_items"),
-        "order_items schema",
+    if normalized_schema.get("type") != "object":
+        raise ElevenLabsToolProvisioningError(
+            f"ElevenLabs tool field '{field_name}' must be an object schema."
+        )
+
+    properties = _require_mapping(
+        normalized_schema.get("properties"),
+        field_name=f"{field_name}.properties",
+    )
+    _require_exact_keys(
+        properties,
+        expected_keys=set(),
+        field_name=f"{field_name}.properties",
+    )
+    _require_exact_required(
+        normalized_schema.get("required"),
+        expected_values=set(),
+        field_name=f"{field_name}.required",
     )
 
-    item = _require_dict(
+    if normalized_schema.get("additionalProperties") is not False:
+        raise ElevenLabsToolProvisioningError(
+            f"ElevenLabs tool field '{field_name}' allows extra values."
+        )
+
+
+def _validate_calculate_request_body_schema(schema: Any) -> None:
+    body_schema = _require_mapping(
+        schema,
+        field_name="api_schema.request_body_schema",
+    )
+
+    if body_schema.get("type") != "object":
+        raise ElevenLabsToolProvisioningError(
+            "The calculate-order-total request body must be an object."
+        )
+
+    body_properties = _require_mapping(
+        body_schema.get("properties"),
+        field_name="api_schema.request_body_schema.properties",
+    )
+    _require_exact_keys(
+        body_properties,
+        expected_keys={"order_items"},
+        field_name="api_schema.request_body_schema.properties",
+    )
+    _require_exact_required(
+        body_schema.get("required"),
+        expected_values={"order_items"},
+        field_name="api_schema.request_body_schema.required",
+    )
+
+    if body_schema.get("additionalProperties") is not False:
+        raise ElevenLabsToolProvisioningError(
+            "The calculate-order-total request body allows extra fields."
+        )
+
+    order_items = _require_mapping(
+        body_properties.get("order_items"),
+        field_name="order_items",
+    )
+
+    if order_items.get("type") != "array":
+        raise ElevenLabsToolProvisioningError(
+            "The calculate-order-total order_items field must be an array."
+        )
+
+    if order_items.get("minItems") != 1 or order_items.get("maxItems") != 100:
+        raise ElevenLabsToolProvisioningError(
+            "The calculate-order-total order_items limits are invalid."
+        )
+
+    item_schema = _require_mapping(
         order_items.get("items"),
-        "order item schema",
+        field_name="order_items.items",
     )
 
-    item_properties = _require_dict(
-        item.get("properties"),
-        "order item properties",
+    if item_schema.get("type") != "object":
+        raise ElevenLabsToolProvisioningError(
+            "Each calculate-order-total order item must be an object."
+        )
+
+    item_properties = _require_mapping(
+        item_schema.get("properties"),
+        field_name="order_items.items.properties",
+    )
+    _require_exact_keys(
+        item_properties,
+        expected_keys={"name", "quantity"},
+        field_name="order_items.items.properties",
+    )
+    _require_exact_required(
+        item_schema.get("required"),
+        expected_values={"name", "quantity"},
+        field_name="order_items.items.required",
     )
 
-    name = _require_dict(
+    if item_schema.get("additionalProperties") is not False:
+        raise ElevenLabsToolProvisioningError(
+            "The calculate-order-total order item allows extra fields."
+        )
+
+    name_schema = _require_mapping(
         item_properties.get("name"),
-        "name schema",
+        field_name="order_items.items.name",
     )
-
-    quantity = _require_dict(
-        item_properties.get("quantity"),
-        "quantity schema",
-    )
-
-    return {
-        "body_type": body.get("type"),
-        "body_required": body.get("required"),
-        "body_additional": body.get(
-            "additionalProperties"
-        ),
-        "body_properties": sorted(
-            properties.keys()
-        ),
-        "order_items_type": order_items.get("type"),
-        "order_items_min": order_items.get("minItems"),
-        "order_items_max": order_items.get("maxItems"),
-        "item_type": item.get("type"),
-        "item_required": item.get("required"),
-        "item_additional": item.get(
-            "additionalProperties"
-        ),
-        "item_properties": sorted(
-            item_properties.keys()
-        ),
-        "name_type": name.get("type"),
-        "name_min": name.get("minLength"),
-        "name_max": name.get("maxLength"),
-        "quantity_type": quantity.get("type"),
-        "quantity_min": quantity.get("minimum"),
-        "quantity_max": quantity.get("maximum"),
-    }
-
-
-def _expected_api_schema() -> dict:
-    config = (
-        build_testkok2_calculate_order_total_v2_tool_config(
-            tool_token="schema-validation-only",
-        )
-    )
-
-    return _require_dict(
-        config.get("api_schema"),
-        "expected api_schema",
-    )
-
-
-def _validate_tool_snapshot(tool: Any) -> dict:
-    snapshot = _require_dict(
-        tool,
-        "tool snapshot",
-    )
-
-    if snapshot.get("name") != (
-        TESTKOK2_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "ElevenLabs returned an unexpected tool name."
-        )
-
-    if snapshot.get("type") != "webhook":
-        raise ElevenLabsToolProvisioningError(
-            "The existing resource is not a webhook tool."
-        )
-
-    tool_id = snapshot.get("tool_id")
 
     if (
-        not isinstance(tool_id, str)
-        or not tool_id.strip()
+        name_schema.get("type") != "string"
+        or name_schema.get("minLength") != 1
+        or name_schema.get("maxLength") != 200
     ):
         raise ElevenLabsToolProvisioningError(
-            "The ElevenLabs tool ID is missing."
+            "The calculate-order-total item name schema is invalid."
         )
 
-    api_schema = _require_dict(
-        snapshot.get("api_schema"),
-        "api_schema",
+    quantity_schema = _require_mapping(
+        item_properties.get("quantity"),
+        field_name="order_items.items.quantity",
     )
 
-    expected_api_schema = _expected_api_schema()
-
-    if api_schema.get("url") != (
-        TESTKOK2_CALCULATE_ORDER_TOTAL_V2_URL
+    if (
+        quantity_schema.get("type") != "integer"
+        or quantity_schema.get("minimum") != 1
+        or quantity_schema.get("maximum") != 100
     ):
         raise ElevenLabsToolProvisioningError(
-            "A tool with this name already exists "
-            "with the wrong URL."
+            "The calculate-order-total quantity schema is invalid."
+        )
+
+
+def _validate_calculate_order_total_tool_snapshot(
+    tool_snapshot: Mapping[str, Any],
+) -> None:
+    tool_id = tool_snapshot.get("tool_id")
+
+    if not isinstance(tool_id, str) or not tool_id.strip():
+        raise ElevenLabsToolProvisioningError(
+            "ElevenLabs returned a tool without a valid tool ID."
+        )
+
+    if tool_snapshot.get("name") != TESTKOK2_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME:
+        raise ElevenLabsToolProvisioningError(
+            "ElevenLabs returned a different tool name."
+        )
+
+    if tool_snapshot.get("type") != "webhook":
+        raise ElevenLabsToolProvisioningError(
+            "The existing ElevenLabs tool is not a webhook tool."
+        )
+
+    api_schema = _require_mapping(
+        tool_snapshot.get("api_schema"),
+        field_name="api_schema",
+    )
+
+    if api_schema.get("url") != TESTKOK2_CALCULATE_ORDER_TOTAL_V2_URL:
+        raise ElevenLabsToolProvisioningError(
+            "The existing ElevenLabs tool points to the wrong URL."
         )
 
     method = api_schema.get("method")
 
-    if (
-        not isinstance(method, str)
-        or method.upper() != "POST"
-    ):
+    if not isinstance(method, str) or method.strip().upper() != "POST":
         raise ElevenLabsToolProvisioningError(
-            "A tool with this name already exists "
-            "with the wrong method."
+            "The existing ElevenLabs tool uses the wrong HTTP method."
         )
 
-    if api_schema.get("path_params_schema") != (
-        expected_api_schema.get(
-            "path_params_schema"
-        )
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The existing tool has unexpected "
-            "path parameters."
-        )
-
-    if api_schema.get("query_params_schema") != (
-        expected_api_schema.get(
-            "query_params_schema"
-        )
-    ):
-        raise ElevenLabsToolProvisioningError(
-            "The existing tool has unexpected "
-            "query parameters."
-        )
-
-    header_names = api_schema.get(
-        "request_header_names"
+    _validate_empty_object_schema(
+        api_schema.get("path_params_schema"),
+        field_name="api_schema.path_params_schema",
     )
+    _validate_empty_object_schema(
+        api_schema.get("query_params_schema"),
+        field_name="api_schema.query_params_schema",
+    )
+    _validate_calculate_request_body_schema(
+        api_schema.get("request_body_schema")
+    )
+
+    header_names = api_schema.get("request_header_names")
 
     if not isinstance(header_names, list):
         raise ElevenLabsToolProvisioningError(
-            "The existing tool request headers are invalid."
+            "ElevenLabs returned invalid request-header metadata."
         )
 
     normalized_header_names = {
-        str(name).strip().lower()
-        for name in header_names
-        if str(name).strip()
+        str(header_name).strip().lower()
+        for header_name in header_names
+    }
+    expected_header_names = {
+        SVIR_TOOL_TOKEN_HEADER_NAME.lower(),
     }
 
-    if normalized_header_names != {
-        SVIR_TOOL_TOKEN_HEADER_NAME.lower()
-    }:
+    if (
+        normalized_header_names != expected_header_names
+        or len(header_names) != len(expected_header_names)
+    ):
         raise ElevenLabsToolProvisioningError(
-            "The existing tool has unexpected "
-            "request headers."
+            "The existing ElevenLabs tool has unsafe request headers."
         )
 
-    existing_fingerprint = (
-        _request_body_fingerprint(
-            api_schema.get(
-                "request_body_schema"
-            )
-        )
-    )
 
-    expected_fingerprint = (
-        _request_body_fingerprint(
-            expected_api_schema.get(
-                "request_body_schema"
-            )
-        )
-    )
-
-    if existing_fingerprint != expected_fingerprint:
-        raise ElevenLabsToolProvisioningError(
-            "The existing tool has an unexpected "
-            "request body schema."
-        )
-
-    return snapshot
+def _build_result(
+    tool_snapshot: Mapping[str, Any],
+    *,
+    created_new_tool: bool,
+) -> dict:
+    return {
+        "success": True,
+        "tool_id": str(tool_snapshot["tool_id"]),
+        "name": TESTKOK2_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME,
+        "created_new_tool": created_new_tool,
+        "reused_existing_tool": not created_new_tool,
+        "tool": dict(tool_snapshot),
+    }
 
 
 def ensure_testkok2_calculate_order_total_v2_tool(
-    tool_token: str | None = None,
+    tool_token_provider: Callable[[], str],
 ) -> dict:
     """
-    Reuse or create testkok2's restaurant-isolated
-    v2 price-calculation tool.
+    Idempotently ensure testkok2's secure price-calculation tool.
 
-    The exact name is searched first. A correctly
-    configured tool is reused without needing the
-    full token again.
+    The function first searches by the exact unique tool name. A
+    matching tool is reused only after its URL, method, schemas and
+    request-header name have been verified. The token provider is
+    called only when no matching tool exists and a new tool must be
+    created. This allows safe retries without storing or exposing the
+    full token after successful creation.
 
-    The token is required only if the tool is missing
-    and must be created.
-
-    This function does not connect the tool to an
-    agent and does not update Supabase or any
-    provisioning step.
+    This function never connects a tool to an agent, never updates an
+    agent, and never changes or removes any existing Lebanon resource.
     """
 
-    existing_tool = find_tool_by_exact_name(
-        TESTKOK2_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME
-    )
+    if not callable(tool_token_provider):
+        raise TypeError("tool_token_provider must be callable")
+
+    try:
+        existing_tool = find_tool_by_exact_name(
+            TESTKOK2_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME
+        )
+    except ElevenLabsClientError as error:
+        raise ElevenLabsToolProvisioningError(
+            "Could not safely search ElevenLabs workspace tools."
+        ) from error
 
     if existing_tool is not None:
-        verified_tool = _validate_tool_snapshot(
-            existing_tool
+        _validate_calculate_order_total_tool_snapshot(existing_tool)
+        return _build_result(
+            existing_tool,
+            created_new_tool=False,
         )
 
-        return {
-            "success": True,
-            "created_new_tool": False,
-            "reused_existing_tool": True,
-            "tool_id": verified_tool["tool_id"],
-            "tool_name": verified_tool["name"],
-        }
+    try:
+        tool_token = tool_token_provider()
+        desired_config = (
+            build_testkok2_calculate_order_total_v2_tool_config(
+                tool_token
+            )
+        )
+    except (TypeError, ValueError) as error:
+        raise ElevenLabsToolProvisioningError(
+            "Could not obtain a valid runtime tool token."
+        ) from error
+
+    try:
+        created_tool = create_webhook_tool(desired_config)
+    except ElevenLabsClientError as error:
+        raise ElevenLabsToolProvisioningError(
+            "Could not create the secure ElevenLabs workspace tool."
+        ) from error
+
+    _validate_calculate_order_total_tool_snapshot(created_tool)
+
+    return _build_result(
+        created_tool,
+        created_new_tool=True,
+    )
+
+
+def _validate_yz_calculate_order_total_tool_snapshot(
+    tool_snapshot: Mapping[str, Any],
+) -> None:
+    tool_id = tool_snapshot.get("tool_id")
+
+    if not isinstance(tool_id, str) or not tool_id.strip():
+        raise ElevenLabsToolProvisioningError(
+            "ElevenLabs returned a tool without a valid tool ID."
+        )
+
+    if tool_snapshot.get("name") != YZ_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME:
+        raise ElevenLabsToolProvisioningError(
+            "ElevenLabs returned a different tool name."
+        )
+
+    if tool_snapshot.get("type") != "webhook":
+        raise ElevenLabsToolProvisioningError(
+            "The existing ElevenLabs tool is not a webhook tool."
+        )
+
+    api_schema = _require_mapping(
+        tool_snapshot.get("api_schema"),
+        field_name="api_schema",
+    )
+
+    if api_schema.get("url") != YZ_CALCULATE_ORDER_TOTAL_V2_URL:
+        raise ElevenLabsToolProvisioningError(
+            "The existing ElevenLabs tool points to the wrong URL."
+        )
+
+    method = api_schema.get("method")
+
+    if not isinstance(method, str) or method.strip().upper() != "POST":
+        raise ElevenLabsToolProvisioningError(
+            "The existing ElevenLabs tool uses the wrong HTTP method."
+        )
+
+    _validate_empty_object_schema(
+        api_schema.get("path_params_schema"),
+        field_name="api_schema.path_params_schema",
+    )
+    _validate_empty_object_schema(
+        api_schema.get("query_params_schema"),
+        field_name="api_schema.query_params_schema",
+    )
+    _validate_calculate_request_body_schema(
+        api_schema.get("request_body_schema")
+    )
+
+    header_names = api_schema.get("request_header_names")
+
+    if not isinstance(header_names, list):
+        raise ElevenLabsToolProvisioningError(
+            "ElevenLabs returned invalid request-header metadata."
+        )
+
+    normalized_header_names = {
+        str(header_name).strip().lower()
+        for header_name in header_names
+    }
+    expected_header_names = {
+        SVIR_TOOL_TOKEN_HEADER_NAME.lower(),
+    }
 
     if (
-        not isinstance(tool_token, str)
-        or not tool_token.strip()
+        normalized_header_names != expected_header_names
+        or len(header_names) != len(expected_header_names)
     ):
         raise ElevenLabsToolProvisioningError(
-            "A tool token is required to create "
-            "the missing tool."
+            "The existing ElevenLabs tool has unsafe request headers."
         )
 
-    tool_config = (
-        build_testkok2_calculate_order_total_v2_tool_config(
-            tool_token=tool_token,
-        )
-    )
 
-    created_tool = create_webhook_tool(
-        tool_config
-    )
-
-    verified_tool = _validate_tool_snapshot(
-        created_tool
-    )
-
+def _build_yz_result(
+    tool_snapshot: Mapping[str, Any],
+    *,
+    created_new_tool: bool,
+) -> dict:
     return {
         "success": True,
-        "created_new_tool": True,
-        "reused_existing_tool": False,
-        "tool_id": verified_tool["tool_id"],
-        "tool_name": verified_tool["name"],
+        "tool_id": str(tool_snapshot["tool_id"]),
+        "name": YZ_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME,
+        "created_new_tool": created_new_tool,
+        "reused_existing_tool": not created_new_tool,
+        "tool": dict(tool_snapshot),
     }
+
+
+def ensure_yz_calculate_order_total_v2_tool(
+    tool_token_provider: Callable[[], str],
+) -> dict:
+    """
+    Idempotently ensure YZ Thai Wok & Sushi's secure
+    price-calculation tool.
+
+    The function first searches by the exact unique tool name. A
+    matching tool is reused only after its URL, method, schemas and
+    request-header name have been verified. The token provider is
+    called only when no matching tool exists and a new tool must be
+    created. This allows safe retries without storing or exposing the
+    full token after successful creation.
+
+    This function never connects a tool to an agent, never updates an
+    agent, and never changes or removes any existing Lebanon resource.
+    """
+
+    if not callable(tool_token_provider):
+        raise TypeError("tool_token_provider must be callable")
+
+    try:
+        existing_tool = find_tool_by_exact_name(
+            YZ_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME
+        )
+    except ElevenLabsClientError as error:
+        raise ElevenLabsToolProvisioningError(
+            "Could not safely search ElevenLabs workspace tools."
+        ) from error
+
+    if existing_tool is not None:
+        _validate_yz_calculate_order_total_tool_snapshot(
+            existing_tool
+        )
+        return _build_yz_result(
+            existing_tool,
+            created_new_tool=False,
+        )
+
+    try:
+        tool_token = tool_token_provider()
+        desired_config = (
+            build_yz_calculate_order_total_v2_tool_config(
+                tool_token
+            )
+        )
+    except (TypeError, ValueError) as error:
+        raise ElevenLabsToolProvisioningError(
+            "Could not obtain a valid runtime tool token."
+        ) from error
+
+    try:
+        created_tool = create_webhook_tool(desired_config)
+    except ElevenLabsClientError as error:
+        raise ElevenLabsToolProvisioningError(
+            "Could not create the secure ElevenLabs workspace tool."
+        ) from error
+
+    _validate_yz_calculate_order_total_tool_snapshot(created_tool)
+
+    return _build_yz_result(
+        created_tool,
+        created_new_tool=True,
+    )
