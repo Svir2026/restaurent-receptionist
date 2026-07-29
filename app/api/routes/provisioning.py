@@ -49,6 +49,10 @@ from app.services.restaurant_tool_token_provider import (
     RestaurantToolTokenProviderError,
     get_restaurant_tool_token_from_vault,
 )
+from app.services.yz_agent_tool_connector import (
+    YZAgentToolConnectorError,
+    connect_yz_agent_tools,
+)
 from app.services.menu_validator import validate_menu_import
 
 
@@ -80,6 +84,9 @@ YZ_UPDATE_ORDER_TOOL_CONFIRMATION = (
 )
 YZ_CANCEL_ORDER_TOOL_CONFIRMATION = (
     "CREATE_YZ_CANCEL_ORDER_TOOL"
+)
+YZ_AGENT_TOOL_CONNECTION_CONFIRMATION = (
+    "CONNECT_YZ_AGENT_TOOLS"
 )
 
 
@@ -885,6 +892,74 @@ def ensure_yz_cancel_order_tool(
             status_code=502,
             detail={
                 "code": "elevenlabs_tool_request_failed",
+                "message": str(error),
+            },
+        ) from error
+
+    return result
+
+
+@router.post(
+    "/elevenlabs/agents/yz-thai-wok-sushi/"
+    "connect-tools"
+)
+def connect_yz_agent_tools_route(
+    _: Annotated[
+        None,
+        Depends(require_svir_internal_secret),
+    ],
+    confirmation: Annotated[
+        str | None,
+        Header(alias="X-Svir-Confirmation"),
+    ] = None,
+) -> dict[str, object]:
+    """
+    Connect exactly the five approved YZ workspace tools to exactly
+    YZ Thai Wok & Sushi's verified draft branch.
+
+    Deployment alone does not execute this endpoint.
+
+    The endpoint requires:
+    - the existing X-Svir-Internal-Secret
+    - the exact X-Svir-Confirmation header
+
+    It accepts no agent ID, branch ID, tool ID, prompt text, phone
+    number, knowledge-base ID, or Supabase value from the caller.
+    Those identifiers are fixed inside the controlled YZ connector.
+
+    When explicitly executed, the connector may change only:
+    conversation_config.agent.prompt.tool_ids
+
+    This endpoint does not publish the agent, activate the
+    restaurant, change prompt text, change the first message, change
+    voice or ASR settings, replace the knowledge base, connect a
+    phone number, update Supabase, or advance a provisioning step.
+    """
+
+    if (
+        not isinstance(confirmation, str)
+        or confirmation.strip()
+        != YZ_AGENT_TOOL_CONNECTION_CONFIRMATION
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "explicit_confirmation_required",
+                "message": (
+                    "The exact X-Svir-Confirmation header "
+                    "is required."
+                ),
+            },
+        )
+
+    try:
+        result = connect_yz_agent_tools()
+
+    except YZAgentToolConnectorError as error:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "yz_agent_tool_connection_blocked",
                 "message": str(error),
             },
         ) from error
