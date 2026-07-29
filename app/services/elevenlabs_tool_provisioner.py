@@ -382,6 +382,108 @@ def ensure_testkok2_calculate_order_total_v2_tool(
     )
 
 
+def _validate_yz_calculate_request_body_schema(
+    schema: Any,
+) -> None:
+    """Validate YZ's ElevenLabs-compatible calculate request body."""
+
+    body_schema = _require_mapping(
+        schema,
+        field_name="api_schema.request_body_schema",
+    )
+
+    if body_schema.get("type") != "object":
+        raise ElevenLabsToolProvisioningError(
+            "The calculate-order-total request body must be an object."
+        )
+
+    body_properties = _require_mapping(
+        body_schema.get("properties"),
+        field_name="api_schema.request_body_schema.properties",
+    )
+    _require_exact_keys(
+        body_properties,
+        expected_keys={"order_items"},
+        field_name="api_schema.request_body_schema.properties",
+    )
+    _require_exact_required(
+        body_schema.get("required"),
+        expected_values={"order_items"},
+        field_name="api_schema.request_body_schema.required",
+    )
+
+    order_items = _require_mapping(
+        body_properties.get("order_items"),
+        field_name="order_items",
+    )
+
+    if order_items.get("type") != "array":
+        raise ElevenLabsToolProvisioningError(
+            "The calculate-order-total order_items field must be an array."
+        )
+
+    if (
+        order_items.get("minItems") != 1
+        or order_items.get("maxItems") != 100
+    ):
+        raise ElevenLabsToolProvisioningError(
+            "The calculate-order-total order_items limits are invalid."
+        )
+
+    item_schema = _require_mapping(
+        order_items.get("items"),
+        field_name="order_items.items",
+    )
+
+    if item_schema.get("type") != "object":
+        raise ElevenLabsToolProvisioningError(
+            "Each calculate-order-total order item must be an object."
+        )
+
+    item_properties = _require_mapping(
+        item_schema.get("properties"),
+        field_name="order_items.items.properties",
+    )
+    _require_exact_keys(
+        item_properties,
+        expected_keys={"name", "quantity"},
+        field_name="order_items.items.properties",
+    )
+    _require_exact_required(
+        item_schema.get("required"),
+        expected_values={"name", "quantity"},
+        field_name="order_items.items.required",
+    )
+
+    name_schema = _require_mapping(
+        item_properties.get("name"),
+        field_name="order_items.items.name",
+    )
+
+    if (
+        name_schema.get("type") != "string"
+        or name_schema.get("minLength") != 1
+        or name_schema.get("maxLength") != 200
+    ):
+        raise ElevenLabsToolProvisioningError(
+            "The calculate-order-total item name schema is invalid."
+        )
+
+    quantity_schema = _require_mapping(
+        item_properties.get("quantity"),
+        field_name="order_items.items.quantity",
+    )
+
+    if (
+        quantity_schema.get("type") != "integer"
+        or quantity_schema.get("minimum") != 1
+        or quantity_schema.get("maximum") != 100
+    ):
+        raise ElevenLabsToolProvisioningError(
+            "The calculate-order-total quantity schema is invalid."
+        )
+
+
 def _validate_yz_calculate_order_total_tool_snapshot(
     tool_snapshot: Mapping[str, Any],
 ) -> None:
@@ -435,7 +537,7 @@ def _validate_yz_calculate_order_total_tool_snapshot(
             "query parameters."
         )
 
-    _validate_calculate_request_body_schema(
+    _validate_yz_calculate_request_body_schema(
         api_schema.get("request_body_schema")
     )
 
