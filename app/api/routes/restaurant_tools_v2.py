@@ -11,6 +11,8 @@ from app.core.tool_auth import (
 from app.schemas.restaurant_tools_v2 import (
     CalculateOrderTotalV2Request,
     CalculateOrderTotalV2Response,
+    CancelOrderV2Request,
+    CancelOrderV2Response,
     CheckOrderStatusV2Request,
     CheckOrderStatusV2Response,
     SubmitOrderV2Request,
@@ -21,6 +23,10 @@ from app.schemas.restaurant_tools_v2 import (
 from app.services.restaurant_menu_pricing import (
     RestaurantMenuPricingError,
     calculate_restaurant_menu_total,
+)
+from app.services.restaurant_order_canceller import (
+    RestaurantOrderCancellationError,
+    cancel_restaurant_order,
 )
 from app.services.restaurant_order_status import (
     RestaurantOrderStatusError,
@@ -203,5 +209,48 @@ def update_order_v2(
         ) from error
 
     return UpdateOrderV2Response.model_validate(
+        result
+    )
+
+
+@router.post(
+    "/cancel-order",
+    response_model=CancelOrderV2Response,
+)
+def cancel_order_v2(
+    payload: CancelOrderV2Request,
+    context: Annotated[
+        ToolRestaurantContext,
+        Depends(require_restaurant_tool_context),
+    ],
+) -> CancelOrderV2Response:
+    """
+    Safely cancel one restaurant-scoped v2 order.
+
+    Railway resolves the restaurant from X-Svir-Tool-Token,
+    verifies the order, caller, current status, and revision,
+    and changes the order status to cancelled without deleting
+    the database row.
+
+    The caller cannot provide restaurant_id, order status,
+    order revision, price, total, or currency.
+    """
+
+    try:
+        result = cancel_restaurant_order(
+            context=context,
+            request=payload,
+        )
+
+    except RestaurantOrderCancellationError as error:
+        raise HTTPException(
+            status_code=error.status_code,
+            detail={
+                "code": error.code,
+                "message": error.message,
+            },
+        ) from error
+
+    return CancelOrderV2Response.model_validate(
         result
     )
