@@ -34,6 +34,14 @@ YZ_CHECK_ORDER_STATUS_V2_URL = (
     "v2/check-order-status"
 )
 
+YZ_UPDATE_ORDER_V2_TOOL_NAME = (
+    "svir_yz_thai_wok_sushi_update_order_v2"
+)
+YZ_UPDATE_ORDER_V2_URL = (
+    "https://web-production-f25f2.up.railway.app/"
+    "v2/update-order"
+)
+
 
 def build_testkok2_calculate_order_total_v2_tool_config(
     tool_token: str,
@@ -444,6 +452,165 @@ def build_yz_check_order_status_v2_tool_config(
                     },
                 },
                 "required": ["customer_phone"],
+            },
+            "request_headers": {
+                SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
+            },
+        },
+        "dynamic_variables": {
+            "dynamic_variable_placeholders": {},
+        },
+    }
+
+def build_yz_update_order_v2_tool_config(
+    tool_token: str,
+) -> dict:
+    """
+    Build the ElevenLabs webhook configuration for YZ Thai Wok &
+    Sushi's secure v2 order-update tool.
+
+    This function only returns a JSON-serializable dictionary. It
+    does not call ElevenLabs, read or update an order, connect a tool
+    to an agent, update an agent, or modify any external resource.
+
+    The token is supplied at runtime and is never stored in this
+    source file.
+    """
+
+    if not isinstance(tool_token, str):
+        raise TypeError("tool_token must be a string")
+
+    normalized_tool_token = tool_token.strip()
+
+    if not normalized_tool_token:
+        raise ValueError("tool_token must not be empty")
+
+    return {
+        "type": "webhook",
+        "name": YZ_UPDATE_ORDER_V2_TOOL_NAME,
+        "description": (
+            "Update one existing YZ Thai Wok & Sushi order only "
+            "after check-order-status has returned the exact order_id "
+            "and the caller has explicitly confirmed the final change. "
+            "Send at least one changed order field. When changing "
+            "products, send the complete final product list using "
+            "exact official Supabase menu item names, not only the "
+            "changed item. Never send restaurant_id, prices, totals, "
+            "currency, order status, or order revision; Railway "
+            "verifies the caller, order, current status and prices."
+        ),
+        "response_timeout_secs": 25,
+        "api_schema": {
+            "url": YZ_UPDATE_ORDER_V2_URL,
+            "method": "POST",
+            "path_params_schema": {},
+            "query_params_schema": None,
+            "request_body_schema": {
+                "type": "object",
+                "description": (
+                    "Confirmed update to one existing YZ Thai Wok & "
+                    "Sushi order. Include order_id, automatic caller "
+                    "phone, and at least one field that must change."
+                ),
+                "properties": {
+                    "order_id": {
+                        "type": "string",
+                        "description": (
+                            "Exact order_id returned by "
+                            "check-order-status. Do not invent or "
+                            "modify it."
+                        ),
+                    },
+                    "customer_phone": {
+                        "type": "string",
+                        "dynamic_variable": "system__caller_id",
+                    },
+                    "customer_name": {
+                        "type": "string",
+                        "description": (
+                            "New confirmed customer name. Omit when "
+                            "the name is not changing."
+                        ),
+                    },
+                    "order_type": {
+                        "type": "string",
+                        "description": (
+                            "New order type. Use exactly 'takeaway' "
+                            "or 'dine_in'. Omit when unchanged."
+                        ),
+                    },
+                    "order_items": {
+                        "type": "array",
+                        "description": (
+                            "Complete final product list after the "
+                            "confirmed change. Send exact official "
+                            "Supabase menu item names. Omit when the "
+                            "products are not changing."
+                        ),
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": (
+                                        "Exact official Supabase "
+                                        "menu item name."
+                                    ),
+                                },
+                                "quantity": {
+                                    "type": "integer",
+                                    "description": (
+                                        "Final confirmed quantity "
+                                        "for this product."
+                                    ),
+                                },
+                                "notes": {
+                                    "type": "string",
+                                    "description": (
+                                        "Optional confirmed choices "
+                                        "or special requests for "
+                                        "this product."
+                                    ),
+                                },
+                            },
+                            "required": ["name", "quantity"],
+                        },
+                    },
+                    "party_size": {
+                        "type": "integer",
+                        "description": (
+                            "New confirmed guest count for dine_in. "
+                            "Omit when unchanged."
+                        ),
+                    },
+                    "dine_in_time": {
+                        "type": "string",
+                        "description": (
+                            "New dine-in time as ISO 8601 with "
+                            "timezone offset. Required when changing "
+                            "order_type to dine_in. Omit otherwise."
+                        ),
+                    },
+                    "pickup_time": {
+                        "type": "string",
+                        "description": (
+                            "New pickup time as ISO 8601 with "
+                            "timezone offset. Required when changing "
+                            "order_type to takeaway. Omit otherwise."
+                        ),
+                    },
+                    "notes": {
+                        "type": "string",
+                        "description": (
+                            "New confirmed notes for the whole order. "
+                            "Omit when unchanged."
+                        ),
+                    },
+                },
+                "required": [
+                    "order_id",
+                    "customer_phone",
+                ],
             },
             "request_headers": {
                 SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
