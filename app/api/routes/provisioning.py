@@ -49,6 +49,10 @@ from app.services.restaurant_tool_token_provider import (
     RestaurantToolTokenProviderError,
     get_restaurant_tool_token_from_vault,
 )
+from app.services.yz_conversation_initiation_connector import (
+    YZConversationInitiationConnectorError,
+    connect_yz_conversation_initiation_webhook,
+)
 from app.services.yz_phone_initiation_auditor import (
     YZPhoneInitiationAuditError,
     get_yz_phone_initiation_audit,
@@ -103,6 +107,9 @@ YZ_AGENT_TOOL_CONNECTION_CONFIRMATION = (
 )
 YZ_AGENT_PROMPT_ACTIVATION_CONFIRMATION = (
     "ACTIVATE_YZ_AGENT_PROMPT"
+)
+YZ_INITIATION_WEBHOOK_CONNECTION_CONFIRMATION = (
+    "CONNECT_YZ_INITIATION_WEBHOOK"
 )
 
 
@@ -976,6 +983,80 @@ def connect_yz_agent_tools_route(
             status_code=409,
             detail={
                 "code": "yz_agent_tool_connection_blocked",
+                "message": str(error),
+            },
+        ) from error
+
+    return result
+
+
+@router.post(
+    "/elevenlabs/agents/yz-thai-wok-sushi/"
+    "connect-initiation-webhook"
+)
+def connect_yz_initiation_webhook_route(
+    _: Annotated[
+        None,
+        Depends(require_svir_internal_secret),
+    ],
+    confirmation: Annotated[
+        str | None,
+        Header(alias="X-Svir-Confirmation"),
+    ] = None,
+) -> dict[str, object]:
+    """
+    Connect the reviewed agent-specific conversation-initiation
+    webhook to exactly YZ Thai Wok & Sushi's locked branch.
+
+    Deployment alone does not execute this endpoint.
+
+    The endpoint requires:
+    - the existing X-Svir-Internal-Secret
+    - X-Svir-Confirmation: CONNECT_YZ_INITIATION_WEBHOOK
+
+    It accepts no agent ID, branch ID, phone number, webhook URL,
+    header value, secret ID, prompt text, tool ID, knowledge-base ID,
+    Supabase value, or provisioning-job value from the caller.
+
+    When explicitly executed, the controlled connector may change
+    only these three YZ agent fields:
+    - enable conversation-initiation webhook data
+    - allow first-message override
+    - set the agent-specific initiation webhook configuration
+
+    It does not update workspace-wide settings, the phone resource,
+    prompt text, tool connections, knowledge base, voice, ASR,
+    orders, Supabase, restaurant activation, or provisioning state.
+    """
+
+    if (
+        not isinstance(confirmation, str)
+        or confirmation.strip()
+        != YZ_INITIATION_WEBHOOK_CONNECTION_CONFIRMATION
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "explicit_confirmation_required",
+                "message": (
+                    "The exact X-Svir-Confirmation header "
+                    "is required."
+                ),
+            },
+        )
+
+    try:
+        result = (
+            connect_yz_conversation_initiation_webhook()
+        )
+
+    except YZConversationInitiationConnectorError as error:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": (
+                    "yz_initiation_webhook_connection_blocked"
+                ),
                 "message": str(error),
             },
         ) from error
