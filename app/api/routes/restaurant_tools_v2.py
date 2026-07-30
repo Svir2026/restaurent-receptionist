@@ -1,9 +1,7 @@
-
-
-
 from __future__ import annotations
 
 import hmac
+import logging
 import os
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -54,6 +52,8 @@ router = APIRouter(
     prefix="/v2",
     tags=["restaurant-tools-v2"],
 )
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -250,6 +250,59 @@ def _validate_locked_yz_initiation_target(
             )
 
 
+YZ_INITIATION_DIAGNOSTIC_FIELD_NAMES = (
+    "agent_id",
+    "agent_phone_number_id",
+    "branch_id",
+    "call_id",
+    "called_number",
+    "caller_id",
+    "phone_number_id",
+)
+
+
+def _log_yz_initiation_rejection(
+    *,
+    payload: dict[str, object],
+    error: HTTPException,
+) -> None:
+    """
+    Log only a controlled rejection code and the names of expected
+    fields that were present.
+
+    No payload values, phone numbers, identifiers, caller data,
+    secret values, headers, request bodies, or arbitrary caller
+    supplied field names are logged.
+    """
+
+    if error.status_code != 403:
+        return
+
+    detail = error.detail
+    rejection_code = "unknown_yz_initiation_rejection"
+
+    if isinstance(detail, dict):
+        candidate_code = detail.get("code")
+
+        if isinstance(candidate_code, str):
+            normalized_code = candidate_code.strip()
+
+            if normalized_code:
+                rejection_code = normalized_code
+
+    present_fields = [
+        field_name
+        for field_name in YZ_INITIATION_DIAGNOSTIC_FIELD_NAMES
+        if field_name in payload
+    ]
+
+    logger.warning(
+        "YZ_INITIATION_REJECTED code=%s present_fields=%s",
+        rejection_code,
+        ",".join(present_fields) or "none",
+    )
+
+
 def _is_yz_restaurant_open(
     local_datetime: datetime,
 ) -> bool:
@@ -396,9 +449,18 @@ def yz_thai_wok_sushi_conversation_initiation(
     _require_yz_initiation_secret(
         initiation_secret
     )
-    _validate_locked_yz_initiation_target(
-        payload
-    )
+
+    try:
+        _validate_locked_yz_initiation_target(
+            payload
+        )
+
+    except HTTPException as error:
+        _log_yz_initiation_rejection(
+            payload=payload,
+            error=error,
+        )
+        raise
 
     return _build_yz_conversation_initiation_data(
         local_datetime=datetime.now(
