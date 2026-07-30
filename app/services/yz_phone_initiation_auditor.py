@@ -12,6 +12,9 @@ from app.services.elevenlabs_client import (
 YZ_AGENT_ID = "agent_3701kycttzk2e3babhgdksfcjh9g"
 YZ_BRANCH_ID = "agtbrch_5501kycttzkmf9ksz96y5mbzpj3f"
 YZ_PHONE_NUMBER = "+46105200413"
+YZ_CONVERSATION_INITIATION_SECRET_NAME = (
+    "YZ_CONVERSATION_INITIATION_SECRET"
+)
 
 
 class YZPhoneInitiationAuditError(RuntimeError):
@@ -287,6 +290,218 @@ def _read_workspace_settings() -> dict:
         ) from error
 
 
+def _read_yz_workspace_secret_search() -> dict:
+    """
+    Search the ElevenLabs workspace secrets by the exact YZ secret
+    name prefix.
+
+    One GET request only. The API response is never returned directly.
+    """
+
+    query = urlencode(
+        {
+            "search": YZ_CONVERSATION_INITIATION_SECRET_NAME,
+            "page_size": 100,
+            "dependency_limit": 100,
+        }
+    )
+    url = (
+        f"{ELEVENLABS_API_BASE_URL}/convai/secrets?"
+        f"{query}"
+    )
+
+    try:
+        return _send_json_request(
+            url=url,
+            method="GET",
+            operation=(
+                "read YZ conversation-initiation workspace secret"
+            ),
+        )
+
+    except ElevenLabsClientError as error:
+        raise YZPhoneInitiationAuditError(
+            "Could not read the ElevenLabs workspace secrets."
+        ) from error
+
+
+def _summarize_secret_dependencies(
+    value: object,
+) -> dict:
+    """
+    Return dependency counts and public resource metadata only.
+
+    Secret values, request-header values, and authorization values are
+    not accepted into the returned structure.
+    """
+
+    used_by = _safe_mapping(value)
+    other_dependencies = sorted(
+        {
+            entry.strip()
+            for entry in _safe_list(used_by.get("others"))
+            if isinstance(entry, str) and entry.strip()
+        }
+    )
+
+    return {
+        "tools_count": len(
+            _safe_list(used_by.get("tools"))
+        ),
+        "agents_count": len(
+            _safe_list(used_by.get("agents"))
+        ),
+        "phone_numbers_count": len(
+            _safe_list(used_by.get("phone_numbers"))
+        ),
+        "mcp_servers_count": len(
+            _safe_list(used_by.get("mcp_servers"))
+        ),
+        "other_dependency_names": other_dependencies,
+        "conversation_initiation_webhook_dependency": (
+            "conversation_initiation_webhook"
+            in other_dependencies
+        ),
+        "tools_has_more": (
+            used_by.get("tools_has_more")
+            if isinstance(
+                used_by.get("tools_has_more"),
+                bool,
+            )
+            else None
+        ),
+        "agents_has_more": (
+            used_by.get("agents_has_more")
+            if isinstance(
+                used_by.get("agents_has_more"),
+                bool,
+            )
+            else None
+        ),
+        "phone_numbers_has_more": (
+            used_by.get("phone_numbers_has_more")
+            if isinstance(
+                used_by.get("phone_numbers_has_more"),
+                bool,
+            )
+            else None
+        ),
+        "secret_values_exposed": False,
+        "dependency_values_exposed": False,
+    }
+
+
+def _build_yz_secret_audit(
+    payload: object,
+) -> dict:
+    """
+    Validate the paginated secret-search response and return only a
+    safe exact-name audit.
+
+    The raw secret objects are never returned.
+    """
+
+    response = _safe_mapping(payload)
+    secrets_value = response.get("secrets")
+
+    if not isinstance(secrets_value, list):
+        raise YZPhoneInitiationAuditError(
+            "ElevenLabs returned an invalid workspace-secret list."
+        )
+
+    next_cursor = response.get("next_cursor")
+
+    if (
+        isinstance(next_cursor, str)
+        and next_cursor.strip()
+    ):
+        raise YZPhoneInitiationAuditError(
+            "The workspace-secret search was paginated, so the exact "
+            "duplicate check could not be completed with one GET."
+        )
+
+    exact_matches: list[dict] = []
+
+    for entry in secrets_value:
+        if not isinstance(entry, dict):
+            continue
+
+        name = entry.get("name")
+
+        if (
+            isinstance(name, str)
+            and name.strip()
+            == YZ_CONVERSATION_INITIATION_SECRET_NAME
+        ):
+            exact_matches.append(entry)
+
+    matching_secret_ids = sorted(
+        {
+            secret_id.strip()
+            for entry in exact_matches
+            for secret_id in [entry.get("secret_id")]
+            if isinstance(secret_id, str)
+            and secret_id.strip()
+        }
+    )
+
+    exact_match_count = len(exact_matches)
+    exists_exactly_once = exact_match_count == 1
+    duplicate_detected = exact_match_count > 1
+
+    secret_summary: dict | None = None
+
+    if exists_exactly_once:
+        exact_secret = exact_matches[0]
+        secret_id = _normalize_required_string(
+            exact_secret.get("secret_id"),
+            field_name="secret_id",
+        )
+        dependencies = _summarize_secret_dependencies(
+            exact_secret.get("used_by")
+        )
+
+        secret_summary = {
+            "secret_id": secret_id,
+            "name": YZ_CONVERSATION_INITIATION_SECRET_NAME,
+            "type": exact_secret.get("type"),
+            "used_by": dependencies,
+            "secret_value_exposed": False,
+            "raw_secret_object_exposed": False,
+        }
+
+    webhook_dependency_present = bool(
+        secret_summary
+        and secret_summary["used_by"][
+            "conversation_initiation_webhook_dependency"
+        ]
+    )
+
+    return {
+        "expected_name": (
+            YZ_CONVERSATION_INITIATION_SECRET_NAME
+        ),
+        "search_complete": True,
+        "exact_match_count": exact_match_count,
+        "exists_exactly_once": exists_exactly_once,
+        "duplicate_detected": duplicate_detected,
+        "matching_secret_ids": matching_secret_ids,
+        "secret": secret_summary,
+        "webhook_dependency_present": (
+            webhook_dependency_present
+        ),
+        "expected_preconnection_state": (
+            exists_exactly_once
+            and not webhook_dependency_present
+        ),
+        "safe_to_prepare_yz_connection": (
+            exists_exactly_once
+            and not duplicate_detected
+        ),
+        "secret_values_exposed": False,
+    }
+
+
 def get_yz_phone_initiation_audit() -> dict:
     """
     Read and safely summarize YZ's telephony and conversation-initiation
@@ -315,6 +530,12 @@ def get_yz_phone_initiation_audit() -> dict:
         normalized_phone_number_id
     )
     workspace_settings = _read_workspace_settings()
+    secret_search_payload = (
+        _read_yz_workspace_secret_search()
+    )
+    secret_audit = _build_yz_secret_audit(
+        secret_search_payload
+    )
 
     assigned_agent = _safe_mapping(
         phone_payload.get("assigned_agent")
@@ -447,6 +668,7 @@ def get_yz_phone_initiation_audit() -> dict:
             "matches_locked_agent": assigned_to_locked_agent,
             "matches_locked_branch": assigned_to_locked_branch,
         },
+        "conversation_initiation_secret": secret_audit,
         "conversation_initiation": {
             "security_override_keys": _safe_sorted_keys(
                 security_overrides
@@ -471,7 +693,7 @@ def get_yz_phone_initiation_audit() -> dict:
             ),
         },
         "safety": {
-            "external_requests_made": 3,
+            "external_requests_made": 4,
             "http_methods_used": ["GET"],
             "secret_header_values_exposed": False,
             "webhook_query_parameters_exposed": False,
