@@ -49,6 +49,10 @@ from app.services.restaurant_tool_token_provider import (
     RestaurantToolTokenProviderError,
     get_restaurant_tool_token_from_vault,
 )
+from app.services.yz_phone_initiation_auditor import (
+    YZPhoneInitiationAuditError,
+    get_yz_phone_initiation_audit,
+)
 from app.services.yz_agent_prompt_connector import (
     YZ_ACTIVE_PROMPT_SHA256 as YZ_CONNECTOR_ACTIVE_PROMPT_SHA256,
     YZ_EXPECTED_CURRENT_PROMPT_SHA256 as YZ_CONNECTOR_EXPECTED_CURRENT_PROMPT_SHA256,
@@ -972,6 +976,45 @@ def connect_yz_agent_tools_route(
             status_code=409,
             detail={
                 "code": "yz_agent_tool_connection_blocked",
+                "message": str(error),
+            },
+        ) from error
+
+    return result
+
+
+@router.get(
+    "/elevenlabs/agents/yz-thai-wok-sushi/"
+    "phone-initiation-audit"
+)
+def read_yz_phone_initiation_audit(
+    _: Annotated[
+        None,
+        Depends(require_svir_internal_secret),
+    ],
+) -> dict[str, object]:
+    """
+    Read YZ Thai Wok & Sushi's locked phone, agent assignment,
+    branch assignment, and conversation-initiation readiness.
+
+    This endpoint is read-only. It accepts no phone ID, agent ID,
+    branch ID, webhook URL, prompt text, header value, token, or
+    Supabase value from the caller.
+
+    It performs only the GET requests defined in the controlled
+    YZ phone-initiation auditor. It does not update an agent, phone
+    number, branch, webhook, workspace setting, prompt, order,
+    Supabase row, restaurant activation, or provisioning-job state.
+    """
+
+    try:
+        result = get_yz_phone_initiation_audit()
+
+    except YZPhoneInitiationAuditError as error:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "yz_phone_initiation_audit_blocked",
                 "message": str(error),
             },
         ) from error
