@@ -27,6 +27,9 @@ MENU_ITEM_NAME_FIELDS = (
     "kitchen_display_name",
 )
 
+# YZ restaurant ID for chilimajonnäs alias support
+YZ_RESTAURANT_ID = UUID("fc032c24-1dd6-4f94-9a4e-872a50c2487a")
+
 
 class RestaurantMenuPricingError(Exception):
     """
@@ -76,6 +79,16 @@ def _normalize_menu_name(
     return " ".join(
         normalized.strip().casefold().split()
     )
+
+
+# YZ chilimajonnäs aliases that map to canonical "Extra chilimajonnäs"
+YZ_CHILIMAJONNÄS_ALIASES = {
+    _normalize_menu_name("Chilimajonnäs"): "extra chilimajonnäs",
+    _normalize_menu_name("Chili majonnäs"): "extra chilimajonnäs",
+    _normalize_menu_name("Chilimayo"): "extra chilimajonnäs",
+    _normalize_menu_name("Chili mayo"): "extra chilimajonnäs",
+    _normalize_menu_name("Extra chili mayo"): "extra chilimajonnäs",
+}
 
 
 def _parse_menu_item_id(
@@ -330,6 +343,7 @@ def _resolve_requested_menu_item(
         str,
         list[dict[str, Any]],
     ],
+    restaurant_id: UUID,
 ) -> dict[str, Any]:
     normalized_name = _normalize_menu_name(
         requested_name
@@ -348,6 +362,15 @@ def _resolve_requested_menu_item(
         normalized_name,
         [],
     )
+
+    # If no direct match and restaurant is YZ, try chilimajonnäs aliases
+    if not matches and restaurant_id == YZ_RESTAURANT_ID:
+        canonical_name = YZ_CHILIMAJONNÄS_ALIASES.get(normalized_name)
+        if canonical_name:
+            matches = name_index.get(
+                canonical_name,
+                [],
+            )
 
     if not matches:
         raise RestaurantMenuPricingError(
@@ -427,6 +450,7 @@ def calculate_restaurant_menu_total(
         menu_item = _resolve_requested_menu_item(
             requested_name=requested_name,
             name_index=name_index,
+            restaurant_id=context.restaurant_id,
         )
 
         menu_item_id = _parse_menu_item_id(
