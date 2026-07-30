@@ -56,6 +56,7 @@ router = APIRouter(
 )
 
 
+
 YZ_INITIATION_AGENT_ID = (
     "agent_3701kycttzk2e3babhgdksfcjh9g"
 )
@@ -92,11 +93,7 @@ def _require_yz_initiation_secret(
     supplied_secret: object,
 ) -> None:
     """
-    Authenticate the ElevenLabs pre-call webhook with a dedicated
-    Railway environment variable.
-
-    The secret is never returned, logged, stored in source code, or
-    compared with a normal equality operation.
+    Authenticate with a dedicated Railway environment variable.
     """
 
     configured_secret = os.environ.get(
@@ -169,20 +166,17 @@ def _validate_locked_yz_initiation_target(
     payload: dict[str, object],
 ) -> None:
     """
-    Block requests for every agent and phone number except the locked
-    YZ target.
+    Lock every request to the exact YZ agent.
 
-    Unknown fields are ignored because ElevenLabs may add non-sensitive
-    call metadata over time.
+    ElevenLabs documents agent_id for pre-call webhooks. Depending on
+    telephony type, it may also include called_number and/or a phone
+    resource ID. Those optional identifiers are strictly checked when
+    present, while SIP calls that omit them remain compatible.
     """
 
     agent_id = _normalize_required_payload_string(
         payload,
         field_name="agent_id",
-    )
-    called_number = _normalize_required_payload_string(
-        payload,
-        field_name="called_number",
     )
 
     if agent_id != YZ_INITIATION_AGENT_ID:
@@ -196,16 +190,24 @@ def _validate_locked_yz_initiation_target(
             },
         )
 
-    if called_number != YZ_INITIATION_PHONE_NUMBER:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "code": "wrong_initiation_phone_number",
-                "message": (
-                    "This endpoint is locked to the YZ phone number."
-                ),
-            },
-        )
+    called_number = payload.get("called_number")
+
+    if called_number is not None:
+        if (
+            not isinstance(called_number, str)
+            or called_number.strip()
+            != YZ_INITIATION_PHONE_NUMBER
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "wrong_initiation_phone_number",
+                    "message": (
+                        "This endpoint is locked to the YZ "
+                        "phone number."
+                    ),
+                },
+            )
 
     optional_branch_id = payload.get("branch_id")
 
@@ -223,35 +225,37 @@ def _validate_locked_yz_initiation_target(
             },
         )
 
-    optional_phone_number_id = payload.get(
-        "agent_phone_number_id"
-    )
-
-    if (
-        optional_phone_number_id is not None
-        and optional_phone_number_id
-        != YZ_INITIATION_PHONE_NUMBER_ID
+    for field_name in (
+        "agent_phone_number_id",
+        "phone_number_id",
     ):
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "code": "wrong_initiation_phone_resource",
-                "message": (
-                    "This endpoint is locked to the YZ phone "
-                    "resource."
-                ),
-            },
+        optional_phone_number_id = payload.get(
+            field_name
         )
+
+        if (
+            optional_phone_number_id is not None
+            and optional_phone_number_id
+            != YZ_INITIATION_PHONE_NUMBER_ID
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "wrong_initiation_phone_resource",
+                    "message": (
+                        "This endpoint is locked to the YZ "
+                        "phone resource."
+                    ),
+                },
+            )
 
 
 def _is_yz_restaurant_open(
     local_datetime: datetime,
 ) -> bool:
     """
-    Return whether YZ is open at one timezone-aware Stockholm time.
-
-    Monday-Friday: 10:30 <= time < 21:00
-    Saturday-Sunday: 11:30 <= time < 21:00
+    Monday-Friday: 10:30 <= time < 21:00.
+    Saturday-Sunday: 11:30 <= time < 21:00.
     """
 
     if local_datetime.tzinfo is None:
@@ -265,11 +269,10 @@ def _is_yz_restaurant_open(
     local_time = stockholm_datetime.timetz().replace(
         tzinfo=None
     )
-    weekday = stockholm_datetime.weekday()
 
     opening_time = (
         YZ_WEEKDAY_OPEN
-        if weekday < 5
+        if stockholm_datetime.weekday() < 5
         else YZ_WEEKEND_OPEN
     )
 
@@ -280,7 +283,7 @@ def _next_yz_opening(
     local_datetime: datetime,
 ) -> datetime:
     """
-    Return the next YZ opening datetime in Europe/Stockholm.
+    Return the next opening datetime in Europe/Stockholm.
     """
 
     if local_datetime.tzinfo is None:
@@ -319,12 +322,10 @@ def _build_yz_conversation_initiation_data(
     local_datetime: datetime,
 ) -> dict[str, object]:
     """
-    Build the official ElevenLabs conversation-initiation response.
+    Build an ElevenLabs conversation-initiation response.
 
-    Open calls keep the agent's normal first message and prompt.
-    Closed calls override only the first message. The existing agent
-    prompt can use the returned custom dynamic variables in a later
-    controlled prompt update.
+    Open calls keep the normal first message. Closed calls receive a
+    closed first-message override and deterministic dynamic variables.
     """
 
     stockholm_datetime = local_datetime.astimezone(
@@ -334,23 +335,25 @@ def _build_yz_conversation_initiation_data(
         stockholm_datetime
     )
 
+    dynamic_variables: dict[str, object] = {
+        "restaurant_is_open": is_open,
+        "restaurant_opening_status": (
+            "open" if is_open else "closed"
+        ),
+        "restaurant_timezone": YZ_TIMEZONE_NAME,
+        "restaurant_local_time_iso": (
+            stockholm_datetime.isoformat(
+                timespec="seconds"
+            )
+        ),
+        "restaurant_closed_message": (
+            YZ_CLOSED_FIRST_MESSAGE
+        ),
+    }
+
     response: dict[str, object] = {
         "type": "conversation_initiation_client_data",
-        "dynamic_variables": {
-            "restaurant_is_open": is_open,
-            "restaurant_opening_status": (
-                "open" if is_open else "closed"
-            ),
-            "restaurant_timezone": YZ_TIMEZONE_NAME,
-            "restaurant_local_time_iso": (
-                stockholm_datetime.isoformat(
-                    timespec="seconds"
-                )
-            ),
-            "restaurant_closed_message": (
-                YZ_CLOSED_FIRST_MESSAGE
-            ),
-        },
+        "dynamic_variables": dynamic_variables,
         "branch_id": YZ_INITIATION_BRANCH_ID,
         "environment": "production",
     }
@@ -361,11 +364,11 @@ def _build_yz_conversation_initiation_data(
                 "first_message": YZ_CLOSED_FIRST_MESSAGE,
             },
         }
-        response["dynamic_variables"][
-            "restaurant_next_opening_iso"
-        ] = _next_yz_opening(
-            stockholm_datetime
-        ).isoformat(timespec="seconds")
+        dynamic_variables["restaurant_next_opening_iso"] = (
+            _next_yz_opening(
+                stockholm_datetime
+            ).isoformat(timespec="seconds")
+        )
 
     return response
 
@@ -385,19 +388,9 @@ def yz_thai_wok_sushi_conversation_initiation(
     ] = None,
 ) -> dict[str, object]:
     """
-    Return secure, restaurant-specific ElevenLabs conversation
-    initiation data for YZ Thai Wok & Sushi.
+    Return secure opening-status initiation data for YZ.
 
-    The endpoint:
-    - authenticates with a dedicated secret header,
-    - validates the exact YZ agent and called number,
-    - evaluates opening hours in Europe/Stockholm,
-    - returns dynamic opening-status data,
-    - overrides the first message only when the restaurant is closed.
-
-    It never reads or writes Supabase, creates or changes an order,
-    calls ElevenLabs, changes a phone connection, or advances a
-    provisioning job.
+    This route does not call ElevenLabs or any order/database service.
     """
 
     _require_yz_initiation_secret(
