@@ -3,6 +3,7 @@ from __future__ import annotations
 import hmac
 import logging
 import os
+import re
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -67,6 +68,7 @@ YZ_INITIATION_PHONE_NUMBER_ID = (
     "phnum_8401kymgbxqcfkbb656xxmyngf9c"
 )
 YZ_INITIATION_PHONE_NUMBER = "+46105200413"
+YZ_INITIATION_PHONE_DIGITS = "46105200413"
 
 YZ_INITIATION_SECRET_ENV_NAME = (
     "YZ_CONVERSATION_INITIATION_SECRET"
@@ -162,6 +164,100 @@ def _normalize_required_payload_string(
     return value.strip()
 
 
+def _normalize_yz_called_number(
+    value: object,
+) -> str | None:
+    """
+    Return canonical phone digits from a narrowly accepted called-number
+    representation.
+
+    Accepted syntax:
+    - optional leading +
+    - digits only
+    - SIP URI with exactly one @ and a non-empty host
+    - optional angle brackets around the whole SIP URI
+    - optional SIP host parameters after ;
+
+    The exact YZ-number check is performed separately.
+    """
+
+    if not isinstance(value, str):
+        return None
+
+    normalized_value = value.strip()
+
+    if not normalized_value:
+        return None
+
+    if (
+        normalized_value.startswith("<")
+        and normalized_value.endswith(">")
+    ):
+        normalized_value = normalized_value[1:-1].strip()
+
+    lowered_value = normalized_value.lower()
+    is_sip_uri = lowered_value.startswith("sip:")
+
+    if is_sip_uri:
+        sip_target = normalized_value[4:]
+
+        if sip_target.count("@") != 1:
+            return None
+
+        user_part, host_part = sip_target.split("@", 1)
+
+        if (
+            not host_part
+            or any(
+                character.isspace()
+                for character in host_part
+            )
+            or any(
+                character in host_part
+                for character in ("@", "?", "#", "<", ">")
+            )
+        ):
+            return None
+
+        host_name = host_part.split(";", 1)[0]
+
+        if not host_name:
+            return None
+
+        phone_part = user_part
+
+    else:
+        if any(
+            character in normalized_value
+            for character in (
+                "@",
+                ":",
+                ";",
+                "?",
+                "#",
+                "<",
+                ">",
+            )
+        ):
+            return None
+
+        if any(
+            character.isspace()
+            for character in normalized_value
+        ):
+            return None
+
+        phone_part = normalized_value
+
+    if phone_part.startswith("+"):
+        phone_part = phone_part[1:]
+
+    if not re.fullmatch(r"[0-9]+", phone_part):
+        return None
+
+    return phone_part
+
+
 def _validate_locked_yz_initiation_target(
     payload: dict[str, object],
 ) -> None:
@@ -193,10 +289,15 @@ def _validate_locked_yz_initiation_target(
     called_number = payload.get("called_number")
 
     if called_number is not None:
+        normalized_called_number = (
+            _normalize_yz_called_number(
+                called_number
+            )
+        )
+
         if (
-            not isinstance(called_number, str)
-            or called_number.strip()
-            != YZ_INITIATION_PHONE_NUMBER
+            normalized_called_number
+            != YZ_INITIATION_PHONE_DIGITS
         ):
             raise HTTPException(
                 status_code=403,
