@@ -556,18 +556,6 @@ def _normalize_order_row(
     )
 
     if (
-        order_type == "takeaway"
-        and pickup_time is None
-    ):
-        raise RestaurantOrderStatusError(
-            code="INVALID_ORDER_PICKUP_TIME",
-            message=(
-                "En avhämtningsorder saknar giltig "
-                "hämtningstid."
-            ),
-        )
-
-    if (
         order_type == "dine_in"
         and dine_in_time is None
     ):

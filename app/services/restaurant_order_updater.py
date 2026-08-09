@@ -1291,18 +1291,6 @@ def update_restaurant_order(
     )
 
     if (
-        order_type == "takeaway"
-        and pickup_time is None
-    ):
-        raise RestaurantOrderUpdateError(
-            code="INVALID_UPDATED_PICKUP_TIME",
-            message=(
-                "Den uppdaterade avhämtningsordern saknar "
-                "hämtningstid."
-            ),
-        )
-
-    if (
         order_type == "dine_in"
         and dine_in_time is None
     ):

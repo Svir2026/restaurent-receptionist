@@ -200,7 +200,7 @@ class SubmitOrderV2Request(BaseModel):
     )
 
     customer_name: str = Field(
-        ...,
+        default="Telefonkund",
         min_length=1,
         max_length=120,
     )
@@ -211,7 +211,7 @@ class SubmitOrderV2Request(BaseModel):
         max_length=32,
     )
 
-    order_type: OrderTypeV2
+    order_type: OrderTypeV2 = "takeaway"
 
     order_items: (
         list[SubmitOrderV2ItemRequest] | str
@@ -273,11 +273,6 @@ class SubmitOrderV2Request(BaseModel):
             )
 
         if self.order_type == "takeaway":
-            if self.pickup_time is None:
-                raise ValueError(
-                    "pickup_time is required for takeaway"
-                )
-
             if self.dine_in_time is not None:
                 raise ValueError(
                     "dine_in_time is not allowed for takeaway"
@@ -653,12 +648,6 @@ class UpdateOrderV2Request(BaseModel):
             "order_type" in self.model_fields_set
             and self.order_type == "takeaway"
         ):
-            if self.pickup_time is None:
-                raise ValueError(
-                    "pickup_time is required when changing "
-                    "order_type to takeaway"
-                )
-
             if self.dine_in_time is not None:
                 raise ValueError(
                     "dine_in_time is not allowed for takeaway"

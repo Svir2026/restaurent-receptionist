@@ -955,18 +955,6 @@ def cancel_restaurant_order(
     )
 
     if (
-        order_type == "takeaway"
-        and pickup_time is None
-    ):
-        raise RestaurantOrderCancellationError(
-            code="INVALID_CANCELLED_PICKUP_TIME",
-            message=(
-                "Den avbokade avhämtningsordern saknar "
-                "hämtningstid."
-            ),
-        )
-
-    if (
         order_type == "dine_in"
         and dine_in_time is None
     ):

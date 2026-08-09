@@ -1,3 +1,6 @@
+
+
+
 from __future__ import annotations
 
 
@@ -274,12 +277,14 @@ def build_yz_submit_order_v2_tool_config(
         "description": (
             "Submit one final order to YZ Thai Wok & Sushi only "
             "after the caller has explicitly confirmed the complete "
-            "order summary, including every product, quantity, "
-            "order type, requested time, customer name, and special "
-            "requests. Send exact official Supabase menu item names. "
-            "Never send prices, totals, currency, restaurant_id, or "
-            "order status; Railway verifies prices and saves the "
-            "restaurant-scoped order."
+            "product summary and any confirmed special requests. "
+            "Railway defaults a missing customer_name to 'Telefonkund' "
+            "and a missing order_type to 'takeaway'. Only send a "
+            "pickup_time when the caller explicitly provided one; "
+            "never invent or infer a pickup time. Send exact official "
+            "Supabase menu item names. Never send prices, totals, "
+            "currency, restaurant_id, or order status; Railway verifies "
+            "prices and saves the restaurant-scoped order."
         ),
         "response_timeout_secs": 25,
         "api_schema": {
@@ -291,8 +296,12 @@ def build_yz_submit_order_v2_tool_config(
                 "type": "object",
                 "description": (
                     "Final confirmed YZ Thai Wok & Sushi order. "
-                    "Use pickup_time for takeaway or dine_in_time "
-                    "for dine_in, never both."
+                    "customer_name and order_type may be omitted so "
+                    "Railway can apply the phone-order defaults. "
+                    "For takeaway, pickup_time is optional and must "
+                    "only be sent when explicitly stated by the caller. "
+                    "For dine_in, use dine_in_time. Never send both "
+                    "time fields."
                 ),
                 "properties": {
                     "conversation_id": {
@@ -304,7 +313,9 @@ def build_yz_submit_order_v2_tool_config(
                     "customer_name": {
                         "type": "string",
                         "description": (
-                            "Customer's confirmed name."
+                            "Optional confirmed customer name. Omit "
+                            "when no name was explicitly provided; "
+                            "Railway then uses 'Telefonkund'."
                         ),
                     },
                     "customer_phone": {
@@ -314,8 +325,10 @@ def build_yz_submit_order_v2_tool_config(
                     "order_type": {
                         "type": "string",
                         "description": (
-                            "Use exactly 'takeaway' for pickup or "
-                            "'dine_in' for eating at the restaurant."
+                            "Optional explicit order type. Use exactly "
+                            "'takeaway' or 'dine_in' only when the caller "
+                            "has explicitly stated it. Omit otherwise; "
+                            "Railway defaults to 'takeaway'."
                         ),
                     },
                     "order_items": {
@@ -375,9 +388,12 @@ def build_yz_submit_order_v2_tool_config(
                     "pickup_time": {
                         "type": "string",
                         "description": (
-                            "Required when order_type is takeaway. "
+                            "Optional pickup time. Send only when the "
+                            "caller explicitly provided a pickup time. "
                             "Use an ISO 8601 datetime with timezone "
-                            "offset. Omit for dine_in."
+                            "offset. Never invent or infer a time. "
+                            "Omit when no pickup time was stated and "
+                            "omit for dine_in."
                         ),
                     },
                     "notes": {
@@ -390,9 +406,7 @@ def build_yz_submit_order_v2_tool_config(
                 },
                 "required": [
                     "conversation_id",
-                    "customer_name",
                     "customer_phone",
-                    "order_type",
                     "order_items",
                 ],
             },
@@ -602,9 +616,11 @@ def build_yz_update_order_v2_tool_config(
                     "pickup_time": {
                         "type": "string",
                         "description": (
-                            "New pickup time as ISO 8601 with "
-                            "timezone offset. Required when changing "
-                            "order_type to takeaway. Omit otherwise."
+                            "Optional new pickup time as ISO 8601 with "
+                            "timezone offset. Send only when the caller "
+                            "explicitly requested a pickup-time change. "
+                            "Never invent or infer a time. Omit when "
+                            "unchanged or when no pickup time was stated."
                         ),
                     },
                     "notes": {
