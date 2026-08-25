@@ -24,6 +24,10 @@ from app.services.restaurant_menu_resolver import (
     YZ_MENU_RESOLVER_TOOL_NAME,
     resolve_restaurant_menu_items,
 )
+from app.services.elevenlabs_tool_definitions import (
+    YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME,
+    build_yz_test_menu_resolver_v2_tool_config,
+)
 
 
 RESTAURANT_ID = UUID("11111111-1111-4111-8111-111111111111")
@@ -269,6 +273,40 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             )
         )
         self.assertIsInstance(request.conversation_history, list)
+
+    def test_elevenlabs_tool_accepts_only_raw_system_history(self) -> None:
+        config = build_yz_test_menu_resolver_v2_tool_config(
+            "svir_tool_test",
+            "https://resolver-test.example/v2/resolve-menu-items",
+        )
+        self.assertEqual(
+            config["name"],
+            YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME,
+        )
+        body = config["api_schema"]["request_body_schema"]
+        self.assertEqual(
+            set(body["properties"]),
+            {"conversation_history"},
+        )
+        self.assertEqual(
+            body["properties"]["conversation_history"][
+                "dynamic_variable"
+            ],
+            "system__conversation_history",
+        )
+        self.assertFalse(body["additionalProperties"])
+
+    def test_elevenlabs_tool_rejects_non_https_or_wrong_path(self) -> None:
+        for url in (
+            "http://resolver-test.example/v2/resolve-menu-items",
+            "https://resolver-test.example/v2/submit-order",
+            "https://resolver-test.example/v2/resolve-menu-items?x=1",
+        ):
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                build_yz_test_menu_resolver_v2_tool_config(
+                    "svir_tool_test",
+                    url,
+                )
 
 
 if __name__ == "__main__":

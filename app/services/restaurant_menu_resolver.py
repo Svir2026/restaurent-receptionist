@@ -17,14 +17,15 @@ from app.services.restaurant_menu_pricing import (
     _load_active_menu_items,
     _parse_menu_item_id,
 )
+from app.services.elevenlabs_tool_definitions import (
+    YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME,
+)
 from app.services.supabase_client import get_client
 
 
 logger = logging.getLogger(__name__)
 
-YZ_MENU_RESOLVER_TOOL_NAME = (
-    "svir_yz_thai_wok_sushi_resolve_menu_items_v2"
-)
+YZ_MENU_RESOLVER_TOOL_NAME = YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME
 
 RECOVERY_MESSAGES = {
     1: "Ursäkta, kan du upprepa vilken rätt du ville ha?",
