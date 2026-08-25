@@ -628,7 +628,7 @@ def _single_match_customer_message(
         article = "ett"
     elif protein and normalized_family == "pad med mamuang":
         customer_name = f"{protein.casefold()} med cashewnötter"
-        article = "en"
+        article = ""
     elif protein and normalized_family == "gaeng ped" and (
         "röd curry" in normalized_utterance
     ):
@@ -662,8 +662,9 @@ def _single_match_customer_message(
     if extra_shrimp:
         customer_name = f"{customer_name} och extra räkor"
 
+    article_prefix = f"{article} " if article else ""
     return (
-        f"Okej perfekt, {article} {customer_name}. "
+        f"Okej perfekt, {article_prefix}{customer_name}. "
         "Har jag fått med allting?"
     )
 
