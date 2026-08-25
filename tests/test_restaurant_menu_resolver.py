@@ -426,7 +426,7 @@ class RestaurantMenuResolverTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     result["customer_message"],
-                    "Okej perfekt, en "
+                    "Okej perfekt, "
                     f"{protein.casefold()} med cashewnötter. "
                     "Har jag fått med allting?",
                 )
