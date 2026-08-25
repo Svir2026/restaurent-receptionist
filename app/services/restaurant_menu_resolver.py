@@ -32,12 +32,25 @@ YZ_MENU_RESOLVER_TOOL_NAME = YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME
 APPROVED_ALIAS_OVERRIDES = {
     "yz-thai-wok-sushi": {
         "yakinaki": "24. Yakiniku",
+        "kycklingpsett": "23. Satay Gai",
+        "kycklingspett med jordnötsås": "23. Satay Gai",
     },
 }
 
 APPROVED_VARIANT_FAMILIES = {
     "yz-thai-wok-sushi": {
-        "pad thai": "Vilket protein vill du ha?",
+        "pad thai": (
+            "pad thai",
+            "Vilket protein vill du ha?",
+        ),
+        "röd curry": (
+            "gaeng ped",
+            "Vilket protein vill du ha?",
+        ),
+        "gaeng ped": (
+            "gaeng ped",
+            "Vilket protein vill du ha?",
+        ),
     },
 }
 
@@ -436,11 +449,23 @@ def _variant_family_request(
     )
     utterance_words = tuple(_normalize_spoken_text(utterance).split())
 
-    for family_name, customer_message in configured.items():
-        normalized_family = _normalize_spoken_text(family_name)
-        family_words = tuple(normalized_family.split())
-        if not _contains_words(utterance_words, family_words):
+    for spoken_family_name, family_config in configured.items():
+        menu_family_name, customer_message = family_config
+        normalized_spoken_family = _normalize_spoken_text(
+            spoken_family_name
+        )
+        spoken_family_words = tuple(
+            normalized_spoken_family.split()
+        )
+        if not _contains_words(
+            utterance_words,
+            spoken_family_words,
+        ):
             continue
+
+        normalized_menu_family = _normalize_spoken_text(
+            menu_family_name
+        )
 
         variants: list[dict[str, Any]] = []
         variants_by_protein: dict[str, dict[str, Any]] = {}
@@ -452,10 +477,10 @@ def _variant_family_request(
             normalized_names.discard("")
             is_family_item = False
             for normalized_name in normalized_names:
-                if normalized_name == normalized_family:
+                if normalized_name == normalized_menu_family:
                     is_family_item = True
                     break
-                prefix = f"{normalized_family} "
+                prefix = f"{normalized_menu_family} "
                 if not normalized_name.startswith(prefix):
                     continue
                 suffix_words = normalized_name[len(prefix) :].split()
@@ -475,8 +500,8 @@ def _variant_family_request(
         selected_variants: list[dict[str, Any]] = []
         for protein, item in variants_by_protein.items():
             spoken_forms = (
-                (*family_words, protein),
-                (*family_words, "med", protein),
+                (*spoken_family_words, protein),
+                (*spoken_family_words, "med", protein),
             )
             if any(
                 _contains_words(utterance_words, form)
@@ -486,7 +511,7 @@ def _variant_family_request(
 
         if selected_variants:
             return (
-                normalized_family,
+                normalized_spoken_family,
                 customer_message,
                 variants,
                 selected_variants,
@@ -499,7 +524,12 @@ def _variant_family_request(
         if protein_was_supplied:
             continue
 
-        return normalized_family, customer_message, variants, []
+        return (
+            normalized_spoken_family,
+            customer_message,
+            variants,
+            [],
+        )
 
     return None
 
