@@ -302,11 +302,21 @@ class TelnyxOrderSmsTests(unittest.TestCase):
             ],
         )
 
-        self.assertIn("Thai Wok & Sushi", text)
-        self.assertIn("1x Pad Thai med kyckling", text)
-        self.assertIn("extra räkor", text)
-        self.assertIn("2x Yakiniku", text)
-        self.assertIn("v2_actual_order_123", text)
+        self.assertEqual(
+            text,
+            "Tack för din beställning hos Thai Wok & Sushi.\n"
+            "Din order är registrerad:\n"
+            "1x Pad Thai med kyckling och extra räkor\n"
+            "2x Yakiniku\n"
+            "Ordernummer: v2_actual_order_123.",
+        )
+        self.assertIn(
+            "1x Pad Thai med kyckling och extra räkor\n"
+            "2x Yakiniku",
+            text,
+        )
+        self.assertNotIn("(extra räkor)", text)
+        self.assertNotIn(", 2x Yakiniku", text)
         self.assertNotIn("145", text)
         self.assertNotIn("SEK", text)
         self.assertNotIn("total", text.lower())
