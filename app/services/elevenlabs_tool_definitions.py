@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 
 TESTKOK2_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME = (
     "svir_testkok2_calculate_order_total_v2"
@@ -12,6 +14,10 @@ TESTKOK2_CALCULATE_ORDER_TOTAL_V2_URL = (
     "v2/calculate-order-total"
 )
 SVIR_TOOL_TOKEN_HEADER_NAME = "X-Svir-Tool-Token"
+
+YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME = (
+    "svir_yz_test_strict_menu_resolver_v2"
+)
 
 YZ_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME = (
     "svir_yz_thai_wok_sushi_calculate_order_total_v2"
@@ -52,6 +58,84 @@ YZ_CANCEL_ORDER_V2_URL = (
     "https://web-production-f25f2.up.railway.app/"
     "v2/cancel-order"
 )
+
+
+def build_yz_test_menu_resolver_v2_tool_config(
+    tool_token: str,
+    resolver_url: str,
+) -> dict:
+    """Build the isolated YZ strict-menu resolver webhook config."""
+
+    if not isinstance(tool_token, str):
+        raise TypeError("tool_token must be a string")
+    normalized_tool_token = tool_token.strip()
+    if not normalized_tool_token:
+        raise ValueError("tool_token must not be empty")
+
+    if not isinstance(resolver_url, str):
+        raise TypeError("resolver_url must be a string")
+    normalized_url = resolver_url.strip()
+    parsed_url = urlparse(normalized_url)
+    if (
+        parsed_url.scheme != "https"
+        or not parsed_url.netloc
+        or parsed_url.username is not None
+        or parsed_url.password is not None
+        or parsed_url.query
+        or parsed_url.fragment
+        or parsed_url.path != "/v2/resolve-menu-items"
+    ):
+        raise ValueError(
+            "resolver_url must be an HTTPS URL ending exactly in "
+            "/v2/resolve-menu-items"
+        )
+
+    return {
+        "type": "webhook",
+        "name": YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME,
+        "description": (
+            "Call this before accepting every new product attempt. "
+            "The backend reads the latest raw customer utterance from "
+            "the conversation history and resolves only exact active "
+            "menu names or explicitly approved aliases. Never call it "
+            "for a protein, modifier, quantity, or yes/no answer. "
+            "Never infer, rewrite, or guess a product yourself."
+        ),
+        "response_timeout_secs": 10,
+        "api_schema": {
+            "url": normalized_url,
+            "method": "POST",
+            "path_params_schema": {},
+            "query_params_schema": None,
+            "request_body_schema": {
+                "type": "object",
+                "description": (
+                    "Raw ElevenLabs conversation history. No "
+                    "LLM-generated menu candidate is accepted."
+                ),
+                "properties": {
+                    "conversation_history": {
+                        "type": "string",
+                        "description": (
+                            "The complete raw conversation history "
+                            "provided by ElevenLabs."
+                        ),
+                        "dynamic_variable": (
+                            "system__conversation_history"
+                        ),
+                    }
+                },
+                "required": ["conversation_history"],
+                "additionalProperties": False,
+            },
+            "request_headers": {
+                SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
+            },
+        },
+        "dynamic_variables": {
+            "dynamic_variable_placeholders": {},
+        },
+    }
 
 
 def build_testkok2_calculate_order_total_v2_tool_config(
