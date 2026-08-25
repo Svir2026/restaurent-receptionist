@@ -421,6 +421,12 @@ class RestaurantMenuResolverTests(unittest.TestCase):
                     result["matches"][0]["official_name"],
                     f"Pad Med Mamuang – {protein}",
                 )
+                self.assertEqual(
+                    result["customer_message"],
+                    "Okej perfekt, en "
+                    f"{protein.casefold()} med cashewnötter. "
+                    "Har jag fått med allting?",
+                )
 
     def test_cashew_family_accepts_common_word_orders(self) -> None:
         menu = [
@@ -480,7 +486,11 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         result = self._resolve("En Pad Thai med kyckling")
         self.assertEqual(result["status"], "MATCH")
         self.assertEqual(result["action"], "continue")
-        self.assertIsNone(result["customer_message"])
+        self.assertEqual(
+            result["customer_message"],
+            "Okej perfekt, en Pad Thai med kyckling. "
+            "Har jag fått med allting?",
+        )
 
     def test_real_menu_dash_variant_matches_spoken_protein(self) -> None:
         menu = [
@@ -555,6 +565,11 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             result["matches"][0]["official_name"],
             "Pad Thai - Kyckling",
         )
+        self.assertEqual(
+            result["customer_message"],
+            "Okej perfekt, en Pad Thai med kyckling och extra räkor. "
+            "Har jag fått med allting?",
+        )
 
     def test_red_curry_protein_follow_up_resolves_pending_family(self) -> None:
         menu = [
@@ -580,6 +595,11 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(
             result["matches"][0]["official_name"],
             "Gaeng Ped – Kyckling",
+        )
+        self.assertEqual(
+            result["customer_message"],
+            "Okej perfekt, en röd curry med kyckling. "
+            "Har jag fått med allting?",
         )
 
     def test_spoken_chicken_and_shrimp_keeps_chicken_variant(self) -> None:
