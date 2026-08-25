@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from threading import Lock
 from time import monotonic
 import unicodedata
@@ -597,6 +598,76 @@ def _variant_family_request(
     return None
 
 
+def _single_match_customer_message(
+    matches: list[dict[str, Any]],
+    utterance: str,
+) -> str | None:
+    if len(matches) != 1:
+        return None
+
+    normalized_utterance = _normalize_spoken_text(utterance)
+    if any(
+        quantity in normalized_utterance.split()
+        for quantity in ("två", "tre", "fyra", "fem")
+    ):
+        return None
+
+    match = matches[0]
+    official_name = re.sub(
+        r"^\s*\d+\.\s*",
+        "",
+        str(match.get("official_name") or "").strip(),
+    )
+    family_parts = re.split(r"\s+[–-]\s+", official_name, maxsplit=1)
+    family = family_parts[0]
+    protein = family_parts[1] if len(family_parts) == 2 else None
+    normalized_family = _normalize_spoken_text(family)
+
+    if official_name == "Satay Gai":
+        customer_name = "kycklingspett med jordnötssås"
+        article = "ett"
+    elif protein and normalized_family == "pad med mamuang":
+        customer_name = f"{protein.casefold()} med cashewnötter"
+        article = "en"
+    elif protein and normalized_family == "gaeng ped" and (
+        "röd curry" in normalized_utterance
+    ):
+        customer_name = f"röd curry med {protein.casefold()}"
+        article = "en"
+    elif protein and normalized_family == "pad thai":
+        customer_name = f"Pad Thai med {protein.casefold()}"
+        article = "en"
+    else:
+        customer_name = re.sub(
+            r"^\s*\d+\.\s*",
+            "",
+            str(match.get("customer_display_name") or official_name).strip(),
+        )
+        article = "en"
+
+    normalized_protein = _normalize_spoken_text(protein or "")
+    extra_shrimp = (
+        normalized_protein != "räkor"
+        and "räkor" in normalized_utterance.split()
+        and (
+            "extra räkor" in normalized_utterance
+            or "lägg till räkor" in normalized_utterance
+            or (
+                normalized_protein
+                and f"{normalized_protein} och räkor"
+                in normalized_utterance
+            )
+        )
+    )
+    if extra_shrimp:
+        customer_name = f"{customer_name} och extra räkor"
+
+    return (
+        f"Okej perfekt, {article} {customer_name}. "
+        "Har jag fått med allting?"
+    )
+
+
 def resolve_restaurant_menu_items(
     *,
     context: ToolRestaurantContext,
@@ -626,17 +697,19 @@ def resolve_restaurant_menu_items(
     phrases = _build_phrases(menu_items, aliases)
     matches, _ = _find_matches(utterance, phrases)
 
+    family_utterance = utterance
     family_request = _variant_family_request(
         context,
-        utterance,
+        family_utterance,
         menu_items,
     )
     if family_request is None:
         pending_utterance = _pending_variant_utterance(entries)
         if pending_utterance is not None:
+            family_utterance = pending_utterance
             family_request = _variant_family_request(
                 context,
-                pending_utterance,
+                family_utterance,
                 menu_items,
             )
     if family_request is not None:
@@ -721,14 +794,25 @@ def resolve_restaurant_menu_items(
                     )
                 )
             resolved_matches.sort(key=lambda value: value[0])
+            match_values = [value[1] for value in resolved_matches]
+            customer_message = _single_match_customer_message(
+                match_values,
+                family_utterance,
+            )
             return {
                 "success": True,
                 "status": "MATCH",
                 "action": "continue",
                 "unresolved_attempt": 0,
                 "stop_recovery": False,
-                "customer_message": None,
-                "matches": [value[1] for value in resolved_matches],
+                "customer_message": customer_message,
+                "required_agent_action": (
+                    "say_customer_message_exactly"
+                    if customer_message
+                    else "accept_matches_without_variant_questions"
+                ),
+                "all_required_variants_resolved": True,
+                "matches": match_values,
             }
         return {
             "success": True,
@@ -756,31 +840,42 @@ def resolve_restaurant_menu_items(
         }
 
     if matches:
+        match_values = [
+            {
+                "menu_item_id": _parse_menu_item_id(
+                    phrase.item.get("id")
+                ),
+                "official_name": str(
+                    phrase.item.get("official_name") or ""
+                ).strip(),
+                "customer_display_name": str(
+                    phrase.item.get("customer_display_name")
+                    or phrase.item.get("official_name")
+                    or ""
+                ).strip(),
+                "matched_text": phrase.normalized_text,
+                "match_source": phrase.source,
+            }
+            for phrase in matches
+        ]
+        customer_message = _single_match_customer_message(
+            match_values,
+            utterance,
+        )
         return {
             "success": True,
             "status": "MATCH",
             "action": "continue",
             "unresolved_attempt": 0,
             "stop_recovery": False,
-            "customer_message": None,
-            "matches": [
-                {
-                    "menu_item_id": _parse_menu_item_id(
-                        phrase.item.get("id")
-                    ),
-                    "official_name": str(
-                        phrase.item.get("official_name") or ""
-                    ).strip(),
-                    "customer_display_name": str(
-                        phrase.item.get("customer_display_name")
-                        or phrase.item.get("official_name")
-                        or ""
-                    ).strip(),
-                    "matched_text": phrase.normalized_text,
-                    "match_source": phrase.source,
-                }
-                for phrase in matches
-            ],
+            "customer_message": customer_message,
+            "required_agent_action": (
+                "say_customer_message_exactly"
+                if customer_message
+                else "accept_matches_without_variant_questions"
+            ),
+            "all_required_variants_resolved": True,
+            "matches": match_values,
         }
 
     unresolved_attempt = min(

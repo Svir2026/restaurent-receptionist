@@ -94,15 +94,21 @@ def build_yz_test_menu_resolver_v2_tool_config(
         "type": "webhook",
         "name": YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME,
         "description": (
-            "Call this before accepting every new product attempt. "
+            "Call this before answering every new product attempt, "
+            "including unknown or invented names. Also call it when "
+            "the customer answers your immediately preceding protein "
+            "question; conversation history resolves the pending dish. "
             "The backend reads the latest raw customer utterance from "
             "the conversation history and resolves only exact active "
-            "menu names or explicitly approved aliases. Never call it "
-            "for a protein, modifier, quantity, or yes/no answer. "
+            "menu names or explicitly approved aliases. Do not call it "
+            "for a modifier-only, quantity-only, or yes/no answer. "
             "Never infer, rewrite, or guess a product yourself. If the "
             "result action is clarify, say only customer_message and "
-            "wait for the customer's required variant. If the result "
-            "is NO_MATCH, say customer_message exactly."
+            "wait for the customer's required variant. If status is "
+            "MATCH and required_agent_action is "
+            "say_customer_message_exactly, say customer_message exactly "
+            "without another protein question. If the result is "
+            "NO_MATCH, say customer_message exactly."
         ),
         "response_timeout_secs": 10,
         "api_schema": {
