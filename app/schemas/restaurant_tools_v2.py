@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import json
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import (
@@ -48,7 +48,7 @@ class ResolveMenuItemsV2Request(BaseModel):
         str_strip_whitespace=True,
     )
 
-    conversation_history: list[dict] | str = Field(...)
+    conversation_history: list[dict] | dict[str, Any] | str = Field(...)
 
     @model_validator(mode="after")
     def parse_conversation_history(
@@ -71,12 +71,22 @@ class ResolveMenuItemsV2Request(BaseModel):
                     "a JSON-stringified array"
                 ) from error
 
-            if not isinstance(parsed_value, list):
-                raise ValueError(
-                    "conversation_history must be a JSON array"
-                )
-
             self.conversation_history = parsed_value
+
+        if isinstance(self.conversation_history, dict):
+            entries = self.conversation_history.get("entries")
+            if not isinstance(entries, list):
+                raise ValueError(
+                    "conversation_history object must contain an "
+                    "entries array"
+                )
+            self.conversation_history = entries
+
+        if not isinstance(self.conversation_history, list):
+            raise ValueError(
+                "conversation_history must be an array or an object "
+                "with an entries array"
+            )
 
         if not self.conversation_history:
             raise ValueError(
