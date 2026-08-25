@@ -204,7 +204,6 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         ]
         satay_aliases = [
             *self.aliases,
-            _alias(SATAY_ID, "kycklingspett"),
         ]
         for utterance in (
             "Jag vill ha kycklingspett",

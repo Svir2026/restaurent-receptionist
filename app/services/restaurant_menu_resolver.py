@@ -32,6 +32,7 @@ YZ_MENU_RESOLVER_TOOL_NAME = YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME
 APPROVED_ALIAS_OVERRIDES = {
     "yz-thai-wok-sushi": {
         "yakinaki": "24. Yakiniku",
+        "kycklingspett": "23. Satay Gai",
         "kycklingpsett": "23. Satay Gai",
         "kycklingspett med jordnötsås": "23. Satay Gai",
     },
