@@ -27,6 +27,12 @@ logger = logging.getLogger(__name__)
 
 YZ_MENU_RESOLVER_TOOL_NAME = YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME
 
+APPROVED_ALIAS_OVERRIDES = {
+    "yz-thai-wok-sushi": {
+        "yakinaki": "24. Yakiniku",
+    },
+}
+
 RECOVERY_MESSAGES = {
     1: "Ursäkta, kan du upprepa vilken rätt du ville ha?",
     2: (
@@ -130,6 +136,44 @@ def _load_menu_item_aliases(
             continue
         aliases.append(value)
 
+    return aliases
+
+
+def _load_approved_alias_overrides(
+    context: ToolRestaurantContext,
+    menu_items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    configured = APPROVED_ALIAS_OVERRIDES.get(
+        context.restaurant_slug,
+        {},
+    )
+    aliases: list[dict[str, Any]] = []
+    for alias, official_name in configured.items():
+        matching_items = [
+            item
+            for item in menu_items
+            if str(item.get("official_name") or "").strip()
+            == official_name
+        ]
+        if len(matching_items) != 1:
+            raise RestaurantMenuResolverError(
+                code="APPROVED_ALIAS_TARGET_INVALID",
+                message=(
+                    "Ett godkänt alias saknar en entydig aktiv "
+                    "menyprodukt."
+                ),
+                status_code=502,
+            )
+        aliases.append(
+            {
+                "restaurant_id": str(context.restaurant_id),
+                "menu_item_id": str(matching_items[0]["id"]),
+                "alias": alias,
+                "normalized_alias": _normalize_spoken_text(alias),
+                "alias_type": "spoken",
+                "priority": 100,
+            }
+        )
     return aliases
 
 
@@ -335,6 +379,9 @@ def resolve_restaurant_menu_items(
     aliases = _load_menu_item_aliases(
         context.restaurant_id,
         active_item_ids,
+    )
+    aliases.extend(
+        _load_approved_alias_overrides(context, menu_items)
     )
     phrases = _build_phrases(menu_items, aliases)
     matches, _ = _find_matches(utterance, phrases)
