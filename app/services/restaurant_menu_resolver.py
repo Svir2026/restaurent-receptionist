@@ -52,6 +52,14 @@ APPROVED_VARIANT_FAMILIES = {
             "gaeng ped",
             "Vilket protein vill du ha?",
         ),
+        "cashewnötter": (
+            "pad med mamuang",
+            "Vilket protein vill du ha?",
+        ),
+        "cashew": (
+            "pad med mamuang",
+            "Vilket protein vill du ha?",
+        ),
     },
 }
 
@@ -271,6 +279,58 @@ def _latest_user_utterance(entries: list[dict[str, Any]]) -> str:
         message="Det senaste kundyttrandet kunde inte läsas.",
         status_code=422,
     )
+
+
+def _entry_message(entry: dict[str, Any]) -> str | None:
+    for field_name in ("message", "content", "text"):
+        value = entry.get(field_name)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _pending_variant_utterance(
+    entries: list[dict[str, Any]],
+) -> str | None:
+    latest_user_index: int | None = None
+    for index in range(len(entries) - 1, -1, -1):
+        role = str(entries[index].get("role") or "").casefold()
+        if role in {"user", "customer"}:
+            latest_user_index = index
+            break
+    if latest_user_index is None:
+        return None
+
+    latest_utterance = _entry_message(entries[latest_user_index])
+    if latest_utterance is None:
+        return None
+
+    agent_index: int | None = None
+    for index in range(latest_user_index - 1, -1, -1):
+        role = str(entries[index].get("role") or "").casefold()
+        if role in {"agent", "assistant"}:
+            agent_index = index
+            break
+        if role in {"user", "customer"}:
+            return None
+    if agent_index is None:
+        return None
+
+    agent_message = _entry_message(entries[agent_index])
+    if agent_message is None or "vilket protein" not in (
+        _normalize_spoken_text(agent_message)
+    ):
+        return None
+
+    for index in range(agent_index - 1, -1, -1):
+        role = str(entries[index].get("role") or "").casefold()
+        if role not in {"user", "customer"}:
+            continue
+        prior_utterance = _entry_message(entries[index])
+        if prior_utterance:
+            return f"{prior_utterance} {latest_utterance}"
+        return None
+    return None
 
 
 def _tool_result_status(result: dict[str, Any]) -> str | None:
@@ -503,6 +563,8 @@ def _variant_family_request(
             spoken_forms = (
                 (*spoken_family_words, protein),
                 (*spoken_family_words, "med", protein),
+                (protein, *spoken_family_words),
+                (protein, "med", *spoken_family_words),
             )
             if any(
                 _contains_words(utterance_words, form)
@@ -569,6 +631,14 @@ def resolve_restaurant_menu_items(
         utterance,
         menu_items,
     )
+    if family_request is None:
+        pending_utterance = _pending_variant_utterance(entries)
+        if pending_utterance is not None:
+            family_request = _variant_family_request(
+                context,
+                pending_utterance,
+                menu_items,
+            )
     if family_request is not None:
         (
             family_name,
