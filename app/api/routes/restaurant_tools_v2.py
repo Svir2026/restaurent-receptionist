@@ -9,7 +9,13 @@ from zoneinfo import ZoneInfo
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Header,
+    HTTPException,
+)
 
 from app.core.tool_auth import (
     ToolRestaurantContext,
@@ -48,6 +54,10 @@ from app.services.restaurant_order_status import (
 from app.services.restaurant_order_submitter import (
     RestaurantOrderSubmissionError,
     submit_restaurant_order,
+)
+from app.services.telnyx_order_sms import (
+    prepare_yz_order_confirmation_sms,
+    send_yz_order_confirmation_sms,
 )
 from app.services.restaurant_order_updater import (
     RestaurantOrderUpdateError,
@@ -683,6 +693,7 @@ def calculate_order_total_v2(
 )
 def submit_order_v2(
     payload: SubmitOrderV2Request,
+    background_tasks: BackgroundTasks,
     context: Annotated[
         ToolRestaurantContext,
         Depends(require_restaurant_tool_context),
@@ -714,9 +725,33 @@ def submit_order_v2(
             },
         ) from error
 
-    return SubmitOrderV2Response.model_validate(
-        result
-    )
+    sms_context = result.pop("_sms_context", None)
+    response = SubmitOrderV2Response.model_validate(result)
+
+    try:
+        if isinstance(sms_context, dict):
+            sms_candidate = prepare_yz_order_confirmation_sms(
+                success=response.success,
+                idempotent_replay=response.idempotent_replay,
+                restaurant_id=response.restaurant_id,
+                order_id=response.order_id,
+                customer_phone=sms_context.get("customer_phone"),
+                items=sms_context.get("items"),
+            )
+
+            if sms_candidate is not None:
+                background_tasks.add_task(
+                    send_yz_order_confirmation_sms,
+                    sms_candidate,
+                )
+    except Exception:
+        logger.warning(
+            "YZ_ORDER_SMS_FAILED order_id=%s "
+            "reason=unexpected_scheduling_error",
+            response.order_id,
+        )
+
+    return response
 
 
 @router.post(

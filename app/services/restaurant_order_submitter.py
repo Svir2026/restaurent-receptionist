@@ -408,6 +408,52 @@ def _normalize_result_items(
     return normalized_items
 
 
+def _build_sms_result_items(
+    *,
+    stored_items: object,
+    normalized_items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Keep only customer-visible fields from verified stored rows."""
+
+    if (
+        not isinstance(stored_items, list)
+        or len(stored_items) != len(normalized_items)
+    ):
+        return []
+
+    sms_items: list[dict[str, Any]] = []
+
+    try:
+        for stored_item, normalized_item in zip(
+            stored_items,
+            normalized_items,
+            strict=True,
+        ):
+            if not isinstance(stored_item, dict):
+                return []
+
+            notes = str(
+                stored_item.get("notes") or ""
+            ).strip()
+            sms_items.append(
+                {
+                    "official_name": (
+                        normalized_item["official_name"]
+                    ),
+                    "quantity": normalized_item["quantity"],
+                    "notes": notes or None,
+                }
+            )
+    except Exception:
+        logger.warning(
+            "YZ_ORDER_SMS_FAILED order_id=unknown "
+            "reason=invalid_stored_sms_items"
+        )
+        return []
+
+    return sms_items
+
+
 def submit_restaurant_order(
     *,
     context: ToolRestaurantContext,
@@ -627,6 +673,11 @@ def submit_restaurant_order(
             ),
         )
 
+    stored_result_items = result.get("result_items")
+    normalized_result_items = _normalize_result_items(
+        stored_result_items
+    )
+
     return {
         "success": True,
         "idempotent_replay": idempotent_replay,
@@ -653,7 +704,12 @@ def submit_restaurant_order(
         ),
         "currency": currency,
         "total": total,
-        "items": _normalize_result_items(
-            result.get("result_items")
-        ),
+        "items": normalized_result_items,
+        "_sms_context": {
+            "customer_phone": normalized_phone,
+            "items": _build_sms_result_items(
+                stored_items=stored_result_items,
+                normalized_items=normalized_result_items,
+            ),
+        },
     }
