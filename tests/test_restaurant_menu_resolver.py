@@ -36,6 +36,7 @@ YAKINIKU_ID = UUID("22222222-2222-4222-8222-222222222222")
 PAD_THAI_ID = UUID("33333333-3333-4333-8333-333333333333")
 COLA_ID = UUID("44444444-4444-4444-8444-444444444444")
 COLA_ZERO_ID = UUID("55555555-5555-4555-8555-555555555555")
+SATAY_ID = UUID("88888888-8888-4888-8888-888888888888")
 
 
 def _item(
@@ -87,6 +88,11 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         )
         self.menu = [
             _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(
+                SATAY_ID,
+                "23. Satay Gai",
+                "Kycklingspett med jordnötssås",
+            ),
             _item(
                 PAD_THAI_ID,
                 "Pad Thai - Kyckling",
@@ -192,6 +198,32 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             )
         self.assertEqual(result["status"], "NO_MATCH")
 
+    def test_chicken_skewer_aliases_resolve_only_to_satay_gai(self) -> None:
+        satay_menu = [
+            *self.menu,
+        ]
+        satay_aliases = [
+            *self.aliases,
+            _alias(SATAY_ID, "kycklingspett"),
+        ]
+        for utterance in (
+            "Jag vill ha kycklingspett",
+            "En kycklingspett med jordnötsås",
+            "Jag tar en kycklingpsett",
+        ):
+            with self.subTest(utterance=utterance):
+                result = self._resolve(
+                    utterance,
+                    menu=satay_menu,
+                    aliases=satay_aliases,
+                )
+                self.assertEqual(result["status"], "MATCH")
+                self.assertEqual(len(result["matches"]), 1)
+                self.assertEqual(
+                    result["matches"][0]["official_name"],
+                    "23. Satay Gai",
+                )
+
     def test_unknown_item_uses_three_step_recovery(self) -> None:
         expected = [
             (
@@ -273,6 +305,55 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(result["unresolved_attempt"], 0)
         self.assertEqual(result["action"], "clarify")
 
+    def test_bare_red_curry_asks_for_protein(self) -> None:
+        menu = [
+            _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(SATAY_ID, "23. Satay Gai"),
+            _item(
+                PAD_THAI_ID,
+                "Gaeng Ped – Kyckling",
+                "Gaeng Ped – Kyckling",
+            ),
+            _item(
+                COLA_ID,
+                "Gaeng Ped – Räkor",
+                "Gaeng Ped – Räkor",
+            ),
+        ]
+        result = self._resolve("Jag vill ha en röd curry", menu=menu)
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(result["action"], "clarify")
+        self.assertEqual(
+            result["customer_message"],
+            "Vilket protein vill du ha?",
+        )
+
+    def test_red_curry_with_protein_maps_to_gaeng_ped(self) -> None:
+        menu = [
+            _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(SATAY_ID, "23. Satay Gai"),
+            _item(
+                PAD_THAI_ID,
+                "Gaeng Ped – Kyckling",
+                "Gaeng Ped – Kyckling",
+            ),
+            _item(
+                COLA_ID,
+                "Gaeng Ped – Räkor",
+                "Gaeng Ped – Räkor",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha en röd curry med kyckling",
+            menu=menu,
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(len(result["matches"]), 1)
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Gaeng Ped – Kyckling",
+        )
+
     def test_explicit_pad_thai_protein_continues_normally(self) -> None:
         result = self._resolve("En Pad Thai med kyckling")
         self.assertEqual(result["status"], "MATCH")
@@ -282,6 +363,7 @@ class RestaurantMenuResolverTests(unittest.TestCase):
     def test_real_menu_dash_variant_matches_spoken_protein(self) -> None:
         menu = [
             _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(SATAY_ID, "23. Satay Gai"),
             _item(
                 PAD_THAI_ID,
                 "Pad Thai – Kyckling",
@@ -302,6 +384,7 @@ class RestaurantMenuResolverTests(unittest.TestCase):
     def test_extra_protein_modifier_does_not_replace_base_variant(self) -> None:
         menu = [
             _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(SATAY_ID, "23. Satay Gai"),
             _item(
                 PAD_THAI_ID,
                 "Pad Thai – Kyckling",
@@ -327,6 +410,7 @@ class RestaurantMenuResolverTests(unittest.TestCase):
     def test_spoken_chicken_and_shrimp_keeps_chicken_variant(self) -> None:
         menu = [
             _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(SATAY_ID, "23. Satay Gai"),
             _item(
                 PAD_THAI_ID,
                 "Pad Thai – Kyckling",
