@@ -19,7 +19,10 @@ os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
 os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-service-key")
 
 from app.core.tool_auth import ToolRestaurantContext
-from app.schemas.restaurant_tools_v2 import ResolveMenuItemsV2Request
+from app.schemas.restaurant_tools_v2 import (
+    ResolveMenuItemsV2Request,
+    ResolveMenuItemsV2Response,
+)
 from app.services.restaurant_menu_resolver import (
     YZ_MENU_RESOLVER_TOOL_NAME,
     _clear_resolver_catalog_cache,
@@ -484,8 +487,14 @@ class RestaurantMenuResolverTests(unittest.TestCase):
 
     def test_explicit_pad_thai_protein_continues_normally(self) -> None:
         result = self._resolve("En Pad Thai med kyckling")
+        validated = ResolveMenuItemsV2Response.model_validate(result)
         self.assertEqual(result["status"], "MATCH")
         self.assertEqual(result["action"], "continue")
+        self.assertEqual(
+            validated.required_agent_action,
+            "say_customer_message_exactly",
+        )
+        self.assertTrue(validated.all_required_variants_resolved)
         self.assertEqual(
             result["customer_message"],
             "Okej perfekt, en Pad Thai med kyckling. "
