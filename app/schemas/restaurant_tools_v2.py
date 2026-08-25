@@ -115,6 +115,11 @@ class ResolveMenuItemsV2Response(BaseModel):
     unresolved_attempt: int = Field(ge=0, le=3)
     stop_recovery: bool
     customer_message: str | None = None
+    required_agent_action: Literal[
+        "say_customer_message_exactly",
+        "accept_matches_without_variant_questions",
+    ] | None = None
+    all_required_variants_resolved: bool | None = None
     matches: list[ResolveMenuItemsV2Match]
 
 
