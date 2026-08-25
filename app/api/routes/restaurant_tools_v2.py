@@ -28,6 +28,8 @@ from app.schemas.restaurant_tools_v2 import (
     CancelOrderV2Response,
     CheckOrderStatusV2Request,
     CheckOrderStatusV2Response,
+    ResolveMenuItemsV2Request,
+    ResolveMenuItemsV2Response,
     SubmitOrderV2Request,
     SubmitOrderV2Response,
     UpdateOrderV2Request,
@@ -36,6 +38,10 @@ from app.schemas.restaurant_tools_v2 import (
 from app.services.restaurant_menu_pricing import (
     RestaurantMenuPricingError,
     calculate_restaurant_menu_total,
+)
+from app.services.restaurant_menu_resolver import (
+    RestaurantMenuResolverError,
+    resolve_restaurant_menu_items,
 )
 from app.services.restaurant_order_canceller import (
     RestaurantOrderCancellationError,
@@ -578,6 +584,36 @@ def yz_thai_wok_sushi_conversation_initiation(
             tz=YZ_TIMEZONE
         )
     )
+
+
+@router.post(
+    "/resolve-menu-items",
+    response_model=ResolveMenuItemsV2Response,
+)
+def resolve_menu_items_v2(
+    payload: ResolveMenuItemsV2Request,
+    context: Annotated[
+        ToolRestaurantContext,
+        Depends(require_restaurant_tool_context),
+    ],
+) -> ResolveMenuItemsV2Response:
+    """Resolve raw caller speech against canonical names and aliases."""
+
+    try:
+        result = resolve_restaurant_menu_items(
+            context=context,
+            request=payload,
+        )
+    except RestaurantMenuResolverError as error:
+        raise HTTPException(
+            status_code=error.status_code,
+            detail={
+                "code": error.code,
+                "message": error.message,
+            },
+        ) from error
+
+    return ResolveMenuItemsV2Response.model_validate(result)
 
 
 @router.post(

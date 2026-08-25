@@ -15,6 +15,98 @@ from pydantic import (
 
 OrderTypeV2 = Literal["dine_in", "takeaway"]
 
+MenuResolutionStatus = Literal[
+    "MATCH",
+    "NO_MATCH",
+    "AMBIGUOUS",
+]
+
+MenuResolutionAction = Literal[
+    "continue",
+    "repeat",
+    "not_on_menu",
+    "technical_stop",
+    "clarify",
+]
+
+MenuResolutionSource = Literal[
+    "canonical",
+    "alias",
+]
+
+
+class ResolveMenuItemsV2Request(BaseModel):
+    """
+    Resolve products from the raw ElevenLabs conversation history.
+
+    No candidate product name is accepted from the LLM. The backend
+    extracts the latest user utterance and matches it deterministically.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+        str_strip_whitespace=True,
+    )
+
+    conversation_history: list[dict] | str = Field(...)
+
+    @model_validator(mode="after")
+    def parse_conversation_history(
+        self,
+    ) -> "ResolveMenuItemsV2Request":
+        if isinstance(self.conversation_history, str):
+            raw_value = self.conversation_history.strip()
+
+            if not raw_value:
+                raise ValueError(
+                    "conversation_history must not be empty"
+                )
+
+            try:
+                parsed_value = json.loads(raw_value)
+
+            except json.JSONDecodeError as error:
+                raise ValueError(
+                    "conversation_history must be a JSON array or "
+                    "a JSON-stringified array"
+                ) from error
+
+            if not isinstance(parsed_value, list):
+                raise ValueError(
+                    "conversation_history must be a JSON array"
+                )
+
+            self.conversation_history = parsed_value
+
+        if not self.conversation_history:
+            raise ValueError(
+                "conversation_history must contain at least one entry"
+            )
+
+        return self
+
+
+class ResolveMenuItemsV2Match(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    menu_item_id: UUID
+    official_name: str = Field(min_length=1)
+    customer_display_name: str = Field(min_length=1)
+    matched_text: str = Field(min_length=1)
+    match_source: MenuResolutionSource
+
+
+class ResolveMenuItemsV2Response(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    success: bool
+    status: MenuResolutionStatus
+    action: MenuResolutionAction
+    unresolved_attempt: int = Field(ge=0, le=3)
+    stop_recovery: bool
+    customer_message: str | None = None
+    matches: list[ResolveMenuItemsV2Match]
+
 
 class CalculateOrderTotalV2ItemRequest(BaseModel):
     """
