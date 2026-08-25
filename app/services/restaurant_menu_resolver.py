@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
+from threading import Lock
+from time import monotonic
 import unicodedata
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -32,6 +34,29 @@ APPROVED_ALIAS_OVERRIDES = {
         "yakinaki": "24. Yakiniku",
     },
 }
+
+APPROVED_VARIANT_FAMILIES = {
+    "yz-thai-wok-sushi": {
+        "pad thai": "Vilket protein vill du ha?",
+    },
+}
+
+VERIFIED_PROTEIN_VARIANTS = {
+    "anka",
+    "biff",
+    "bläckfisk",
+    "fläsk",
+    "kyckling",
+    "räkor",
+    "tofu",
+}
+
+RESOLVER_CATALOG_CACHE_TTL_SECONDS = 30.0
+_catalog_cache: dict[
+    str,
+    tuple[float, list[dict[str, Any]], list[dict[str, Any]]],
+] = {}
+_catalog_cache_lock = Lock()
 
 RECOVERY_MESSAGES = {
     1: "Ursäkta, kan du upprepa vilken rätt du ville ha?",
@@ -177,6 +202,37 @@ def _load_approved_alias_overrides(
     return aliases
 
 
+def _clear_resolver_catalog_cache() -> None:
+    with _catalog_cache_lock:
+        _catalog_cache.clear()
+
+
+def _load_resolver_catalog(
+    context: ToolRestaurantContext,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    cache_key = str(context.restaurant_id)
+    now = monotonic()
+    with _catalog_cache_lock:
+        cached = _catalog_cache.get(cache_key)
+        if cached is not None and now - cached[0] < (
+            RESOLVER_CATALOG_CACHE_TTL_SECONDS
+        ):
+            return cached[1], list(cached[2])
+
+    menu_items = _load_active_menu_items(context.restaurant_id)
+    active_item_ids = {
+        str(_parse_menu_item_id(item.get("id")))
+        for item in menu_items
+    }
+    aliases = _load_menu_item_aliases(
+        context.restaurant_id,
+        active_item_ids,
+    )
+    with _catalog_cache_lock:
+        _catalog_cache[cache_key] = (now, menu_items, list(aliases))
+    return menu_items, aliases
+
+
 def _history_entries(request: ResolveMenuItemsV2Request) -> list[dict[str, Any]]:
     return [
         entry
@@ -227,7 +283,11 @@ def _tool_result_status(result: dict[str, Any]) -> str | None:
         return None
 
     status = str(value.get("status") or "").upper()
-    return status if status in {"MATCH", "NO_MATCH"} else None
+    return (
+        status
+        if status in {"MATCH", "NO_MATCH", "AMBIGUOUS"}
+        else None
+    )
 
 
 def _previous_unresolved_attempts(entries: list[dict[str, Any]]) -> int:
@@ -241,7 +301,7 @@ def _previous_unresolved_attempts(entries: list[dict[str, Any]]) -> int:
         )
         for result in results:
             status = _tool_result_status(result)
-            if status == "MATCH":
+            if status in {"MATCH", "AMBIGUOUS"}:
                 attempts = 0
             elif status == "NO_MATCH":
                 attempts = min(attempts + 1, 3)
@@ -349,6 +409,73 @@ def _find_matches(
     return unique, False
 
 
+def _contains_words(
+    words: tuple[str, ...],
+    phrase_words: tuple[str, ...],
+) -> bool:
+    width = len(phrase_words)
+    return any(
+        words[start : start + width] == phrase_words
+        for start in range(0, len(words) - width + 1)
+    )
+
+
+def _variant_family_request(
+    context: ToolRestaurantContext,
+    utterance: str,
+    menu_items: list[dict[str, Any]],
+) -> tuple[str, str, list[dict[str, Any]]] | None:
+    configured = APPROVED_VARIANT_FAMILIES.get(
+        context.restaurant_slug,
+        {},
+    )
+    utterance_words = tuple(_normalize_spoken_text(utterance).split())
+
+    for family_name, customer_message in configured.items():
+        normalized_family = _normalize_spoken_text(family_name)
+        family_words = tuple(normalized_family.split())
+        if not _contains_words(utterance_words, family_words):
+            continue
+
+        variants: list[dict[str, Any]] = []
+        for item in menu_items:
+            normalized_names = {
+                _normalize_spoken_text(item.get(field_name))
+                for field_name in MENU_ITEM_NAME_FIELDS
+            }
+            normalized_names.discard("")
+            is_family_item = False
+            for normalized_name in normalized_names:
+                if normalized_name == normalized_family:
+                    is_family_item = True
+                    break
+                prefix = f"{normalized_family} "
+                if not normalized_name.startswith(prefix):
+                    continue
+                suffix_words = normalized_name[len(prefix) :].split()
+                if suffix_words[:1] == ["med"]:
+                    suffix_words = suffix_words[1:]
+                if " ".join(suffix_words) in VERIFIED_PROTEIN_VARIANTS:
+                    is_family_item = True
+                    break
+            if is_family_item:
+                variants.append(item)
+
+        if not variants:
+            continue
+
+        protein_was_supplied = any(
+            protein in utterance_words
+            for protein in VERIFIED_PROTEIN_VARIANTS
+        )
+        if protein_was_supplied:
+            continue
+
+        return normalized_family, customer_message, variants
+
+    return None
+
+
 def resolve_restaurant_menu_items(
     *,
     context: ToolRestaurantContext,
@@ -357,7 +484,7 @@ def resolve_restaurant_menu_items(
     entries = _history_entries(request)
     utterance = _latest_user_utterance(entries)
     try:
-        menu_items = _load_active_menu_items(context.restaurant_id)
+        menu_items, aliases = _load_resolver_catalog(context)
     except RestaurantMenuPricingError as error:
         raise RestaurantMenuResolverError(
             code=error.code,
@@ -372,19 +499,43 @@ def resolve_restaurant_menu_items(
             status_code=422,
         )
 
-    active_item_ids = {
-        str(_parse_menu_item_id(item.get("id")))
-        for item in menu_items
-    }
-    aliases = _load_menu_item_aliases(
-        context.restaurant_id,
-        active_item_ids,
-    )
     aliases.extend(
         _load_approved_alias_overrides(context, menu_items)
     )
     phrases = _build_phrases(menu_items, aliases)
     matches, _ = _find_matches(utterance, phrases)
+
+    family_request = _variant_family_request(
+        context,
+        utterance,
+        menu_items,
+    )
+    if family_request is not None:
+        family_name, customer_message, variants = family_request
+        return {
+            "success": True,
+            "status": "AMBIGUOUS",
+            "action": "clarify",
+            "unresolved_attempt": 0,
+            "stop_recovery": False,
+            "customer_message": customer_message,
+            "matches": [
+                {
+                    "menu_item_id": _parse_menu_item_id(item.get("id")),
+                    "official_name": str(
+                        item.get("official_name") or ""
+                    ).strip(),
+                    "customer_display_name": str(
+                        item.get("customer_display_name")
+                        or item.get("official_name")
+                        or ""
+                    ).strip(),
+                    "matched_text": family_name,
+                    "match_source": "canonical",
+                }
+                for item in variants
+            ],
+        }
 
     if matches:
         return {

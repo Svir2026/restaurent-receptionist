@@ -22,6 +22,7 @@ from app.core.tool_auth import ToolRestaurantContext
 from app.schemas.restaurant_tools_v2 import ResolveMenuItemsV2Request
 from app.services.restaurant_menu_resolver import (
     YZ_MENU_RESOLVER_TOOL_NAME,
+    _clear_resolver_catalog_cache,
     resolve_restaurant_menu_items,
 )
 from app.services.elevenlabs_tool_definitions import (
@@ -71,6 +72,7 @@ def _alias(
 
 class RestaurantMenuResolverTests(unittest.TestCase):
     def setUp(self) -> None:
+        _clear_resolver_catalog_cache()
         self.context = ToolRestaurantContext(
             credential_id=UUID(
                 "77777777-7777-4777-8777-777777777777"
@@ -95,6 +97,9 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             _alias(YAKINIKU_ID, "yakisoba"),
             _alias(YAKINIKU_ID, "yakinaki"),
         ]
+
+    def tearDown(self) -> None:
+        _clear_resolver_catalog_cache()
 
     @staticmethod
     def _request(
@@ -248,6 +253,65 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(result["unresolved_attempt"], 0)
         self.assertEqual(result["action"], "continue")
 
+    def test_bare_pad_thai_asks_for_protein_without_fallback(self) -> None:
+        result = self._resolve("Jag vill ha en Pad Thai")
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(result["action"], "clarify")
+        self.assertEqual(result["unresolved_attempt"], 0)
+        self.assertFalse(result["stop_recovery"])
+        self.assertEqual(
+            result["customer_message"],
+            "Vilket protein vill du ha?",
+        )
+
+    def test_bare_pad_thai_resets_previous_fallback_attempts(self) -> None:
+        result = self._resolve(
+            "Okej, då tar jag en Pad Thai",
+            ["NO_MATCH", "NO_MATCH"],
+        )
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(result["unresolved_attempt"], 0)
+        self.assertEqual(result["action"], "clarify")
+
+    def test_explicit_pad_thai_protein_continues_normally(self) -> None:
+        result = self._resolve("En Pad Thai med kyckling")
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(result["action"], "continue")
+        self.assertIsNone(result["customer_message"])
+
+    def test_large_order_with_bare_pad_thai_requests_protein(self) -> None:
+        result = self._resolve("En Pad Thai och en Yakiniku")
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(result["action"], "clarify")
+        self.assertEqual(
+            result["customer_message"],
+            "Vilket protein vill du ha?",
+        )
+
+    def test_catalog_is_reused_during_one_conversation_window(self) -> None:
+        with patch(
+            "app.services.restaurant_menu_resolver."
+            "_load_active_menu_items",
+            return_value=self.menu,
+        ) as load_menu, patch(
+            "app.services.restaurant_menu_resolver."
+            "_load_menu_item_aliases",
+            return_value=self.aliases,
+        ) as load_aliases:
+            first = resolve_restaurant_menu_items(
+                context=self.context,
+                request=self._request("En Yakiniku"),
+            )
+            second = resolve_restaurant_menu_items(
+                context=self.context,
+                request=self._request("En Pad Thai med kyckling"),
+            )
+
+        self.assertEqual(first["status"], "MATCH")
+        self.assertEqual(second["status"], "MATCH")
+        load_menu.assert_called_once()
+        load_aliases.assert_called_once()
+
     def test_unknown_similar_word_is_not_fuzzy_matched(self) -> None:
         result = self._resolve("Jag tar en yakunaka")
         self.assertEqual(result["status"], "NO_MATCH")
@@ -377,6 +441,10 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             "system__conversation_history",
         )
         self.assertFalse(body["additionalProperties"])
+        self.assertIn(
+            "If the result action is clarify",
+            config["description"],
+        )
 
     def test_elevenlabs_tool_rejects_non_https_or_wrong_path(self) -> None:
         for url in (
