@@ -229,6 +229,8 @@ class TelnyxOrderSmsTests(unittest.TestCase):
             ],
         )
         self.assertIsNotNone(candidate)
+        self.assertEqual(candidate.order_id, "v2_actual_order_123")
+        self.assertNotIn("v2_actual_order_123", candidate.text)
 
         with patch(
             "app.services.telnyx_order_sms.urllib_request.urlopen",
@@ -287,7 +289,7 @@ class TelnyxOrderSmsTests(unittest.TestCase):
             order_id="v2_actual_order_123",
             items=[
                 {
-                    "official_name": "Pad Thai med kyckling",
+                    "official_name": "Pad Thai - Kyckling",
                     "quantity": 1,
                     "notes": "extra räkor",
                     "unit_price": 145,
@@ -295,7 +297,7 @@ class TelnyxOrderSmsTests(unittest.TestCase):
                     "currency": "SEK",
                 },
                 {
-                    "official_name": "Yakiniku",
+                    "official_name": "24. Yakiniku",
                     "quantity": 2,
                     "notes": None,
                 },
@@ -308,7 +310,7 @@ class TelnyxOrderSmsTests(unittest.TestCase):
             "Din order är registrerad:\n"
             "1x Pad Thai med kyckling och extra räkor\n"
             "2x Yakiniku\n"
-            "Ordernummer: v2_actual_order_123.",
+            "Välkommen!",
         )
         self.assertIn(
             "1x Pad Thai med kyckling och extra räkor\n"
@@ -317,10 +319,27 @@ class TelnyxOrderSmsTests(unittest.TestCase):
         )
         self.assertNotIn("(extra räkor)", text)
         self.assertNotIn(", 2x Yakiniku", text)
+        self.assertNotIn("24. ", text)
+        self.assertNotIn("v2_actual_order_123", text)
+        self.assertEqual(text.splitlines()[-1], "Välkommen!")
         self.assertNotIn("145", text)
         self.assertNotIn("SEK", text)
         self.assertNotIn("total", text.lower())
         self.assertNotIn("pris", text.lower())
+
+    def test_sms_preserves_hyphenated_non_protein_name(self) -> None:
+        text = build_yz_order_confirmation_text(
+            order_id="v2_actual_order_123",
+            items=[
+                {
+                    "official_name": "Sweet-and-sour Special",
+                    "quantity": 1,
+                    "notes": None,
+                }
+            ],
+        )
+
+        self.assertIn("1x Sweet-and-sour Special", text)
 
     def test_retry_pair_schedules_only_once(self) -> None:
         first_response, first_tasks = self._call_route(self._result())

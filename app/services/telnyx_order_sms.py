@@ -24,6 +24,19 @@ TELNYX_TIMEOUT_SECONDS = 5.0
 _SWEDISH_MOBILE_E164_PATTERN = re.compile(r"^\+467\d{8}$")
 _SAFE_ORDER_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _SAFE_TELNYX_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+_LEADING_MENU_NUMBER_PATTERN = re.compile(r"^\d+\.\s+")
+_PROTEIN_VARIANT_PATTERN = re.compile(
+    r"^(?P<dish>.+?)\s+[-\u2013\u2014]\s+(?P<variant>[^-\u2013\u2014]+)$"
+)
+_CUSTOMER_PROTEIN_NAMES = {
+    "kyckling": "kyckling",
+    "räkor": "räkor",
+    "biff": "biff",
+    "fläsk": "fläsk",
+    "tofu": "tofu",
+    "lax": "lax",
+    "entrecôte": "entrecôte",
+}
 _UUID_PATTERN = re.compile(
     r"\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-"
     r"[89ab][0-9a-f]{3}-[0-9a-f]{12}\b",
@@ -97,7 +110,19 @@ def _clean_item_name(value: object) -> str | None:
     normalized = " ".join(value.split())
     if not normalized or len(normalized) > 200:
         return None
-    return normalized
+    display_name = _LEADING_MENU_NUMBER_PATTERN.sub("", normalized)
+    variant_match = _PROTEIN_VARIANT_PATTERN.fullmatch(display_name)
+
+    if variant_match is not None:
+        variant = variant_match.group("variant").strip()
+        customer_variant = _CUSTOMER_PROTEIN_NAMES.get(
+            variant.casefold()
+        )
+        if customer_variant is not None:
+            dish = variant_match.group("dish").strip()
+            display_name = f"{dish} med {customer_variant}"
+
+    return display_name
 
 
 def _clean_customer_note(value: object) -> str | None:
@@ -155,7 +180,7 @@ def build_yz_order_confirmation_text(
     return (
         f"Tack för din beställning hos {YZ_SMS_RESTAURANT_NAME}.\n"
         f"Din order är registrerad:\n{item_summary}\n"
-        f"Ordernummer: {normalized_order_id}."
+        "Välkommen!"
     )
 
 
