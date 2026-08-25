@@ -147,14 +147,14 @@ def build_yz_order_confirmation_text(
         item_text = f"{quantity}x {name}"
         note = _clean_customer_note(item.get("notes"))
         if note:
-            item_text = f"{item_text} ({note})"
+            item_text = f"{item_text} och {note}"
 
         item_texts.append(item_text)
 
-    item_summary = ", ".join(item_texts)
+    item_summary = "\n".join(item_texts)
     return (
-        f"Tack för din beställning hos {YZ_SMS_RESTAURANT_NAME}. "
-        f"Din order är registrerad: {item_summary}. "
+        f"Tack för din beställning hos {YZ_SMS_RESTAURANT_NAME}.\n"
+        f"Din order är registrerad:\n{item_summary}\n"
         f"Ordernummer: {normalized_order_id}."
     )
 
