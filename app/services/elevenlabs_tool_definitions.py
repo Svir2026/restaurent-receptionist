@@ -99,7 +99,10 @@ def build_yz_test_menu_resolver_v2_tool_config(
             "the conversation history and resolves only exact active "
             "menu names or explicitly approved aliases. Never call it "
             "for a protein, modifier, quantity, or yes/no answer. "
-            "Never infer, rewrite, or guess a product yourself."
+            "Never infer, rewrite, or guess a product yourself. If the "
+            "result action is clarify, say only customer_message and "
+            "wait for the customer's required variant. If the result "
+            "is NO_MATCH, say customer_message exactly."
         ),
         "response_timeout_secs": 10,
         "api_schema": {
