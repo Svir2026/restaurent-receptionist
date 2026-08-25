@@ -279,6 +279,76 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(result["action"], "continue")
         self.assertIsNone(result["customer_message"])
 
+    def test_real_menu_dash_variant_matches_spoken_protein(self) -> None:
+        menu = [
+            _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(
+                PAD_THAI_ID,
+                "Pad Thai – Kyckling",
+                "Pad Thai – Kyckling",
+            ),
+        ]
+        result = self._resolve(
+            "En Pad Thai med kyckling",
+            menu=menu,
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(result["action"], "continue")
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Pad Thai – Kyckling",
+        )
+
+    def test_extra_protein_modifier_does_not_replace_base_variant(self) -> None:
+        menu = [
+            _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(
+                PAD_THAI_ID,
+                "Pad Thai – Kyckling",
+                "Pad Thai – Kyckling",
+            ),
+            _item(
+                COLA_ID,
+                "Pad Thai – Räkor",
+                "Pad Thai – Räkor",
+            ),
+        ]
+        result = self._resolve(
+            "En Pad Thai med kyckling och extra räkor",
+            menu=menu,
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(len(result["matches"]), 1)
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Pad Thai – Kyckling",
+        )
+
+    def test_spoken_chicken_and_shrimp_keeps_chicken_variant(self) -> None:
+        menu = [
+            _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(
+                PAD_THAI_ID,
+                "Pad Thai – Kyckling",
+                "Pad Thai – Kyckling",
+            ),
+            _item(
+                COLA_ID,
+                "Pad Thai – Räkor",
+                "Pad Thai – Räkor",
+            ),
+        ]
+        result = self._resolve(
+            "Hej, jag vill ha en Pad Thai med kyckling och räkor",
+            menu=menu,
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(len(result["matches"]), 1)
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Pad Thai – Kyckling",
+        )
+
     def test_large_order_with_bare_pad_thai_requests_protein(self) -> None:
         result = self._resolve("En Pad Thai och en Yakiniku")
         self.assertEqual(result["status"], "AMBIGUOUS")
