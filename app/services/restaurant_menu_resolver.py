@@ -424,7 +424,12 @@ def _variant_family_request(
     context: ToolRestaurantContext,
     utterance: str,
     menu_items: list[dict[str, Any]],
-) -> tuple[str, str, list[dict[str, Any]]] | None:
+) -> tuple[
+    str,
+    str,
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+] | None:
     configured = APPROVED_VARIANT_FAMILIES.get(
         context.restaurant_slug,
         {},
@@ -438,6 +443,7 @@ def _variant_family_request(
             continue
 
         variants: list[dict[str, Any]] = []
+        variants_by_protein: dict[str, dict[str, Any]] = {}
         for item in menu_items:
             normalized_names = {
                 _normalize_spoken_text(item.get(field_name))
@@ -455,8 +461,10 @@ def _variant_family_request(
                 suffix_words = normalized_name[len(prefix) :].split()
                 if suffix_words[:1] == ["med"]:
                     suffix_words = suffix_words[1:]
-                if " ".join(suffix_words) in VERIFIED_PROTEIN_VARIANTS:
+                protein = " ".join(suffix_words)
+                if protein in VERIFIED_PROTEIN_VARIANTS:
                     is_family_item = True
+                    variants_by_protein[protein] = item
                     break
             if is_family_item:
                 variants.append(item)
@@ -464,14 +472,34 @@ def _variant_family_request(
         if not variants:
             continue
 
+        selected_variants: list[dict[str, Any]] = []
+        for protein, item in variants_by_protein.items():
+            spoken_forms = (
+                (*family_words, protein),
+                (*family_words, "med", protein),
+            )
+            if any(
+                _contains_words(utterance_words, form)
+                for form in spoken_forms
+            ):
+                selected_variants.append(item)
+
+        if selected_variants:
+            return (
+                normalized_family,
+                customer_message,
+                variants,
+                selected_variants,
+            )
+
         protein_was_supplied = any(
             protein in utterance_words
-            for protein in VERIFIED_PROTEIN_VARIANTS
+            for protein in variants_by_protein
         )
         if protein_was_supplied:
             continue
 
-        return normalized_family, customer_message, variants
+        return normalized_family, customer_message, variants, []
 
     return None
 
@@ -511,7 +539,96 @@ def resolve_restaurant_menu_items(
         menu_items,
     )
     if family_request is not None:
-        family_name, customer_message, variants = family_request
+        (
+            family_name,
+            customer_message,
+            variants,
+            selected_variants,
+        ) = family_request
+        if selected_variants:
+            resolved_matches: list[tuple[int, dict[str, Any]]] = []
+            utterance_words = tuple(
+                _normalize_spoken_text(utterance).split()
+            )
+
+            def match_position(phrase_words: tuple[str, ...]) -> int:
+                width = len(phrase_words)
+                for start in range(
+                    0,
+                    len(utterance_words) - width + 1,
+                ):
+                    if (
+                        utterance_words[start : start + width]
+                        == phrase_words
+                    ):
+                        return start
+                return len(utterance_words)
+
+            seen_item_ids: set[str] = set()
+            for phrase in matches:
+                item_id = str(_parse_menu_item_id(phrase.item.get("id")))
+                if item_id in seen_item_ids:
+                    continue
+                seen_item_ids.add(item_id)
+                resolved_matches.append(
+                    (
+                        match_position(phrase.words),
+                        {
+                            "menu_item_id": _parse_menu_item_id(
+                                phrase.item.get("id")
+                            ),
+                            "official_name": str(
+                                phrase.item.get("official_name") or ""
+                            ).strip(),
+                            "customer_display_name": str(
+                                phrase.item.get("customer_display_name")
+                                or phrase.item.get("official_name")
+                                or ""
+                            ).strip(),
+                            "matched_text": phrase.normalized_text,
+                            "match_source": phrase.source,
+                        },
+                    )
+                )
+
+            family_position = match_position(
+                tuple(family_name.split())
+            )
+            for item in selected_variants:
+                item_id = str(_parse_menu_item_id(item.get("id")))
+                if item_id in seen_item_ids:
+                    continue
+                seen_item_ids.add(item_id)
+                resolved_matches.append(
+                    (
+                        family_position,
+                        {
+                            "menu_item_id": _parse_menu_item_id(
+                                item.get("id")
+                            ),
+                            "official_name": str(
+                                item.get("official_name") or ""
+                            ).strip(),
+                            "customer_display_name": str(
+                                item.get("customer_display_name")
+                                or item.get("official_name")
+                                or ""
+                            ).strip(),
+                            "matched_text": family_name,
+                            "match_source": "canonical",
+                        },
+                    )
+                )
+            resolved_matches.sort(key=lambda value: value[0])
+            return {
+                "success": True,
+                "status": "MATCH",
+                "action": "continue",
+                "unresolved_attempt": 0,
+                "stop_recovery": False,
+                "customer_message": None,
+                "matches": [value[1] for value in resolved_matches],
+            }
         return {
             "success": True,
             "status": "AMBIGUOUS",
