@@ -253,7 +253,7 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             [YAKINIKU_ID, PAD_THAI_ID],
         )
 
-    def test_one_alias_cannot_silently_map_to_two_items(self) -> None:
+    def test_one_alias_for_two_items_enters_recovery(self) -> None:
         aliases = [
             _alias(YAKINIKU_ID, "specialen"),
             _alias(PAD_THAI_ID, "specialen"),
@@ -262,8 +262,8 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             "Jag tar specialen",
             aliases=aliases,
         )
-        self.assertEqual(result["status"], "AMBIGUOUS")
-        self.assertEqual(result["action"], "clarify")
+        self.assertEqual(result["status"], "NO_MATCH")
+        self.assertEqual(result["action"], "repeat")
         self.assertEqual(result["matches"], [])
 
     def test_json_stringified_history_is_accepted(self) -> None:
@@ -273,6 +273,58 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             )
         )
         self.assertIsInstance(request.conversation_history, list)
+
+    def test_official_elevenlabs_history_object_is_accepted(self) -> None:
+        request = ResolveMenuItemsV2Request(
+            conversation_history=json.dumps(
+                {
+                    "x-elevenlabs-history": True,
+                    "entries": [
+                        {"role": "user", "message": "Yakiniku"}
+                    ],
+                }
+            )
+        )
+        self.assertEqual(
+            request.conversation_history,
+            [{"role": "user", "message": "Yakiniku"}],
+        )
+
+    def test_official_nested_tool_results_increment_recovery(self) -> None:
+        request = ResolveMenuItemsV2Request(
+            conversation_history={
+                "x-elevenlabs-history": True,
+                "entries": [
+                    {
+                        "role": "tool",
+                        "tool_results": [
+                            {
+                                "tool_name": YZ_MENU_RESOLVER_TOOL_NAME,
+                                "result_value": json.dumps(
+                                    {"status": "NO_MATCH"}
+                                ),
+                            }
+                        ],
+                    },
+                    {"role": "user", "message": "månpizza"},
+                ],
+            }
+        )
+        with patch(
+            "app.services.restaurant_menu_resolver."
+            "_load_active_menu_items",
+            return_value=self.menu,
+        ), patch(
+            "app.services.restaurant_menu_resolver."
+            "_load_menu_item_aliases",
+            return_value=self.aliases,
+        ):
+            result = resolve_restaurant_menu_items(
+                context=self.context,
+                request=request,
+            )
+        self.assertEqual(result["unresolved_attempt"], 2)
+        self.assertEqual(result["action"], "not_on_menu")
 
     def test_elevenlabs_tool_accepts_only_raw_system_history(self) -> None:
         config = build_yz_test_menu_resolver_v2_tool_config(

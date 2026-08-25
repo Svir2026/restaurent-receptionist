@@ -159,19 +159,19 @@ def _latest_user_utterance(entries: list[dict[str, Any]]) -> str:
     )
 
 
-def _tool_result_status(entry: dict[str, Any]) -> str | None:
+def _tool_result_status(result: dict[str, Any]) -> str | None:
     tool_name = str(
-        entry.get("tool_name")
-        or entry.get("name")
+        result.get("tool_name")
+        or result.get("name")
         or ""
     ).strip()
     if tool_name != YZ_MENU_RESOLVER_TOOL_NAME:
         return None
 
     value: object = (
-        entry.get("result_value")
-        or entry.get("result")
-        or entry.get("output")
+        result.get("result_value")
+        or result.get("result")
+        or result.get("output")
     )
     if isinstance(value, str):
         try:
@@ -189,11 +189,18 @@ def _tool_result_status(entry: dict[str, Any]) -> str | None:
 def _previous_unresolved_attempts(entries: list[dict[str, Any]]) -> int:
     attempts = 0
     for entry in entries:
-        status = _tool_result_status(entry)
-        if status == "MATCH":
-            attempts = 0
-        elif status == "NO_MATCH":
-            attempts = min(attempts + 1, 3)
+        tool_results = entry.get("tool_results")
+        results = (
+            [result for result in tool_results if isinstance(result, dict)]
+            if isinstance(tool_results, list)
+            else [entry]
+        )
+        for result in results:
+            status = _tool_result_status(result)
+            if status == "MATCH":
+                attempts = 0
+            elif status == "NO_MATCH":
+                attempts = min(attempts + 1, 3)
     return attempts
 
 
@@ -330,18 +337,7 @@ def resolve_restaurant_menu_items(
         active_item_ids,
     )
     phrases = _build_phrases(menu_items, aliases)
-    matches, ambiguous = _find_matches(utterance, phrases)
-
-    if ambiguous:
-        return {
-            "success": True,
-            "status": "AMBIGUOUS",
-            "action": "clarify",
-            "unresolved_attempt": 0,
-            "stop_recovery": False,
-            "customer_message": None,
-            "matches": [],
-        }
+    matches, _ = _find_matches(utterance, phrases)
 
     if matches:
         return {
