@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import UUID
 
@@ -26,8 +27,10 @@ from app.schemas.restaurant_tools_v2 import (
 from app.services.restaurant_menu_resolver import (
     YZ_MENU_RESOLVER_TOOL_NAME,
     _clear_resolver_catalog_cache,
+    _load_menu_item_aliases,
     resolve_restaurant_menu_items,
 )
+from app.services import restaurant_menu_resolver as resolver_module
 from app.services.elevenlabs_tool_definitions import (
     YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME,
     build_yz_test_menu_resolver_v2_tool_config,
@@ -40,6 +43,8 @@ PAD_THAI_ID = UUID("33333333-3333-4333-8333-333333333333")
 COLA_ID = UUID("44444444-4444-4444-8444-444444444444")
 COLA_ZERO_ID = UUID("55555555-5555-4555-8555-555555555555")
 SATAY_ID = UUID("88888888-8888-4888-8888-888888888888")
+EXTRA_CASHEW_ID = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+CASHEW_SUSHI_COMBO_ID = UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
 CASHEW_IDS = {
     protein: UUID(f"99999999-9999-4999-8999-{index:012d}")
     for index, protein in enumerate(
@@ -485,6 +490,52 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             "Vilket protein vill du ha?",
         )
 
+    def test_extra_cashews_resolves_without_protein_question(self) -> None:
+        menu = [
+            *self.menu,
+            _item(EXTRA_CASHEW_ID, "Extra cashewnötter"),
+            _item(
+                CASHEW_IDS["Kyckling"],
+                "Pad Med Mamuang – Kyckling",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha extra cashewnötter",
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(result["action"], "continue")
+        self.assertEqual(len(result["matches"]), 1)
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Extra cashewnötter",
+        )
+
+    def test_cashew_sushi_combo_does_not_add_wok_variant(self) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                CASHEW_SUSHI_COMBO_ID,
+                "Kyckling Cashew med 5 sushi-bitar",
+            ),
+            _item(
+                CASHEW_IDS["Kyckling"],
+                "Pad Med Mamuang – Kyckling",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha Kyckling Cashew med 5 sushi-bitar",
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(len(result["matches"]), 1)
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Kyckling Cashew med 5 sushi-bitar",
+        )
+
     def test_explicit_pad_thai_protein_continues_normally(self) -> None:
         result = self._resolve("En Pad Thai med kyckling")
         validated = ResolveMenuItemsV2Response.model_validate(result)
@@ -669,6 +720,86 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(second["status"], "MATCH")
         load_menu.assert_called_once()
         load_aliases.assert_called_once()
+
+    def test_phrase_index_is_reused_during_cache_window(self) -> None:
+        original_build_phrases = resolver_module._build_phrases
+        with patch(
+            "app.services.restaurant_menu_resolver."
+            "_load_active_menu_items",
+            return_value=self.menu,
+        ), patch(
+            "app.services.restaurant_menu_resolver."
+            "_load_menu_item_aliases",
+            return_value=self.aliases,
+        ), patch(
+            "app.services.restaurant_menu_resolver._build_phrases",
+            wraps=original_build_phrases,
+        ) as build_phrases:
+            resolve_restaurant_menu_items(
+                context=self.context,
+                request=self._request("En Yakiniku"),
+            )
+            resolve_restaurant_menu_items(
+                context=self.context,
+                request=self._request("En Pad Thai med kyckling"),
+            )
+
+        build_phrases.assert_called_once()
+
+    def test_alias_loader_reads_every_page(self) -> None:
+        active_item_id = str(YAKINIKU_ID)
+        rows = [
+            {
+                "id": f"alias-{index:04d}",
+                "restaurant_id": str(RESTAURANT_ID),
+                "menu_item_id": active_item_id,
+                "alias": f"alias {index}",
+                "normalized_alias": f"alias {index}",
+                "alias_type": "spoken",
+                "priority": 100,
+            }
+            for index in range(1002)
+        ]
+
+        class FakeAliasQuery:
+            def __init__(self) -> None:
+                self.requested_ranges: list[tuple[int, int]] = []
+                self.current_range = (0, 999)
+
+            def select(self, *_args: object) -> FakeAliasQuery:
+                return self
+
+            def eq(self, *_args: object) -> FakeAliasQuery:
+                return self
+
+            def order(self, *_args: object) -> FakeAliasQuery:
+                return self
+
+            def range(self, start: int, end: int) -> FakeAliasQuery:
+                self.current_range = (start, end)
+                self.requested_ranges.append(self.current_range)
+                return self
+
+            def execute(self) -> SimpleNamespace:
+                start, end = self.current_range
+                return SimpleNamespace(data=rows[start : end + 1])
+
+        query = FakeAliasQuery()
+        client = SimpleNamespace(table=lambda _name: query)
+        with patch(
+            "app.services.restaurant_menu_resolver.get_client",
+            return_value=client,
+        ):
+            aliases = _load_menu_item_aliases(
+                RESTAURANT_ID,
+                {active_item_id},
+            )
+
+        self.assertEqual(len(aliases), 1002)
+        self.assertEqual(
+            query.requested_ranges,
+            [(0, 999), (1000, 1999)],
+        )
 
     def test_unknown_similar_word_is_not_fuzzy_matched(self) -> None:
         result = self._resolve("Jag tar en yakunaka")
