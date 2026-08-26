@@ -598,6 +598,52 @@ def _pending_variant_history(
     if latest_utterance is None:
         return None
 
+    # Prefer the resolver's deterministic result over the agent's wording.
+    # The agent may paraphrase a protein clarification (for example,
+    # "Kan du repetera?"). An unresolved AMBIGUOUS tool result still proves
+    # that the preceding order is waiting for a variant selection.
+    ambiguous_result_index: int | None = None
+    for index in range(latest_user_index - 1, -1, -1):
+        entry = entries[index]
+        tool_results = entry.get("tool_results")
+        results = (
+            [result for result in tool_results if isinstance(result, dict)]
+            if isinstance(tool_results, list)
+            else [entry]
+        )
+        statuses = {
+            status
+            for result in results
+            if (status := _tool_result_status(result)) is not None
+        }
+        if "MATCH" in statuses or "NO_MATCH" in statuses:
+            break
+        if "AMBIGUOUS" in statuses:
+            ambiguous_result_index = index
+            continue
+
+    if ambiguous_result_index is not None:
+        original_user_index: int | None = None
+        for index in range(ambiguous_result_index - 1, -1, -1):
+            role = str(entries[index].get("role") or "").casefold()
+            if role in {"user", "customer"}:
+                original_user_index = index
+                break
+        if original_user_index is not None:
+            original_utterance = _entry_message(
+                entries[original_user_index]
+            )
+            if original_utterance is not None:
+                follow_ups = [
+                    message
+                    for entry in entries[original_user_index + 1 :]
+                    if str(entry.get("role") or "").casefold()
+                    in {"user", "customer"}
+                    and (message := _entry_message(entry)) is not None
+                ]
+                if follow_ups:
+                    return original_utterance, follow_ups
+
     question_index: int | None = None
     for index in range(latest_user_index - 1, -1, -1):
         role = str(entries[index].get("role") or "").casefold()

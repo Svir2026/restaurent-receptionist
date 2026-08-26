@@ -807,6 +807,103 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             {"Gaeng Keowan – Kyckling", "Gaeng Ped – Kyckling"},
         )
 
+    def test_ambiguous_tool_result_keeps_order_after_generic_retry(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("31000000-0000-4000-8000-000000000015"),
+                "Gaeng Keowan – Kyckling",
+            ),
+            _item(
+                UUID("31000000-0000-4000-8000-000000000016"),
+                "Gaeng Ped – Kyckling",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": "En grön curry och en röd curry.",
+                },
+                {
+                    "role": "agent",
+                    "tool_calls": [
+                        {"tool_name": YZ_MENU_RESOLVER_TOOL_NAME}
+                    ],
+                },
+                {
+                    "role": "agent",
+                    "tool_results": [
+                        {
+                            "tool_name": YZ_MENU_RESOLVER_TOOL_NAME,
+                            "result_value": json.dumps(
+                                {"status": "AMBIGUOUS"}
+                            ),
+                        }
+                    ],
+                },
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {"role": "user", "message": "oklart protein"},
+                {
+                    "role": "agent",
+                    "message": "Ursäkta, kan du repetera?",
+                },
+                {"role": "user", "message": "Kyckling."},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(result["unresolved_attempt"], 0)
+        self.assertEqual(
+            {match["official_name"] for match in result["matches"]},
+            {"Gaeng Keowan – Kyckling", "Gaeng Ped – Kyckling"},
+        )
+
+    def test_completed_match_blocks_stale_ambiguous_variant_context(
+        self,
+    ) -> None:
+        result = self._resolve_history(
+            [
+                {"role": "user", "message": "En Pad Thai."},
+                {
+                    "role": "agent",
+                    "tool_results": [
+                        {
+                            "tool_name": YZ_MENU_RESOLVER_TOOL_NAME,
+                            "result_value": json.dumps(
+                                {"status": "AMBIGUOUS"}
+                            ),
+                        }
+                    ],
+                },
+                {"role": "user", "message": "Kyckling."},
+                {
+                    "role": "agent",
+                    "tool_results": [
+                        {
+                            "tool_name": YZ_MENU_RESOLVER_TOOL_NAME,
+                            "result_value": json.dumps(
+                                {"status": "MATCH"}
+                            ),
+                        }
+                    ],
+                },
+                {"role": "agent", "message": "Något annat."},
+                {"role": "user", "message": "helt okänd rätt"},
+            ],
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "NO_MATCH")
+        self.assertEqual(result["matches"], [])
+
     def test_sequential_protein_answers_keep_every_pending_family(
         self,
     ) -> None:
