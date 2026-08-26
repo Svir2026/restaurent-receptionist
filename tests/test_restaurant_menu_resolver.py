@@ -218,6 +218,15 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(result["matches"][0]["official_name"], "24. Yakiniku")
         self.assertEqual(result["matches"][0]["match_source"], "alias")
 
+    def test_yakniki_is_an_approved_yakiniku_alias(self) -> None:
+        result = self._resolve(
+            "Jag tar en yakniki",
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(result["matches"][0]["official_name"], "24. Yakiniku")
+        self.assertEqual(result["matches"][0]["match_source"], "alias")
+
     def test_yakinaki_override_is_scoped_to_yz(self) -> None:
         other_context = ToolRestaurantContext(
             credential_id=self.context.credential_id,
@@ -241,6 +250,32 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             result = resolve_restaurant_menu_items(
                 context=other_context,
                 request=self._request("Jag tar en yakinaki"),
+            )
+        self.assertEqual(result["status"], "NO_MATCH")
+
+    def test_yakniki_override_is_scoped_to_yz(self) -> None:
+        other_context = ToolRestaurantContext(
+            credential_id=self.context.credential_id,
+            restaurant_id=self.context.restaurant_id,
+            restaurant_name="Other Restaurant",
+            restaurant_slug="other-restaurant",
+            restaurant_is_active=True,
+            provisioning_job_id=None,
+            provisioning_job_status=None,
+            provisioning_current_step=None,
+        )
+        with patch(
+            "app.services.restaurant_menu_resolver."
+            "_load_active_menu_items",
+            return_value=self.menu,
+        ), patch(
+            "app.services.restaurant_menu_resolver."
+            "_load_menu_item_aliases",
+            return_value=[],
+        ):
+            result = resolve_restaurant_menu_items(
+                context=other_context,
+                request=self._request("Jag tar en yakniki"),
             )
         self.assertEqual(result["status"], "NO_MATCH")
 
