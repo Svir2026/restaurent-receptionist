@@ -218,6 +218,15 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(result["matches"][0]["official_name"], "24. Yakiniku")
         self.assertEqual(result["matches"][0]["match_source"], "alias")
 
+    def test_yakiniki_is_an_approved_yakiniku_alias(self) -> None:
+        result = self._resolve(
+            "Yakiniki",
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(result["matches"][0]["official_name"], "24. Yakiniku")
+        self.assertEqual(result["matches"][0]["match_source"], "alias")
+
     def test_yakniki_is_an_approved_yakiniku_alias(self) -> None:
         result = self._resolve(
             "Jag tar en yakniki",
@@ -1360,6 +1369,16 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(
             [match["menu_item_id"] for match in result["matches"]],
             [YAKINIKU_ID, PAD_THAI_ID],
+        )
+
+    def test_real_call_pad_thai_and_yakiniki_are_both_resolved(self) -> None:
+        result = self._resolve(
+            "Jag vill beställa en Pad Thai med kyckling och en Yakiniki"
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            [match["menu_item_id"] for match in result["matches"]],
+            [PAD_THAI_ID, YAKINIKU_ID],
         )
 
     def test_one_alias_for_two_items_enters_recovery(self) -> None:

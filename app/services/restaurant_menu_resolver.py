@@ -40,6 +40,7 @@ YZ_MENU_RESOLVER_TOOL_NAMES = frozenset(
 APPROVED_ALIAS_OVERRIDES = {
     "yz-thai-wok-sushi": {
         "yakinaki": "24. Yakiniku",
+        "yakiniki": "24. Yakiniku",
         "yakniki": "24. Yakiniku",
         "kycklingspett": "23. Satay Gai",
         "kycklingpsett": "23. Satay Gai",
