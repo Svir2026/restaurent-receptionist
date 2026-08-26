@@ -497,6 +497,7 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             "Gaeng Keowan": (
                 "grön curry",
                 "gron curry",
+                "gran curry",
                 "green curry",
                 "gäng keowan",
                 "keowan",
@@ -659,6 +660,339 @@ class RestaurantMenuResolverTests(unittest.TestCase):
                     result["matches"][0]["official_name"],
                     f"{menu_family} – {menu_protein}",
                 )
+
+    def test_one_protein_follow_up_resolves_every_pending_family(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("31000000-0000-4000-8000-000000000001"),
+                "Gaeng Keowan – Kyckling",
+            ),
+            _item(
+                UUID("31000000-0000-4000-8000-000000000002"),
+                "Gaeng Ped – Kyckling",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": "En grön curry och en röd curry.",
+                },
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {"role": "user", "message": "kycklingpapadah."},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            {match["official_name"] for match in result["matches"]},
+            {"Gaeng Keowan – Kyckling", "Gaeng Ped – Kyckling"},
+        )
+
+    def test_repeated_protein_question_keeps_original_order_context(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("31000000-0000-4000-8000-000000000003"),
+                "Gaeng Keowan – Kyckling",
+            ),
+            _item(
+                UUID("31000000-0000-4000-8000-000000000004"),
+                "Gaeng Ped – Kyckling",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": "En grön curry och en röd curry.",
+                },
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {"role": "user", "message": "oklart protein"},
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {"role": "user", "message": "Kyckling."},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(result["unresolved_attempt"], 0)
+        self.assertEqual(
+            {match["official_name"] for match in result["matches"]},
+            {"Gaeng Keowan – Kyckling", "Gaeng Ped – Kyckling"},
+        )
+
+    def test_real_call_tool_history_keeps_every_pending_family(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("31000000-0000-4000-8000-000000000013"),
+                "Gaeng Keowan – Kyckling",
+            ),
+            _item(
+                UUID("31000000-0000-4000-8000-000000000014"),
+                "Gaeng Ped – Kyckling",
+            ),
+        ]
+        ambiguous_result = {
+            "role": "agent",
+            "tool_results": [
+                {
+                    "tool_name": YZ_MENU_RESOLVER_TOOL_NAME,
+                    "result_value": json.dumps(
+                        {"status": "AMBIGUOUS"}
+                    ),
+                }
+            ],
+        }
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": (
+                        "Jag vill beställa en grön curry och en röd curry."
+                    ),
+                },
+                {
+                    "role": "agent",
+                    "tool_calls": [
+                        {"tool_name": YZ_MENU_RESOLVER_TOOL_NAME}
+                    ],
+                },
+                ambiguous_result,
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {"role": "user", "message": "kycklingpapadah"},
+                {
+                    "role": "agent",
+                    "tool_calls": [
+                        {"tool_name": YZ_MENU_RESOLVER_TOOL_NAME}
+                    ],
+                },
+                ambiguous_result,
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {"role": "user", "message": "Kyckling."},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            {match["official_name"] for match in result["matches"]},
+            {"Gaeng Keowan – Kyckling", "Gaeng Ped – Kyckling"},
+        )
+
+    def test_sequential_protein_answers_keep_every_pending_family(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("31000000-0000-4000-8000-000000000005"),
+                "Gaeng Keowan – Kyckling",
+            ),
+            _item(
+                UUID("31000000-0000-4000-8000-000000000006"),
+                "Gaeng Keowan – Biff",
+            ),
+            _item(
+                UUID("31000000-0000-4000-8000-000000000007"),
+                "Gaeng Ped – Kyckling",
+            ),
+            _item(
+                UUID("31000000-0000-4000-8000-000000000008"),
+                "Gaeng Ped – Biff",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": "En grön curry och en röd curry.",
+                },
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {
+                    "role": "user",
+                    "message": "Grön curry med kyckling.",
+                },
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {"role": "user", "message": "Biff."},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            {match["official_name"] for match in result["matches"]},
+            {"Gaeng Keowan – Kyckling", "Gaeng Ped – Biff"},
+        )
+
+    def test_pending_families_preserve_already_matched_dishes(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("31000000-0000-4000-8000-000000000009"),
+                "Gaeng Keowan – Kyckling",
+            ),
+            _item(
+                UUID("31000000-0000-4000-8000-000000000010"),
+                "Gaeng Ped – Kyckling",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": (
+                        "En Yakiniku, en grön curry och en röd curry."
+                    ),
+                },
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {"role": "user", "message": "Kyckling på båda."},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            {match["official_name"] for match in result["matches"]},
+            {
+                "24. Yakiniku",
+                "Gaeng Keowan – Kyckling",
+                "Gaeng Ped – Kyckling",
+            },
+        )
+
+    def test_conflicting_generic_proteins_do_not_guess_or_fallback(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("31000000-0000-4000-8000-000000000011"),
+                "Gaeng Keowan – Kyckling",
+            ),
+            _item(
+                UUID("31000000-0000-4000-8000-000000000012"),
+                "Gaeng Ped – Biff",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": "En grön curry och en röd curry.",
+                },
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {"role": "user", "message": "Kyckling och biff."},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(result["action"], "clarify")
+        self.assertEqual(result["matches"], [])
+        self.assertEqual(result["unresolved_attempt"], 0)
+
+    def test_one_protein_can_resolve_every_approved_family(self) -> None:
+        families = (
+            ("pad thai", "Pad Thai"),
+            ("röd curry", "Gaeng Ped"),
+            ("grön curry", "Gaeng Keowan"),
+            ("panang", "Gaeng Panang"),
+            ("massaman", "Massamang Curry"),
+            ("pad krapow", "Pad Krapow"),
+            ("pad privan", "Pad Priawan"),
+            ("cashewnötter", "Pad Med Mamuang"),
+        )
+        menu = [
+            _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(
+                SATAY_ID,
+                "23. Satay Gai",
+                "Kycklingspett med jordnötssås",
+            ),
+            *(
+                _item(
+                    UUID(
+                        "32000000-0000-4000-8000-"
+                        f"{index:012d}"
+                    ),
+                    f"{menu_family} – Kyckling",
+                )
+                for index, (_, menu_family) in enumerate(
+                    families,
+                    start=1,
+                )
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": "Jag vill ha "
+                    + ", ".join(family for family, _ in families),
+                },
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {"role": "user", "message": "Kyckling på alla."},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            {match["official_name"] for match in result["matches"]},
+            {
+                f"{menu_family} – Kyckling"
+                for _, menu_family in families
+            },
+        )
 
     def test_gris_question_resolves_pending_red_curry_and_keeps_side(
         self,

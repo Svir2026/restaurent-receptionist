@@ -71,6 +71,10 @@ APPROVED_VARIANT_FAMILIES = {
             "gaeng keowan",
             "Vilket protein vill du ha?",
         ),
+        "gran curry": (
+            "gaeng keowan",
+            "Vilket protein vill du ha?",
+        ),
         "green curry": (
             "gaeng keowan",
             "Vilket protein vill du ha?",
@@ -214,6 +218,7 @@ VERIFIED_PROTEIN_VARIANTS = {
 
 APPROVED_PROTEIN_ALIASES = {
     "gris": "fläsk",
+    "kycklingpapadah": "kyckling",
 }
 
 VARIANT_FOLLOW_UP_FILLER_WORDS = {
@@ -547,22 +552,39 @@ def _entry_message(entry: dict[str, Any]) -> str | None:
     return None
 
 
-def _strip_variant_follow_up_fillers(value: str) -> str:
+def _variant_follow_up_protein(value: str) -> str | None:
     words = _normalize_spoken_text(value).split()
     while words and words[0] in VARIANT_FOLLOW_UP_FILLER_WORDS:
         words.pop(0)
     words = [APPROVED_PROTEIN_ALIASES.get(word, word) for word in words]
+
+    modifier_start: int | None = None
+    for index, word in enumerate(words):
+        if word == "extra":
+            modifier_start = index
+            break
+        if word == "lägg" and words[index : index + 2] == ["lägg", "till"]:
+            modifier_start = index
+            break
+
+    primary_words = (
+        words[:modifier_start]
+        if modifier_start is not None
+        else words
+    )
     proteins = {
-        word for word in words if word in VERIFIED_PROTEIN_VARIANTS
+        word
+        for word in primary_words
+        if word in VERIFIED_PROTEIN_VARIANTS
     }
-    if len(proteins) == 1 and "extra" not in words:
+    if len(proteins) == 1:
         return next(iter(proteins))
-    return " ".join(words) or _normalize_spoken_text(value)
+    return None
 
 
-def _pending_variant_utterance(
+def _pending_variant_history(
     entries: list[dict[str, Any]],
-) -> tuple[str, str] | None:
+) -> tuple[str, list[str]] | None:
     latest_user_index: int | None = None
     for index in range(len(entries) - 1, -1, -1):
         role = str(entries[index].get("role") or "").casefold()
@@ -576,32 +598,57 @@ def _pending_variant_utterance(
     if latest_utterance is None:
         return None
 
-    agent_index: int | None = None
+    question_index: int | None = None
     for index in range(latest_user_index - 1, -1, -1):
         role = str(entries[index].get("role") or "").casefold()
         if role in {"agent", "assistant"}:
-            agent_index = index
+            agent_message = _entry_message(entries[index])
+            if agent_message is None:
+                continue
+            if "vilket protein" not in _normalize_spoken_text(
+                agent_message
+            ):
+                return None
+            question_index = index
             break
         if role in {"user", "customer"}:
             return None
-    if agent_index is None:
+    if question_index is None:
         return None
 
-    agent_message = _entry_message(entries[agent_index])
-    if agent_message is None or "vilket protein" not in (
-        _normalize_spoken_text(agent_message)
-    ):
-        return None
+    follow_ups = [latest_utterance]
+    while True:
+        prior_user_index: int | None = None
+        prior_utterance: str | None = None
+        for index in range(question_index - 1, -1, -1):
+            role = str(entries[index].get("role") or "").casefold()
+            if role not in {"user", "customer"}:
+                continue
+            prior_user_index = index
+            prior_utterance = _entry_message(entries[index])
+            break
+        if prior_user_index is None or prior_utterance is None:
+            return None
 
-    for index in range(agent_index - 1, -1, -1):
-        role = str(entries[index].get("role") or "").casefold()
-        if role not in {"user", "customer"}:
-            continue
-        prior_utterance = _entry_message(entries[index])
-        if prior_utterance:
-            return prior_utterance, latest_utterance
-        return None
-    return None
+        previous_question_index: int | None = None
+        for index in range(prior_user_index - 1, -1, -1):
+            role = str(entries[index].get("role") or "").casefold()
+            if role in {"user", "customer"}:
+                break
+            if role not in {"agent", "assistant"}:
+                continue
+            agent_message = _entry_message(entries[index])
+            if agent_message is None:
+                continue
+            if "vilket protein" in _normalize_spoken_text(agent_message):
+                previous_question_index = index
+            break
+
+        if previous_question_index is None:
+            return prior_utterance, follow_ups
+
+        follow_ups.insert(0, prior_utterance)
+        question_index = previous_question_index
 
 
 def _pending_sushi_utterance(
@@ -1162,6 +1209,136 @@ def _variant_family_requests(
         )
 
 
+def _variant_request_key(
+    context: ToolRestaurantContext,
+    request: tuple[
+        str,
+        str,
+        list[dict[str, Any]],
+        list[dict[str, Any]],
+    ],
+) -> str:
+    configured = APPROVED_VARIANT_FAMILIES.get(
+        context.restaurant_slug,
+        {},
+    )
+    family_config = configured.get(request[0])
+    return _normalize_spoken_text(
+        family_config[0] if family_config is not None else request[0]
+    )
+
+
+def _selected_variant_for_protein(
+    context: ToolRestaurantContext,
+    request: tuple[
+        str,
+        str,
+        list[dict[str, Any]],
+        list[dict[str, Any]],
+    ],
+    protein: str,
+    menu_items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    synthetic_utterance = f"{request[0]} {protein}"
+    candidates = _variant_family_requests(
+        context,
+        synthetic_utterance,
+        menu_items,
+        [],
+    )
+    request_key = _variant_request_key(context, request)
+    for candidate in candidates:
+        if (
+            _variant_request_key(context, candidate) == request_key
+            and candidate[3]
+        ):
+            return candidate[3]
+    return []
+
+
+def _apply_pending_variant_follow_ups(
+    context: ToolRestaurantContext,
+    base_requests: list[
+        tuple[
+            str,
+            str,
+            list[dict[str, Any]],
+            list[dict[str, Any]],
+        ]
+    ],
+    follow_ups: list[str],
+    menu_items: list[dict[str, Any]],
+) -> list[
+    tuple[
+        str,
+        str,
+        list[dict[str, Any]],
+        list[dict[str, Any]],
+    ]
+]:
+    requests = list(base_requests)
+
+    def request_indexes() -> dict[str, int]:
+        return {
+            _variant_request_key(context, request): index
+            for index, request in enumerate(requests)
+        }
+
+    for follow_up in follow_ups:
+        indexes = request_indexes()
+        explicit_requests = _variant_family_requests(
+            context,
+            follow_up,
+            menu_items,
+            [],
+        )
+        explicit_keys: set[str] = set()
+        for explicit_request in explicit_requests:
+            key = _variant_request_key(context, explicit_request)
+            explicit_keys.add(key)
+            existing_index = indexes.get(key)
+            if existing_index is None:
+                requests.append(explicit_request)
+                indexes[key] = len(requests) - 1
+                continue
+            if explicit_request[3]:
+                requests[existing_index] = explicit_request
+
+        protein = _variant_follow_up_protein(follow_up)
+        if protein is None:
+            continue
+
+        indexes = request_indexes()
+        unresolved_keys = {
+            key
+            for key, index in indexes.items()
+            if not requests[index][3]
+        }
+        target_keys = (
+            explicit_keys & unresolved_keys
+            if explicit_keys
+            else unresolved_keys
+        )
+        for key in target_keys:
+            index = indexes[key]
+            request = requests[index]
+            selected_variants = _selected_variant_for_protein(
+                context,
+                request,
+                protein,
+                menu_items,
+            )
+            if selected_variants:
+                requests[index] = (
+                    request[0],
+                    request[1],
+                    request[2],
+                    selected_variants,
+                )
+
+    return requests
+
+
 def _append_selected_variant_matches(
     matches: list[_ResolverPhrase],
     family_requests: list[
@@ -1291,74 +1468,68 @@ def resolve_restaurant_menu_items(
         _load_approved_alias_overrides(context, menu_items)
     )
     phrases = _load_or_build_phrases(context, menu_items, aliases)
-    matches, _ = _find_matches(utterance, phrases)
+    pending_variant_utterance: str | None = None
+    pending_variant_context = _pending_variant_history(entries)
+    if pending_variant_context is not None:
+        original_utterance, follow_ups = pending_variant_context
+        original_matches, _ = _find_matches(
+            original_utterance,
+            phrases,
+        )
+        original_family_requests = _variant_family_requests(
+            context,
+            original_utterance,
+            menu_items,
+            original_matches,
+        )
+    else:
+        original_utterance = ""
+        follow_ups = []
+        original_matches = []
+        original_family_requests = []
 
-    family_utterance = utterance
-    family_requests = _variant_family_requests(
-        context,
-        family_utterance,
-        menu_items,
-        matches,
-    )
+    if original_family_requests:
+        pending_variant_utterance = " ".join(
+            [original_utterance, *follow_ups]
+        )
+        family_utterance = pending_variant_utterance
+        matches = []
+        known_phrases: set[tuple[str, str]] = set()
+        for contextual_utterance in [original_utterance, *follow_ups]:
+            contextual_matches, _ = _find_matches(
+                contextual_utterance,
+                phrases,
+            )
+            for phrase in contextual_matches:
+                key = (
+                    str(_parse_menu_item_id(phrase.item.get("id"))),
+                    phrase.normalized_text,
+                )
+                if key in known_phrases:
+                    continue
+                known_phrases.add(key)
+                matches.append(phrase)
+        family_requests = _apply_pending_variant_follow_ups(
+            context,
+            original_family_requests,
+            follow_ups,
+            menu_items,
+        )
+    else:
+        matches, _ = _find_matches(utterance, phrases)
+        family_utterance = utterance
+        family_requests = _variant_family_requests(
+            context,
+            family_utterance,
+            menu_items,
+            matches,
+        )
+
     _append_selected_variant_matches(matches, family_requests)
     family_request = next(
         (request for request in family_requests if not request[3]),
         None,
     )
-    pending_variant_utterance: str | None = None
-    if not family_requests:
-        pending_variant_context = _pending_variant_utterance(entries)
-        if pending_variant_context is not None:
-            prior_utterance, latest_utterance = pending_variant_context
-            pending_variant_utterance = (
-                f"{prior_utterance} {latest_utterance}"
-            )
-            matches, _ = _find_matches(
-                pending_variant_utterance,
-                phrases,
-            )
-            prior_matches, _ = _find_matches(prior_utterance, phrases)
-            prior_family_requests = _variant_family_requests(
-                context,
-                prior_utterance,
-                menu_items,
-                prior_matches,
-            )
-            _append_selected_variant_matches(
-                matches,
-                prior_family_requests,
-            )
-            pending_family = next(
-                (
-                    request
-                    for request in prior_family_requests
-                    if not request[3]
-                ),
-                None,
-            )
-            family_utterance = pending_variant_utterance
-            if pending_family is not None:
-                normalized_latest = _strip_variant_follow_up_fillers(
-                    latest_utterance
-                )
-                family_utterance = (
-                    f"{pending_family[0]} {normalized_latest}"
-                )
-            family_requests = _variant_family_requests(
-                context,
-                family_utterance,
-                menu_items,
-                matches,
-            )
-            _append_selected_variant_matches(matches, family_requests)
-            family_request = next(
-                (
-                    request
-                    for request in family_requests
-                    if not request[3]
-                ),
-                None,
-            )
 
     family_is_waiting_for_variant = (
         family_request is not None and not family_request[3]
