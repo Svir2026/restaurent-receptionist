@@ -81,6 +81,11 @@ _catalog_cache: dict[
     tuple[float, list[dict[str, Any]], list[dict[str, Any]]],
 ] = {}
 _catalog_cache_lock = Lock()
+_catalog_load_lock = Lock()
+
+VERIFIED_SPOKEN_NUMBER_TOKENS = {
+    "fem": "5",
+}
 
 RECOVERY_MESSAGES = {
     1: "Ursäkta, kan du upprepa vilken rätt du ville ha?",
@@ -130,6 +135,14 @@ def _normalize_spoken_text(value: object) -> str:
         for character in normalized.casefold()
     ]
     return " ".join("".join(characters).split())
+
+
+def _normalize_match_text(value: object) -> str:
+    words = _normalize_spoken_text(value).split()
+    return " ".join(
+        VERIFIED_SPOKEN_NUMBER_TOKENS.get(word, word)
+        for word in words
+    )
 
 
 def _load_menu_item_aliases(
@@ -278,18 +291,31 @@ def _load_resolver_catalog(
         ):
             return cached[1], list(cached[2])
 
-    menu_items = _load_active_menu_items(context.restaurant_id)
-    active_item_ids = {
-        str(_parse_menu_item_id(item.get("id")))
-        for item in menu_items
-    }
-    aliases = _load_menu_item_aliases(
-        context.restaurant_id,
-        active_item_ids,
-    )
-    with _catalog_cache_lock:
-        _catalog_cache[cache_key] = (now, menu_items, list(aliases))
-    return menu_items, aliases
+    with _catalog_load_lock:
+        now = monotonic()
+        with _catalog_cache_lock:
+            cached = _catalog_cache.get(cache_key)
+            if cached is not None and now - cached[0] < (
+                RESOLVER_CATALOG_CACHE_TTL_SECONDS
+            ):
+                return cached[1], list(cached[2])
+
+        menu_items = _load_active_menu_items(context.restaurant_id)
+        active_item_ids = {
+            str(_parse_menu_item_id(item.get("id")))
+            for item in menu_items
+        }
+        aliases = _load_menu_item_aliases(
+            context.restaurant_id,
+            active_item_ids,
+        )
+        with _catalog_cache_lock:
+            _catalog_cache[cache_key] = (
+                monotonic(),
+                menu_items,
+                list(aliases),
+            )
+        return menu_items, aliases
 
 
 def _history_entries(request: ResolveMenuItemsV2Request) -> list[dict[str, Any]]:
@@ -431,7 +457,7 @@ def _build_phrases(
 
     for item_id, item in items_by_id.items():
         for field_name in MENU_ITEM_NAME_FIELDS:
-            normalized = _normalize_spoken_text(item.get(field_name))
+            normalized = _normalize_match_text(item.get(field_name))
             if normalized:
                 phrases[(normalized, item_id)] = _ResolverPhrase(
                     normalized_text=normalized,
@@ -443,7 +469,7 @@ def _build_phrases(
     for alias in aliases:
         item_id = str(alias.get("menu_item_id") or "")
         item = items_by_id.get(item_id)
-        normalized = _normalize_spoken_text(alias.get("alias"))
+        normalized = _normalize_match_text(alias.get("alias"))
         if item is None or not normalized:
             continue
 
@@ -490,7 +516,7 @@ def _find_matches(
     utterance: str,
     phrases: list[_ResolverPhrase],
 ) -> tuple[list[_ResolverPhrase], bool]:
-    words = tuple(_normalize_spoken_text(utterance).split())
+    words = tuple(_normalize_match_text(utterance).split())
     candidates: list[tuple[int, int, _ResolverPhrase]] = []
 
     for phrase in phrases:
