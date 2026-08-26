@@ -75,6 +75,7 @@ VERIFIED_PROTEIN_VARIANTS = {
 }
 
 RESOLVER_CATALOG_CACHE_TTL_SECONDS = 30.0
+ALIAS_PAGE_SIZE = 1000
 _catalog_cache: dict[
     str,
     tuple[float, list[dict[str, Any]], list[dict[str, Any]]],
@@ -115,6 +116,9 @@ class _ResolverPhrase:
     source: Literal["canonical", "alias"]
 
 
+_phrase_cache: dict[str, tuple[float, list[_ResolverPhrase]]] = {}
+
+
 def _normalize_spoken_text(value: object) -> str:
     """Normalize case, whitespace, and punctuation without fuzzy matching."""
 
@@ -132,17 +136,63 @@ def _load_menu_item_aliases(
     restaurant_id: UUID,
     active_item_ids: set[str],
 ) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen_alias_ids: set[str] = set()
     try:
-        response = (
-            get_client()
-            .table("menu_item_aliases")
-            .select(
-                "id,restaurant_id,menu_item_id,alias,"
-                "normalized_alias,alias_type,priority"
+        offset = 0
+        while True:
+            response = (
+                get_client()
+                .table("menu_item_aliases")
+                .select(
+                    "id,restaurant_id,menu_item_id,alias,"
+                    "normalized_alias,alias_type,priority"
+                )
+                .eq("restaurant_id", str(restaurant_id))
+                .order("id")
+                .range(offset, offset + ALIAS_PAGE_SIZE - 1)
+                .execute()
             )
-            .eq("restaurant_id", str(restaurant_id))
-            .execute()
-        )
+
+            if response.data is None:
+                page: list[dict[str, Any]] = []
+            elif not isinstance(response.data, list):
+                raise RestaurantMenuResolverError(
+                    code="INVALID_RESTAURANT_ALIAS_RESPONSE",
+                    message="Restaurangens alias gav ett ogiltigt svar.",
+                    status_code=502,
+                )
+            else:
+                page = response.data
+
+            for value in page:
+                if not isinstance(value, dict):
+                    raise RestaurantMenuResolverError(
+                        code="INVALID_RESTAURANT_ALIAS_RESPONSE",
+                        message=(
+                            "Restaurangens alias innehåller ogiltiga "
+                            "uppgifter."
+                        ),
+                        status_code=502,
+                    )
+                alias_id = str(value.get("id") or "")
+                if not alias_id or alias_id in seen_alias_ids:
+                    raise RestaurantMenuResolverError(
+                        code="INVALID_RESTAURANT_ALIAS_RESPONSE",
+                        message=(
+                            "Restaurangens alias innehåller ett saknat "
+                            "eller duplicerat id."
+                        ),
+                        status_code=502,
+                    )
+                seen_alias_ids.add(alias_id)
+                rows.append(value)
+
+            if len(page) < ALIAS_PAGE_SIZE:
+                break
+            offset += ALIAS_PAGE_SIZE
+    except RestaurantMenuResolverError:
+        raise
     except Exception as error:
         logger.error(
             "Could not read restaurant menu aliases",
@@ -157,23 +207,8 @@ def _load_menu_item_aliases(
             status_code=502,
         ) from error
 
-    if response.data is None:
-        return []
-    if not isinstance(response.data, list):
-        raise RestaurantMenuResolverError(
-            code="INVALID_RESTAURANT_ALIAS_RESPONSE",
-            message="Restaurangens alias gav ett ogiltigt svar.",
-            status_code=502,
-        )
-
     aliases: list[dict[str, Any]] = []
-    for value in response.data:
-        if not isinstance(value, dict):
-            raise RestaurantMenuResolverError(
-                code="INVALID_RESTAURANT_ALIAS_RESPONSE",
-                message="Restaurangens alias innehåller ogiltiga uppgifter.",
-                status_code=502,
-            )
+    for value in rows:
         if str(value.get("restaurant_id") or "") != str(restaurant_id):
             raise RestaurantMenuResolverError(
                 code="ALIAS_RESTAURANT_MISMATCH",
@@ -228,6 +263,7 @@ def _load_approved_alias_overrides(
 def _clear_resolver_catalog_cache() -> None:
     with _catalog_cache_lock:
         _catalog_cache.clear()
+        _phrase_cache.clear()
 
 
 def _load_resolver_catalog(
@@ -430,6 +466,26 @@ def _build_phrases(
     )
 
 
+def _load_or_build_phrases(
+    context: ToolRestaurantContext,
+    menu_items: list[dict[str, Any]],
+    aliases: list[dict[str, Any]],
+) -> list[_ResolverPhrase]:
+    cache_key = str(context.restaurant_id)
+    now = monotonic()
+    with _catalog_cache_lock:
+        cached = _phrase_cache.get(cache_key)
+        if cached is not None and now - cached[0] < (
+            RESOLVER_CATALOG_CACHE_TTL_SECONDS
+        ):
+            return cached[1]
+
+    phrases = _build_phrases(menu_items, aliases)
+    with _catalog_cache_lock:
+        _phrase_cache[cache_key] = (now, phrases)
+    return phrases
+
+
 def _find_matches(
     utterance: str,
     phrases: list[_ResolverPhrase],
@@ -499,6 +555,7 @@ def _variant_family_request(
     context: ToolRestaurantContext,
     utterance: str,
     menu_items: list[dict[str, Any]],
+    direct_matches: list[_ResolverPhrase],
 ) -> tuple[
     str,
     str,
@@ -522,6 +579,12 @@ def _variant_family_request(
         if not _contains_words(
             utterance_words,
             spoken_family_words,
+        ):
+            continue
+
+        if any(
+            _contains_words(phrase.words, spoken_family_words)
+            for phrase in direct_matches
         ):
             continue
 
@@ -695,7 +758,7 @@ def resolve_restaurant_menu_items(
     aliases.extend(
         _load_approved_alias_overrides(context, menu_items)
     )
-    phrases = _build_phrases(menu_items, aliases)
+    phrases = _load_or_build_phrases(context, menu_items, aliases)
     matches, _ = _find_matches(utterance, phrases)
 
     family_utterance = utterance
@@ -703,6 +766,7 @@ def resolve_restaurant_menu_items(
         context,
         family_utterance,
         menu_items,
+        matches,
     )
     if family_request is None:
         pending_utterance = _pending_variant_utterance(entries)
@@ -712,6 +776,7 @@ def resolve_restaurant_menu_items(
                 context,
                 family_utterance,
                 menu_items,
+                matches,
             )
     if family_request is not None:
         (
