@@ -782,7 +782,13 @@ class RestaurantMenuResolverTests(unittest.TestCase):
 
     def test_pad_thai_and_sushi_does_not_silently_drop_sushi(self) -> None:
         menu = [
-            *self.menu,
+            _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(SATAY_ID, "23. Satay Gai"),
+            _item(
+                PAD_THAI_ID,
+                "Pad Thai – Kyckling",
+                "Pad Thai – Kyckling",
+            ),
             _item(REGULAR_SUSHI_15_ID, "Extra Stor Sushi – 15 bitar"),
             _item(
                 CUSTOM_SUSHI_15_ID,
@@ -798,10 +804,73 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(
             {match["official_name"] for match in result["matches"]},
             {
-                "Pad Thai - Kyckling",
+                "Pad Thai – Kyckling",
                 "Extra Stor Sushi – 15 bitar",
                 "Egenkomponerad sushi – 15 bitar",
             },
+        )
+
+    def test_bare_pad_thai_is_clarified_before_sushi_type(self) -> None:
+        menu = [
+            _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(SATAY_ID, "23. Satay Gai"),
+            _item(
+                PAD_THAI_ID,
+                "Pad Thai – Kyckling",
+                "Pad Thai – Kyckling",
+            ),
+            _item(REGULAR_SUSHI_15_ID, "Extra Stor Sushi – 15 bitar"),
+            _item(
+                CUSTOM_SUSHI_15_ID,
+                "Egenkomponerad sushi – 15 bitar",
+            ),
+        ]
+        result = self._resolve(
+            "En Pad Thai och femton bitars sushi",
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(
+            result["customer_message"],
+            "Vilket protein vill du ha?",
+        )
+
+    def test_pad_thai_follow_up_then_clarifies_sushi_type(self) -> None:
+        menu = [
+            _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(SATAY_ID, "23. Satay Gai"),
+            _item(
+                PAD_THAI_ID,
+                "Pad Thai – Kyckling",
+                "Pad Thai – Kyckling",
+            ),
+            _item(REGULAR_SUSHI_15_ID, "Extra Stor Sushi – 15 bitar"),
+            _item(
+                CUSTOM_SUSHI_15_ID,
+                "Egenkomponerad sushi – 15 bitar",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": "En Pad Thai och femton bitars sushi",
+                },
+                {"role": "agent", "message": "Vilket protein vill du ha?"},
+                {"role": "user", "message": "Kyckling"},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(
+            result["customer_message"],
+            "Vill du ha vanlig femtonbitars sushi eller blanda egen?",
+        )
+        self.assertIn(
+            "Pad Thai – Kyckling",
+            {match["official_name"] for match in result["matches"]},
         )
 
     def test_exact_regular_sushi_name_keeps_existing_match_path(self) -> None:

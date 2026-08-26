@@ -485,6 +485,14 @@ def _pending_sushi_utterance(
     if not asks_for_sushi_size and not asks_for_sushi_type:
         return None
 
+    if asks_for_sushi_type:
+        sushi_size = _sushi_size_from_words(
+            tuple(normalized_agent_message.split())
+        )
+        if sushi_size is None:
+            return None
+        return f"sushi {sushi_size} bitar {latest_utterance}"
+
     for index in range(agent_index - 1, -1, -1):
         role = str(entries[index].get("role") or "").casefold()
         if role not in {"user", "customer"}:
@@ -1038,23 +1046,84 @@ def resolve_restaurant_menu_items(
     phrases = _load_or_build_phrases(context, menu_items, aliases)
     matches, _ = _find_matches(utterance, phrases)
 
-    sushi_utterance = utterance
-    sushi_request = _yz_sushi_request(
+    family_utterance = utterance
+    family_request = _variant_family_request(
         context,
-        sushi_utterance,
+        family_utterance,
         menu_items,
         matches,
     )
-    if sushi_request is None:
-        pending_sushi_utterance = _pending_sushi_utterance(entries)
-        if pending_sushi_utterance is not None:
-            sushi_utterance = pending_sushi_utterance
-            sushi_request = _yz_sushi_request(
+    pending_variant_utterance: str | None = None
+    if family_request is None:
+        pending_variant_utterance = _pending_variant_utterance(entries)
+        if pending_variant_utterance is not None:
+            family_utterance = pending_variant_utterance
+            family_request = _variant_family_request(
                 context,
-                sushi_utterance,
+                family_utterance,
                 menu_items,
                 matches,
             )
+            if family_request is None:
+                configured_families = APPROVED_VARIANT_FAMILIES.get(
+                    context.restaurant_slug,
+                    {},
+                )
+                pending_words = tuple(
+                    _normalize_spoken_text(
+                        pending_variant_utterance
+                    ).split()
+                )
+                for spoken_family_name in configured_families:
+                    family_words = tuple(
+                        _normalize_spoken_text(
+                            spoken_family_name
+                        ).split()
+                    )
+                    if not _contains_words(pending_words, family_words):
+                        continue
+                    narrowed_utterance = (
+                        f"{spoken_family_name} {utterance}"
+                    )
+                    family_request = _variant_family_request(
+                        context,
+                        narrowed_utterance,
+                        menu_items,
+                        matches,
+                    )
+                    if family_request is not None:
+                        family_utterance = narrowed_utterance
+                        break
+
+    family_is_waiting_for_variant = (
+        family_request is not None and not family_request[3]
+    )
+    sushi_utterance = (
+        pending_variant_utterance
+        if pending_variant_utterance is not None
+        and "sushi" in _normalize_spoken_text(
+            pending_variant_utterance
+        ).split()
+        else family_utterance
+    )
+    sushi_request = None
+    if not family_is_waiting_for_variant:
+        sushi_request = _yz_sushi_request(
+            context,
+            sushi_utterance,
+            menu_items,
+            matches,
+        )
+        if sushi_request is None:
+            pending_sushi_utterance = _pending_sushi_utterance(entries)
+            if pending_sushi_utterance is not None:
+                sushi_utterance = pending_sushi_utterance
+                sushi_request = _yz_sushi_request(
+                    context,
+                    sushi_utterance,
+                    menu_items,
+                    matches,
+                )
     if sushi_request is not None:
         direct_match_values = [
             {
@@ -1074,6 +1143,17 @@ def resolve_restaurant_menu_items(
             }
             for phrase in matches
         ]
+        if family_request is not None:
+            family_name = family_request[0]
+            known_ids = {
+                str(match["menu_item_id"])
+                for match in direct_match_values
+            }
+            for item in family_request[3]:
+                family_match = _resolved_match(item, family_name)
+                if str(family_match["menu_item_id"]) not in known_ids:
+                    direct_match_values.append(family_match)
+                    known_ids.add(str(family_match["menu_item_id"]))
         if sushi_request["status"] == "MATCH":
             selected_match = _resolved_match(
                 sushi_request["selected_item"],
@@ -1128,23 +1208,6 @@ def resolve_restaurant_menu_items(
             "matches": direct_match_values,
         }
 
-    family_utterance = utterance
-    family_request = _variant_family_request(
-        context,
-        family_utterance,
-        menu_items,
-        matches,
-    )
-    if family_request is None:
-        pending_utterance = _pending_variant_utterance(entries)
-        if pending_utterance is not None:
-            family_utterance = pending_utterance
-            family_request = _variant_family_request(
-                context,
-                family_utterance,
-                menu_items,
-                matches,
-            )
     if family_request is not None:
         (
             family_name,
