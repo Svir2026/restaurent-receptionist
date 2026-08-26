@@ -59,6 +59,14 @@ APPROVED_VARIANT_FAMILIES = {
             "gaeng ped",
             "Vilket protein vill du ha?",
         ),
+        "rad curry": (
+            "gaeng ped",
+            "Vilket protein vill du ha?",
+        ),
+        "red curry": (
+            "gaeng ped",
+            "Vilket protein vill du ha?",
+        ),
         "gaeng ped": (
             "gaeng ped",
             "Vilket protein vill du ha?",
@@ -72,6 +80,18 @@ APPROVED_VARIANT_FAMILIES = {
             "Vilket protein vill du ha?",
         ),
         "gran curry": (
+            "gaeng keowan",
+            "Vilket protein vill du ha?",
+        ),
+        "grand curry": (
+            "gaeng keowan",
+            "Vilket protein vill du ha?",
+        ),
+        "grann curry": (
+            "gaeng keowan",
+            "Vilket protein vill du ha?",
+        ),
+        "gren curry": (
             "gaeng keowan",
             "Vilket protein vill du ha?",
         ),

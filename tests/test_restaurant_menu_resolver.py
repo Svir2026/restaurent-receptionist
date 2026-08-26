@@ -488,6 +488,11 @@ class RestaurantMenuResolverTests(unittest.TestCase):
 
     def test_approved_family_aliases_ask_for_protein(self) -> None:
         alias_groups = {
+            "Gaeng Ped": (
+                "röd curry",
+                "rad curry",
+                "red curry",
+            ),
             "Gaeng Panang": (
                 "panang",
                 "panang curry",
@@ -498,6 +503,9 @@ class RestaurantMenuResolverTests(unittest.TestCase):
                 "grön curry",
                 "gron curry",
                 "gran curry",
+                "grand curry",
+                "grann curry",
+                "gren curry",
                 "green curry",
                 "gäng keowan",
                 "keowan",
@@ -563,6 +571,64 @@ class RestaurantMenuResolverTests(unittest.TestCase):
                         "Vilket protein vill du ha?",
                     )
                     self.assertEqual(result["unresolved_attempt"], 0)
+
+    def test_live_asr_curry_aliases_resolve_with_every_protein(
+        self,
+    ) -> None:
+        proteins = (
+            "Anka",
+            "Biff",
+            "Bläckfisk",
+            "Fläsk",
+            "Kyckling",
+            "Räkor",
+            "Tofu",
+        )
+        for index, protein in enumerate(proteins, start=1):
+            menu = [
+                *self.menu,
+                _item(
+                    UUID(f"71000000-0000-4000-8000-{index:012d}"),
+                    f"Gaeng Ped – {protein}",
+                ),
+                _item(
+                    UUID(f"72000000-0000-4000-8000-{index:012d}"),
+                    f"Gaeng Keowan – {protein}",
+                ),
+            ]
+            with self.subTest(protein=protein):
+                _clear_resolver_catalog_cache()
+                result = self._resolve_history(
+                    [
+                        {
+                            "role": "user",
+                            "message": (
+                                "Jag vill beställa en rad curry och "
+                                "en grand curry."
+                            ),
+                        },
+                        {
+                            "role": "agent",
+                            "message": "Vilket protein vill du ha?",
+                        },
+                        {
+                            "role": "user",
+                            "message": f"{protein} på båda.",
+                        },
+                    ],
+                    menu=menu,
+                    aliases=[],
+                )
+
+                self.assertEqual(result["status"], "MATCH")
+                self.assertEqual(result["unresolved_attempt"], 0)
+                self.assertEqual(
+                    {match["official_name"] for match in result["matches"]},
+                    {
+                        f"Gaeng Ped – {protein}",
+                        f"Gaeng Keowan – {protein}",
+                    },
+                )
 
     def test_overlapping_family_aliases_do_not_duplicate_matches(
         self,
