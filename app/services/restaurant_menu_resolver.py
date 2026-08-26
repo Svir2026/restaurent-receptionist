@@ -63,6 +63,38 @@ APPROVED_VARIANT_FAMILIES = {
             "gaeng ped",
             "Vilket protein vill du ha?",
         ),
+        "grön curry": (
+            "gaeng keowan",
+            "Vilket protein vill du ha?",
+        ),
+        "gaeng keowan": (
+            "gaeng keowan",
+            "Vilket protein vill du ha?",
+        ),
+        "gaeng panang": (
+            "gaeng panang",
+            "Vilket protein vill du ha?",
+        ),
+        "massamang curry": (
+            "massamang curry",
+            "Vilket protein vill du ha?",
+        ),
+        "massaman curry": (
+            "massamang curry",
+            "Vilket protein vill du ha?",
+        ),
+        "pad krapow": (
+            "pad krapow",
+            "Vilket protein vill du ha?",
+        ),
+        "pad priawan": (
+            "pad priawan",
+            "Vilket protein vill du ha?",
+        ),
+        "pad privan": (
+            "pad priawan",
+            "Vilket protein vill du ha?",
+        ),
         "cashewnötter": (
             "pad med mamuang",
             "Vilket protein vill du ha?",
@@ -82,6 +114,10 @@ VERIFIED_PROTEIN_VARIANTS = {
     "kyckling",
     "räkor",
     "tofu",
+}
+
+APPROVED_PROTEIN_ALIASES = {
+    "gris": "fläsk",
 }
 
 VARIANT_FOLLOW_UP_FILLER_WORDS = {
@@ -419,6 +455,12 @@ def _strip_variant_follow_up_fillers(value: str) -> str:
     words = _normalize_spoken_text(value).split()
     while words and words[0] in VARIANT_FOLLOW_UP_FILLER_WORDS:
         words.pop(0)
+    words = [APPROVED_PROTEIN_ALIASES.get(word, word) for word in words]
+    proteins = {
+        word for word in words if word in VERIFIED_PROTEIN_VARIANTS
+    }
+    if len(proteins) == 1 and "extra" not in words:
+        return next(iter(proteins))
     return " ".join(words) or _normalize_spoken_text(value)
 
 
@@ -873,7 +915,10 @@ def _variant_family_request(
         context.restaurant_slug,
         {},
     )
-    utterance_words = tuple(_normalize_spoken_text(utterance).split())
+    utterance_words = tuple(
+        APPROVED_PROTEIN_ALIASES.get(word, word)
+        for word in _normalize_spoken_text(utterance).split()
+    )
 
     for spoken_family_name, family_config in configured.items():
         menu_family_name, customer_message = family_config

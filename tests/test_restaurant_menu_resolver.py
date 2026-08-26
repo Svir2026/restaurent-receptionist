@@ -444,6 +444,163 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             "Gaeng Ped – Kyckling",
         )
 
+    def test_recent_real_variant_families_ask_for_protein(self) -> None:
+        cases = (
+            ("En Gaeng Panang", "Gaeng Panang"),
+            ("En Gaeng Keowan", "Gaeng Keowan"),
+            ("En grön curry", "Gaeng Keowan"),
+            ("En Massamang Curry", "Massamang Curry"),
+            ("En Massaman Curry", "Massamang Curry"),
+            ("En Pad Krapow", "Pad Krapow"),
+            ("En Pad Priawan", "Pad Priawan"),
+            ("En pad privan", "Pad Priawan"),
+        )
+        for index, (utterance, family) in enumerate(cases, start=1):
+            menu = [
+                *self.menu,
+                _item(
+                    UUID(f"10000000-0000-4000-8000-{index:012d}"),
+                    f"{family} – Kyckling",
+                ),
+                _item(
+                    UUID(f"20000000-0000-4000-8000-{index:012d}"),
+                    f"{family} – Fläsk",
+                ),
+            ]
+            with self.subTest(utterance=utterance):
+                _clear_resolver_catalog_cache()
+                result = self._resolve(
+                    utterance,
+                    menu=menu,
+                    aliases=[],
+                )
+                self.assertEqual(
+                    result["status"],
+                    "AMBIGUOUS",
+                    msg=utterance,
+                )
+                self.assertEqual(result["action"], "clarify")
+                self.assertEqual(
+                    result["customer_message"],
+                    "Vilket protein vill du ha?",
+                )
+                self.assertEqual(result["unresolved_attempt"], 0)
+
+    def test_gris_maps_exactly_to_flask_variant(self) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("30000000-0000-4000-8000-000000000001"),
+                "Gaeng Ped – Fläsk",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha en röd curry med gris",
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Gaeng Ped – Fläsk",
+        )
+
+    def test_recent_real_families_resolve_after_protein_follow_up(
+        self,
+    ) -> None:
+        cases = (
+            ("Gaeng Panang", "Gaeng Panang", "kyckling", "Kyckling"),
+            ("grön curry", "Gaeng Keowan", "biff", "Biff"),
+            ("Massamang Curry", "Massamang Curry", "gris", "Fläsk"),
+            ("Pad Krapow", "Pad Krapow", "tofu", "Tofu"),
+            ("pad privan", "Pad Priawan", "räkor", "Räkor"),
+        )
+        for index, (
+            spoken_family,
+            menu_family,
+            spoken_protein,
+            menu_protein,
+        ) in enumerate(cases, start=1):
+            menu = [
+                *self.menu,
+                _item(
+                    UUID(f"40000000-0000-4000-8000-{index:012d}"),
+                    f"{menu_family} – {menu_protein}",
+                ),
+            ]
+            with self.subTest(spoken_family=spoken_family):
+                _clear_resolver_catalog_cache()
+                result = self._resolve_history(
+                    [
+                        {
+                            "role": "user",
+                            "message": f"En {spoken_family}",
+                        },
+                        {
+                            "role": "agent",
+                            "message": "Vilket protein vill du ha?",
+                        },
+                        {"role": "user", "message": spoken_protein},
+                    ],
+                    menu=menu,
+                    aliases=[],
+                )
+                self.assertEqual(result["status"], "MATCH")
+                self.assertEqual(result["action"], "continue")
+                self.assertEqual(result["unresolved_attempt"], 0)
+                self.assertEqual(
+                    result["matches"][0]["official_name"],
+                    f"{menu_family} – {menu_protein}",
+                )
+
+    def test_gris_question_resolves_pending_red_curry_and_keeps_side(
+        self,
+    ) -> None:
+        spring_roll_id = UUID("30000000-0000-4000-8000-000000000002")
+        menu = [
+            *self.menu,
+            _item(
+                UUID("30000000-0000-4000-8000-000000000003"),
+                "Gaeng Ped – Fläsk",
+            ),
+            _item(spring_roll_id, "Vårrullar"),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": "En röd curry med vårrullar.",
+                },
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {"role": "user", "message": "Har ni gris?"},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            {match["official_name"] for match in result["matches"]},
+            {"Gaeng Ped – Fläsk", "Vårrullar"},
+        )
+
+    def test_yellow_curry_is_not_mapped(self) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("30000000-0000-4000-8000-000000000004"),
+                "Massamang Curry – Kyckling",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha en gul curry",
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "NO_MATCH")
+
     def test_cashew_family_resolves_every_verified_protein(self) -> None:
         menu = [
             *self.menu,
