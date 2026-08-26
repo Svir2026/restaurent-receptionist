@@ -67,11 +67,47 @@ APPROVED_VARIANT_FAMILIES = {
             "gaeng keowan",
             "Vilket protein vill du ha?",
         ),
+        "gron curry": (
+            "gaeng keowan",
+            "Vilket protein vill du ha?",
+        ),
+        "green curry": (
+            "gaeng keowan",
+            "Vilket protein vill du ha?",
+        ),
         "gaeng keowan": (
             "gaeng keowan",
             "Vilket protein vill du ha?",
         ),
+        "gäng keowan": (
+            "gaeng keowan",
+            "Vilket protein vill du ha?",
+        ),
+        "keowan": (
+            "gaeng keowan",
+            "Vilket protein vill du ha?",
+        ),
+        "nummer 2": (
+            "gaeng keowan",
+            "Vilket protein vill du ha?",
+        ),
         "gaeng panang": (
+            "gaeng panang",
+            "Vilket protein vill du ha?",
+        ),
+        "panang": (
+            "gaeng panang",
+            "Vilket protein vill du ha?",
+        ),
+        "panang curry": (
+            "gaeng panang",
+            "Vilket protein vill du ha?",
+        ),
+        "penang": (
+            "gaeng panang",
+            "Vilket protein vill du ha?",
+        ),
+        "nummer 3": (
             "gaeng panang",
             "Vilket protein vill du ha?",
         ),
@@ -83,7 +119,43 @@ APPROVED_VARIANT_FAMILIES = {
             "massamang curry",
             "Vilket protein vill du ha?",
         ),
+        "massamang": (
+            "massamang curry",
+            "Vilket protein vill du ha?",
+        ),
+        "massaman": (
+            "massamang curry",
+            "Vilket protein vill du ha?",
+        ),
+        "matsaman": (
+            "massamang curry",
+            "Vilket protein vill du ha?",
+        ),
+        "nummer 4": (
+            "massamang curry",
+            "Vilket protein vill du ha?",
+        ),
         "pad krapow": (
+            "pad krapow",
+            "Vilket protein vill du ha?",
+        ),
+        "krapow": (
+            "pad krapow",
+            "Vilket protein vill du ha?",
+        ),
+        "kra pow": (
+            "pad krapow",
+            "Vilket protein vill du ha?",
+        ),
+        "pad kaprao": (
+            "pad krapow",
+            "Vilket protein vill du ha?",
+        ),
+        "basilika stark": (
+            "pad krapow",
+            "Vilket protein vill du ha?",
+        ),
+        "nummer 9": (
             "pad krapow",
             "Vilket protein vill du ha?",
         ),
@@ -92,6 +164,30 @@ APPROVED_VARIANT_FAMILIES = {
             "Vilket protein vill du ha?",
         ),
         "pad privan": (
+            "pad priawan",
+            "Vilket protein vill du ha?",
+        ),
+        "priawan": (
+            "pad priawan",
+            "Vilket protein vill du ha?",
+        ),
+        "priewan": (
+            "pad priawan",
+            "Vilket protein vill du ha?",
+        ),
+        "sötsur wok": (
+            "pad priawan",
+            "Vilket protein vill du ha?",
+        ),
+        "sotsur wok": (
+            "pad priawan",
+            "Vilket protein vill du ha?",
+        ),
+        "sweet and sour": (
+            "pad priawan",
+            "Vilket protein vill du ha?",
+        ),
+        "nummer 11": (
             "pad priawan",
             "Vilket protein vill du ha?",
         ),
@@ -920,7 +1016,13 @@ def _variant_family_request(
         for word in _normalize_spoken_text(utterance).split()
     )
 
-    for spoken_family_name, family_config in configured.items():
+    configured_families = sorted(
+        configured.items(),
+        key=lambda value: -len(
+            _normalize_spoken_text(value[0]).split()
+        ),
+    )
+    for spoken_family_name, family_config in configured_families:
         menu_family_name, customer_message = family_config
         normalized_spoken_family = _normalize_spoken_text(
             spoken_family_name
@@ -1030,6 +1132,10 @@ def _variant_family_requests(
         ]
     ] = []
     excluded: set[str] = set()
+    configured = APPROVED_VARIANT_FAMILIES.get(
+        context.restaurant_slug,
+        {},
+    )
     while True:
         request = _variant_family_request(
             context,
@@ -1041,7 +1147,19 @@ def _variant_family_requests(
         if request is None:
             return requests
         requests.append(request)
-        excluded.add(request[0])
+        selected_config = configured.get(request[0])
+        if selected_config is None:
+            excluded.add(request[0])
+            continue
+        selected_menu_family = _normalize_spoken_text(
+            selected_config[0]
+        )
+        excluded.update(
+            _normalize_spoken_text(spoken_family)
+            for spoken_family, family_config in configured.items()
+            if _normalize_spoken_text(family_config[0])
+            == selected_menu_family
+        )
 
 
 def _append_selected_variant_matches(

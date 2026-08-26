@@ -486,6 +486,113 @@ class RestaurantMenuResolverTests(unittest.TestCase):
                 )
                 self.assertEqual(result["unresolved_attempt"], 0)
 
+    def test_approved_family_aliases_ask_for_protein(self) -> None:
+        alias_groups = {
+            "Gaeng Panang": (
+                "panang",
+                "panang curry",
+                "penang",
+                "nummer 3",
+            ),
+            "Gaeng Keowan": (
+                "grön curry",
+                "gron curry",
+                "green curry",
+                "gäng keowan",
+                "keowan",
+                "nummer 2",
+            ),
+            "Massamang Curry": (
+                "massaman",
+                "massamang",
+                "massaman curry",
+                "matsaman",
+                "nummer 4",
+            ),
+            "Pad Krapow": (
+                "krapow",
+                "kra pow",
+                "pad kaprao",
+                "basilika stark",
+                "nummer 9",
+            ),
+            "Pad Priawan": (
+                "pad privan",
+                "priawan",
+                "priewan",
+                "sötsur wok",
+                "sotsur wok",
+                "sweet and sour",
+                "nummer 11",
+            ),
+        }
+        for family_index, (family, aliases) in enumerate(
+            alias_groups.items(),
+            start=1,
+        ):
+            menu = [
+                *self.menu,
+                _item(
+                    UUID(
+                        "50000000-0000-4000-8000-"
+                        f"{family_index:012d}"
+                    ),
+                    f"{family} – Kyckling",
+                ),
+                _item(
+                    UUID(
+                        "60000000-0000-4000-8000-"
+                        f"{family_index:012d}"
+                    ),
+                    f"{family} – Fläsk",
+                ),
+            ]
+            for alias in aliases:
+                with self.subTest(alias=alias):
+                    _clear_resolver_catalog_cache()
+                    result = self._resolve(
+                        f"Jag vill ha {alias}",
+                        menu=menu,
+                        aliases=[],
+                    )
+                    self.assertEqual(result["status"], "AMBIGUOUS")
+                    self.assertEqual(result["action"], "clarify")
+                    self.assertEqual(
+                        result["customer_message"],
+                        "Vilket protein vill du ha?",
+                    )
+                    self.assertEqual(result["unresolved_attempt"], 0)
+
+    def test_overlapping_family_aliases_do_not_duplicate_matches(
+        self,
+    ) -> None:
+        cases = (
+            ("panang curry med kyckling", "Gaeng Panang"),
+            ("massaman curry med kyckling", "Massamang Curry"),
+            ("pad krapow med kyckling", "Pad Krapow"),
+        )
+        for index, (utterance, family) in enumerate(cases, start=1):
+            menu = [
+                *self.menu,
+                _item(
+                    UUID(f"70000000-0000-4000-8000-{index:012d}"),
+                    f"{family} – Kyckling",
+                ),
+            ]
+            with self.subTest(utterance=utterance):
+                _clear_resolver_catalog_cache()
+                result = self._resolve(
+                    utterance,
+                    menu=menu,
+                    aliases=[],
+                )
+                self.assertEqual(result["status"], "MATCH")
+                self.assertEqual(len(result["matches"]), 1)
+                self.assertEqual(
+                    result["matches"][0]["official_name"],
+                    f"{family} – Kyckling",
+                )
+
     def test_gris_maps_exactly_to_flask_variant(self) -> None:
         menu = [
             *self.menu,
