@@ -893,7 +893,7 @@ class RestaurantMenuResolverTests(unittest.TestCase):
                     "message": "En Pad Thai och femton bitars sushi",
                 },
                 {"role": "agent", "message": "Vilket protein vill du ha?"},
-                {"role": "user", "message": "Kyckling"},
+                {"role": "user", "message": "Äh, kyckling."},
             ],
             menu=menu,
             aliases=[],
@@ -1062,7 +1062,7 @@ class RestaurantMenuResolverTests(unittest.TestCase):
                     "role": "agent",
                     "message": "Vilket protein vill du ha till din röda curry?",
                 },
-                {"role": "user", "message": "Kyckling"},
+                {"role": "user", "message": "Äh, kyckling."},
             ],
             menu=menu,
         )

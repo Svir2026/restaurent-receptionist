@@ -82,6 +82,17 @@ VERIFIED_PROTEIN_VARIANTS = {
     "tofu",
 }
 
+VARIANT_FOLLOW_UP_FILLER_WORDS = {
+    "alltså",
+    "eh",
+    "hm",
+    "ja",
+    "okej",
+    "äh",
+    "öh",
+    "öhm",
+}
+
 RESOLVER_CATALOG_CACHE_TTL_SECONDS = 30.0
 ALIAS_PAGE_SIZE = 1000
 _catalog_cache: dict[
@@ -400,6 +411,13 @@ def _entry_message(entry: dict[str, Any]) -> str | None:
         if isinstance(value, str) and value.strip():
             return value.strip()
     return None
+
+
+def _strip_variant_follow_up_fillers(value: str) -> str:
+    words = _normalize_spoken_text(value).split()
+    while words and words[0] in VARIANT_FOLLOW_UP_FILLER_WORDS:
+        words.pop(0)
+    return " ".join(words) or _normalize_spoken_text(value)
 
 
 def _pending_variant_utterance(
@@ -1155,8 +1173,11 @@ def resolve_restaurant_menu_items(
             )
             family_utterance = pending_variant_utterance
             if pending_family is not None:
+                normalized_latest = _strip_variant_follow_up_fillers(
+                    latest_utterance
+                )
                 family_utterance = (
-                    f"{pending_family[0]} {latest_utterance}"
+                    f"{pending_family[0]} {normalized_latest}"
                 )
             family_requests = _variant_family_requests(
                 context,
