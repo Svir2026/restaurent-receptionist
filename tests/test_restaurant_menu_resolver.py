@@ -1077,6 +1077,91 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             "Har jag fått med allting?",
         )
 
+    def test_mixed_order_keeps_matches_while_red_curry_needs_protein(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                COLA_ID,
+                "Pad Med Mamuang – Kyckling",
+                "Pad Med Mamuang – Kyckling",
+            ),
+            _item(
+                UUID("00000000-0000-0000-0000-000000000007"),
+                "Gaeng Ped – Kyckling",
+                "Gaeng Ped – Kyckling",
+            ),
+            _item(
+                UUID("00000000-0000-0000-0000-000000000008"),
+                "Gaeng Ped – Räkor",
+                "Gaeng Ped – Räkor",
+            ),
+        ]
+        result = self._resolve(
+            "En yakniki, kyckling cashewnötter och en röd curry",
+            menu=menu,
+            aliases=[_alias(COLA_ID, "kyckling cashewnötter")],
+        )
+
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(result["customer_message"], "Vilket protein vill du ha?")
+        self.assertEqual(
+            {match["official_name"] for match in result["matches"]},
+            {"24. Yakiniku", "Pad Med Mamuang – Kyckling"},
+        )
+        self.assertEqual(
+            {
+                match["official_name"]
+                for match in result["variant_candidates"]
+            },
+            {"Gaeng Ped – Kyckling", "Gaeng Ped – Räkor"},
+        )
+
+    def test_mixed_order_protein_follow_up_returns_every_resolved_item(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                COLA_ID,
+                "Pad Med Mamuang – Kyckling",
+                "Pad Med Mamuang – Kyckling",
+            ),
+            _item(
+                UUID("00000000-0000-0000-0000-000000000007"),
+                "Gaeng Ped – Kyckling",
+                "Gaeng Ped – Kyckling",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": (
+                        "En yakniki, kyckling cashewnötter och en röd curry"
+                    ),
+                },
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha i din röda curry?",
+                },
+                {"role": "user", "message": "Kyckling"},
+            ],
+            menu=menu,
+            aliases=[_alias(COLA_ID, "kyckling cashewnötter")],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            {match["official_name"] for match in result["matches"]},
+            {
+                "24. Yakiniku",
+                "Pad Med Mamuang – Kyckling",
+                "Gaeng Ped – Kyckling",
+            },
+        )
+
     def test_spoken_chicken_and_shrimp_keeps_chicken_variant(self) -> None:
         menu = [
             _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),

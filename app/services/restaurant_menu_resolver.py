@@ -404,7 +404,7 @@ def _entry_message(entry: dict[str, Any]) -> str | None:
 
 def _pending_variant_utterance(
     entries: list[dict[str, Any]],
-) -> str | None:
+) -> tuple[str, str] | None:
     latest_user_index: int | None = None
     for index in range(len(entries) - 1, -1, -1):
         role = str(entries[index].get("role") or "").casefold()
@@ -441,7 +441,7 @@ def _pending_variant_utterance(
             continue
         prior_utterance = _entry_message(entries[index])
         if prior_utterance:
-            return f"{prior_utterance} {latest_utterance}"
+            return prior_utterance, latest_utterance
         return None
     return None
 
@@ -930,13 +930,6 @@ def _variant_family_request(
                 selected_variants,
             )
 
-        protein_was_supplied = any(
-            protein in utterance_words
-            for protein in variants_by_protein
-        )
-        if protein_was_supplied:
-            continue
-
         return (
             normalized_spoken_family,
             customer_message,
@@ -1056,9 +1049,28 @@ def resolve_restaurant_menu_items(
     )
     pending_variant_utterance: str | None = None
     if family_request is None:
-        pending_variant_utterance = _pending_variant_utterance(entries)
-        if pending_variant_utterance is not None:
+        pending_variant_context = _pending_variant_utterance(entries)
+        if pending_variant_context is not None:
+            prior_utterance, latest_utterance = pending_variant_context
+            pending_variant_utterance = (
+                f"{prior_utterance} {latest_utterance}"
+            )
+            matches, _ = _find_matches(
+                pending_variant_utterance,
+                phrases,
+            )
+            prior_matches, _ = _find_matches(prior_utterance, phrases)
+            pending_family = _variant_family_request(
+                context,
+                prior_utterance,
+                menu_items,
+                prior_matches,
+            )
             family_utterance = pending_variant_utterance
+            if pending_family is not None and not pending_family[3]:
+                family_utterance = (
+                    f"{pending_family[0]} {latest_utterance}"
+                )
             family_request = _variant_family_request(
                 context,
                 family_utterance,
@@ -1311,6 +1323,24 @@ def resolve_restaurant_menu_items(
                 "all_required_variants_resolved": True,
                 "matches": match_values,
             }
+        direct_match_values = [
+            {
+                "menu_item_id": _parse_menu_item_id(
+                    phrase.item.get("id")
+                ),
+                "official_name": str(
+                    phrase.item.get("official_name") or ""
+                ).strip(),
+                "customer_display_name": str(
+                    phrase.item.get("customer_display_name")
+                    or phrase.item.get("official_name")
+                    or ""
+                ).strip(),
+                "matched_text": phrase.normalized_text,
+                "match_source": phrase.source,
+            }
+            for phrase in matches
+        ]
         return {
             "success": True,
             "status": "AMBIGUOUS",
@@ -1318,7 +1348,10 @@ def resolve_restaurant_menu_items(
             "unresolved_attempt": 0,
             "stop_recovery": False,
             "customer_message": customer_message,
-            "matches": [
+            "required_agent_action": "say_customer_message_exactly",
+            "all_required_variants_resolved": False,
+            "matches": direct_match_values,
+            "variant_candidates": [
                 {
                     "menu_item_id": _parse_menu_item_id(item.get("id")),
                     "official_name": str(
