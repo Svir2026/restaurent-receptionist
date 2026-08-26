@@ -290,6 +290,7 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             "Jag vill ha kycklingspett",
             "En kycklingspett med jordnötsås",
             "Jag tar en kycklingpsett",
+            "Jag vill ha en kycklingpasett med jordnötssås",
         ):
             with self.subTest(utterance=utterance):
                 result = self._resolve(

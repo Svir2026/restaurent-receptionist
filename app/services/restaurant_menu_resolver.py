@@ -43,6 +43,7 @@ APPROVED_ALIAS_OVERRIDES = {
         "yakniki": "24. Yakiniku",
         "kycklingspett": "23. Satay Gai",
         "kycklingpsett": "23. Satay Gai",
+        "kycklingpasett": "23. Satay Gai",
         "kycklingspett med jordnötsås": "23. Satay Gai",
     },
 }
