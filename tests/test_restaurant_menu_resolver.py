@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+from time import sleep
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -536,6 +539,30 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             "Kyckling Cashew med 5 sushi-bitar",
         )
 
+    def test_spoken_fem_matches_verified_menu_digit_five(self) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                CASHEW_SUSHI_COMBO_ID,
+                "Kyckling Cashew med 5 sushi-bitar",
+            ),
+            _item(
+                CASHEW_IDS["Kyckling"],
+                "Pad Med Mamuang – Kyckling",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha Kyckling Cashew med fem sushi-bitar",
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(len(result["matches"]), 1)
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Kyckling Cashew med 5 sushi-bitar",
+        )
+
     def test_explicit_pad_thai_protein_continues_normally(self) -> None:
         result = self._resolve("En Pad Thai med kyckling")
         validated = ResolveMenuItemsV2Response.model_validate(result)
@@ -719,6 +746,38 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(first["status"], "MATCH")
         self.assertEqual(second["status"], "MATCH")
         load_menu.assert_called_once()
+        load_aliases.assert_called_once()
+
+    def test_concurrent_cold_requests_share_one_catalog_load(self) -> None:
+        workers = 8
+        barrier = Barrier(workers)
+
+        def load_menu(_restaurant_id: UUID):
+            sleep(0.05)
+            return self.menu
+
+        def resolve_once(_index: int) -> str:
+            barrier.wait()
+            result = resolve_restaurant_menu_items(
+                context=self.context,
+                request=self._request("En Yakiniku"),
+            )
+            return str(result["status"])
+
+        with patch(
+            "app.services.restaurant_menu_resolver."
+            "_load_active_menu_items",
+            side_effect=load_menu,
+        ) as load_menu_mock, patch(
+            "app.services.restaurant_menu_resolver."
+            "_load_menu_item_aliases",
+            return_value=self.aliases,
+        ) as load_aliases:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                statuses = list(executor.map(resolve_once, range(workers)))
+
+        self.assertEqual(statuses, ["MATCH"] * workers)
+        load_menu_mock.assert_called_once()
         load_aliases.assert_called_once()
 
     def test_phrase_index_is_reused_during_cache_window(self) -> None:
