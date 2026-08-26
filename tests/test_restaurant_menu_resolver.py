@@ -49,6 +49,8 @@ COLA_ZERO_ID = UUID("55555555-5555-4555-8555-555555555555")
 SATAY_ID = UUID("88888888-8888-4888-8888-888888888888")
 EXTRA_CASHEW_ID = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 CASHEW_SUSHI_COMBO_ID = UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
+REGULAR_SUSHI_15_ID = UUID("cccccccc-cccc-4ccc-8ccc-cccccccccccc")
+CUSTOM_SUSHI_15_ID = UUID("dddddddd-dddd-4ddd-8ddd-dddddddddddd")
 CASHEW_IDS = {
     protein: UUID(f"99999999-9999-4999-8999-{index:012d}")
     for index, protein in enumerate(
@@ -563,6 +565,287 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             result["matches"][0]["official_name"],
             "Kyckling Cashew med 5 sushi-bitar",
         )
+
+    def test_bare_fifteen_piece_sushi_asks_regular_or_custom(self) -> None:
+        menu = [
+            *self.menu,
+            _item(REGULAR_SUSHI_15_ID, "Extra Stor Sushi – 15 bitar"),
+            _item(
+                CUSTOM_SUSHI_15_ID,
+                "Egenkomponerad sushi – 15 bitar",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha en femton bitars sushi",
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(result["action"], "clarify")
+        self.assertEqual(
+            result["customer_message"],
+            "Vill du ha vanlig femtonbitars sushi eller blanda egen?",
+        )
+        self.assertEqual(
+            {match["official_name"] for match in result["matches"]},
+            {
+                "Extra Stor Sushi – 15 bitar",
+                "Egenkomponerad sushi – 15 bitar",
+            },
+        )
+
+    def test_compound_fifteen_piece_sushi_is_understood(self) -> None:
+        menu = [
+            *self.menu,
+            _item(REGULAR_SUSHI_15_ID, "Extra Stor Sushi – 15 bitar"),
+            _item(
+                CUSTOM_SUSHI_15_ID,
+                "Egenkomponerad sushi – 15 bitar",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha en femtonbitars sushi",
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(
+            result["customer_message"],
+            "Vill du ha vanlig femtonbitars sushi eller blanda egen?",
+        )
+
+    def test_every_supported_sushi_size_uses_exact_active_items(self) -> None:
+        regular_names = {
+            8: "Liten Sushi – 8 bitar",
+            10: "Mellan Sushi – 10 bitar",
+            12: "Stor Sushi – 12 bitar",
+            15: "Extra Stor Sushi – 15 bitar",
+            20: "Super Sushi – 20 bitar",
+            30: "Familje Sushi – 30 bitar",
+            50: "Stor Familje Sushi – 50 bitar",
+        }
+        spoken_sizes = {
+            8: "åtta",
+            10: "tio",
+            12: "tolv",
+            15: "femton",
+            20: "tjugo",
+            30: "trettio",
+            50: "femtio",
+        }
+        menu = [*self.menu]
+        for index, (size, regular_name) in enumerate(
+            regular_names.items(),
+            start=100,
+        ):
+            menu.extend(
+                [
+                    _item(UUID(int=index), regular_name),
+                    _item(
+                        UUID(int=index + 100),
+                        f"Egenkomponerad sushi – {size} bitar",
+                    ),
+                ]
+            )
+
+        for size, spoken_size in spoken_sizes.items():
+            with self.subTest(size=size):
+                result = self._resolve(
+                    f"Jag vill ha {spoken_size} bitars sushi",
+                    menu=menu,
+                    aliases=[],
+                )
+                self.assertEqual(result["status"], "AMBIGUOUS")
+                self.assertEqual(
+                    {match["official_name"] for match in result["matches"]},
+                    {
+                        regular_names[size],
+                        f"Egenkomponerad sushi – {size} bitar",
+                    },
+                )
+
+    def test_generic_sushi_asks_only_for_piece_count(self) -> None:
+        menu = [
+            *self.menu,
+            _item(REGULAR_SUSHI_15_ID, "Extra Stor Sushi – 15 bitar"),
+            _item(
+                CUSTOM_SUSHI_15_ID,
+                "Egenkomponerad sushi – 15 bitar",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha sushi",
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(
+            result["customer_message"],
+            "Hur många bitar sushi vill du ha?",
+        )
+
+    def test_sushi_size_follow_up_asks_regular_or_custom(self) -> None:
+        menu = [
+            *self.menu,
+            _item(REGULAR_SUSHI_15_ID, "Extra Stor Sushi – 15 bitar"),
+            _item(
+                CUSTOM_SUSHI_15_ID,
+                "Egenkomponerad sushi – 15 bitar",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {"role": "user", "message": "Jag vill ha sushi"},
+                {
+                    "role": "agent",
+                    "message": "Hur många bitar sushi vill du ha?",
+                },
+                {"role": "user", "message": "Femton bitar"},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(
+            result["customer_message"],
+            "Vill du ha vanlig femtonbitars sushi eller blanda egen?",
+        )
+
+    def test_regular_sushi_follow_up_selects_exact_regular_item(self) -> None:
+        menu = [
+            *self.menu,
+            _item(REGULAR_SUSHI_15_ID, "Extra Stor Sushi – 15 bitar"),
+            _item(
+                CUSTOM_SUSHI_15_ID,
+                "Egenkomponerad sushi – 15 bitar",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": "Jag vill ha femton bitars sushi",
+                },
+                {
+                    "role": "agent",
+                    "message": (
+                        "Vill du ha vanlig femtonbitars sushi "
+                        "eller blanda egen?"
+                    ),
+                },
+                {"role": "user", "message": "Vanlig"},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(len(result["matches"]), 1)
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Extra Stor Sushi – 15 bitar",
+        )
+
+    def test_custom_sushi_follow_up_preserves_custom_notes_flow(self) -> None:
+        menu = [
+            *self.menu,
+            _item(REGULAR_SUSHI_15_ID, "Extra Stor Sushi – 15 bitar"),
+            _item(
+                CUSTOM_SUSHI_15_ID,
+                "Egenkomponerad sushi – 15 bitar",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": "Jag vill ha femton bitars sushi",
+                },
+                {
+                    "role": "agent",
+                    "message": (
+                        "Vill du ha vanlig femtonbitars sushi "
+                        "eller blanda egen?"
+                    ),
+                },
+                {"role": "user", "message": "Blanda egen"},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(len(result["matches"]), 1)
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Egenkomponerad sushi – 15 bitar",
+        )
+        self.assertIsNone(result["customer_message"])
+
+    def test_pad_thai_and_sushi_does_not_silently_drop_sushi(self) -> None:
+        menu = [
+            *self.menu,
+            _item(REGULAR_SUSHI_15_ID, "Extra Stor Sushi – 15 bitar"),
+            _item(
+                CUSTOM_SUSHI_15_ID,
+                "Egenkomponerad sushi – 15 bitar",
+            ),
+        ]
+        result = self._resolve(
+            "En Pad Thai med kyckling och femton bitars sushi",
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(
+            {match["official_name"] for match in result["matches"]},
+            {
+                "Pad Thai - Kyckling",
+                "Extra Stor Sushi – 15 bitar",
+                "Egenkomponerad sushi – 15 bitar",
+            },
+        )
+
+    def test_exact_regular_sushi_name_keeps_existing_match_path(self) -> None:
+        menu = [
+            *self.menu,
+            _item(REGULAR_SUSHI_15_ID, "Extra Stor Sushi – 15 bitar"),
+            _item(
+                CUSTOM_SUSHI_15_ID,
+                "Egenkomponerad sushi – 15 bitar",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha Extra Stor Sushi 15 bitar",
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(len(result["matches"]), 1)
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Extra Stor Sushi – 15 bitar",
+        )
+
+    def test_exact_custom_sushi_does_not_finish_before_notes(self) -> None:
+        menu = [
+            *self.menu,
+            _item(REGULAR_SUSHI_15_ID, "Extra Stor Sushi – 15 bitar"),
+            _item(
+                CUSTOM_SUSHI_15_ID,
+                "Egenkomponerad sushi – 15 bitar",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha Egenkomponerad sushi 15 bitar",
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(len(result["matches"]), 1)
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Egenkomponerad sushi – 15 bitar",
+        )
+        self.assertIsNone(result["customer_message"])
 
     def test_explicit_pad_thai_protein_continues_normally(self) -> None:
         result = self._resolve("En Pad Thai med kyckling")

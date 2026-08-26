@@ -94,6 +94,48 @@ VERIFIED_SPOKEN_NUMBER_TOKENS = {
     "fem": "5",
 }
 
+YZ_SUSHI_REGULAR_NAMES = {
+    8: "Liten Sushi – 8 bitar",
+    10: "Mellan Sushi – 10 bitar",
+    12: "Stor Sushi – 12 bitar",
+    15: "Extra Stor Sushi – 15 bitar",
+    20: "Super Sushi – 20 bitar",
+    30: "Familje Sushi – 30 bitar",
+    50: "Stor Familje Sushi – 50 bitar",
+}
+
+YZ_SUSHI_SIZE_TOKENS = {
+    "8": 8,
+    "åtta": 8,
+    "10": 10,
+    "tio": 10,
+    "12": 12,
+    "tolv": 12,
+    "15": 15,
+    "femton": 15,
+    "20": 20,
+    "tjugo": 20,
+    "30": 30,
+    "trettio": 30,
+    "50": 50,
+    "femtio": 50,
+}
+
+YZ_SUSHI_SIZE_WORDS = {
+    8: "åtta",
+    10: "tio",
+    12: "tolv",
+    15: "femton",
+    20: "tjugo",
+    30: "trettio",
+    50: "femtio",
+}
+
+YZ_SUSHI_COMPOUND_SIZE_TOKENS = {
+    f"{word}bitars": size
+    for size, word in YZ_SUSHI_SIZE_WORDS.items()
+}
+
 RECOVERY_MESSAGES = {
     1: "Ursäkta, kan du upprepa vilken rätt du ville ha?",
     2: (
@@ -403,6 +445,57 @@ def _pending_variant_utterance(
     return None
 
 
+def _pending_sushi_utterance(
+    entries: list[dict[str, Any]],
+) -> str | None:
+    latest_user_index: int | None = None
+    for index in range(len(entries) - 1, -1, -1):
+        role = str(entries[index].get("role") or "").casefold()
+        if role in {"user", "customer"}:
+            latest_user_index = index
+            break
+    if latest_user_index is None:
+        return None
+
+    latest_utterance = _entry_message(entries[latest_user_index])
+    if latest_utterance is None:
+        return None
+
+    agent_index: int | None = None
+    for index in range(latest_user_index - 1, -1, -1):
+        role = str(entries[index].get("role") or "").casefold()
+        if role in {"agent", "assistant"}:
+            agent_index = index
+            break
+        if role in {"user", "customer"}:
+            return None
+    if agent_index is None:
+        return None
+
+    agent_message = _entry_message(entries[agent_index])
+    normalized_agent_message = _normalize_spoken_text(agent_message or "")
+    asks_for_sushi_size = (
+        "hur många bitar" in normalized_agent_message
+        and "sushi" in normalized_agent_message
+    )
+    asks_for_sushi_type = (
+        "vanlig" in normalized_agent_message
+        and "blanda egen" in normalized_agent_message
+    )
+    if not asks_for_sushi_size and not asks_for_sushi_type:
+        return None
+
+    for index in range(agent_index - 1, -1, -1):
+        role = str(entries[index].get("role") or "").casefold()
+        if role not in {"user", "customer"}:
+            continue
+        prior_utterance = _entry_message(entries[index])
+        if prior_utterance:
+            return f"{prior_utterance} {latest_utterance}"
+        return None
+    return None
+
+
 def _tool_result_status(result: dict[str, Any]) -> str | None:
     tool_name = str(
         result.get("tool_name")
@@ -582,6 +675,157 @@ def _contains_words(
         words[start : start + width] == phrase_words
         for start in range(0, len(words) - width + 1)
     )
+
+
+def _sushi_size_from_words(words: tuple[str, ...]) -> int | None:
+    sizes: set[int] = set()
+    for index, word in enumerate(words):
+        size = (
+            YZ_SUSHI_SIZE_TOKENS.get(word)
+            or YZ_SUSHI_COMPOUND_SIZE_TOKENS.get(word)
+        )
+        if size is None:
+            continue
+        if word in YZ_SUSHI_COMPOUND_SIZE_TOKENS:
+            sizes.add(size)
+            continue
+        previous_word = words[index - 1] if index > 0 else ""
+        next_word = words[index + 1] if index + 1 < len(words) else ""
+        if (
+            next_word in {"bitar", "bitars"}
+            or previous_word == "sushi"
+            or next_word == "sushi"
+        ):
+            sizes.add(size)
+    return next(iter(sizes)) if len(sizes) == 1 else None
+
+
+def _exact_active_item(
+    menu_items: list[dict[str, Any]],
+    official_name: str,
+) -> dict[str, Any] | None:
+    normalized_target = _normalize_spoken_text(official_name)
+    matches = [
+        item
+        for item in menu_items
+        if _normalize_spoken_text(item.get("official_name"))
+        == normalized_target
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _resolved_match(
+    item: dict[str, Any],
+    matched_text: str,
+) -> dict[str, Any]:
+    return {
+        "menu_item_id": _parse_menu_item_id(item.get("id")),
+        "official_name": str(item.get("official_name") or "").strip(),
+        "customer_display_name": str(
+            item.get("customer_display_name")
+            or item.get("official_name")
+            or ""
+        ).strip(),
+        "matched_text": matched_text,
+        "match_source": "canonical",
+    }
+
+
+def _yz_sushi_request(
+    context: ToolRestaurantContext,
+    utterance: str,
+    menu_items: list[dict[str, Any]],
+    direct_matches: list[_ResolverPhrase],
+) -> dict[str, Any] | None:
+    if context.restaurant_slug != "yz-thai-wok-sushi":
+        return None
+
+    words = tuple(_normalize_spoken_text(utterance).split())
+    if "sushi" not in words:
+        return None
+
+    direct_sushi_matches = [
+        phrase
+        for phrase in direct_matches
+        if "sushi" in _normalize_spoken_text(
+            phrase.item.get("official_name")
+        ).split()
+    ]
+    if direct_sushi_matches:
+        if len(direct_sushi_matches) == 1 and _normalize_spoken_text(
+            direct_sushi_matches[0].item.get("official_name")
+        ).startswith("egenkomponerad sushi "):
+            return {
+                "status": "MATCH",
+                "selected_item": direct_sushi_matches[0].item,
+                "matched_text": direct_sushi_matches[0].normalized_text,
+                "is_custom": True,
+            }
+        return None
+
+    size = _sushi_size_from_words(words)
+    if size is None:
+        has_active_sushi_pair = any(
+            _exact_active_item(menu_items, regular_name) is not None
+            and _exact_active_item(
+                menu_items,
+                f"Egenkomponerad sushi – {sushi_size} bitar",
+            )
+            is not None
+            for sushi_size, regular_name in YZ_SUSHI_REGULAR_NAMES.items()
+        )
+        if not has_active_sushi_pair:
+            return None
+        return {
+            "status": "AMBIGUOUS",
+            "customer_message": "Hur många bitar sushi vill du ha?",
+            "matches": [],
+        }
+
+    regular_item = _exact_active_item(
+        menu_items,
+        YZ_SUSHI_REGULAR_NAMES[size],
+    )
+    custom_item = _exact_active_item(
+        menu_items,
+        f"Egenkomponerad sushi – {size} bitar",
+    )
+    if regular_item is None or custom_item is None:
+        return None
+
+    normalized_utterance = " ".join(words)
+    wants_custom = any(
+        phrase in normalized_utterance
+        for phrase in (
+            "blanda egen",
+            "egenkomponerad",
+            "egen sushi",
+            "egna bitar",
+        )
+    )
+    wants_regular = "vanlig" in words
+    matched_text = f"sushi {size} bitar"
+
+    if wants_custom != wants_regular:
+        selected_item = custom_item if wants_custom else regular_item
+        return {
+            "status": "MATCH",
+            "selected_item": selected_item,
+            "matched_text": matched_text,
+            "is_custom": wants_custom,
+        }
+
+    size_word = YZ_SUSHI_SIZE_WORDS[size]
+    return {
+        "status": "AMBIGUOUS",
+        "customer_message": (
+            f"Vill du ha vanlig {size_word}bitars sushi eller blanda egen?"
+        ),
+        "matches": [
+            _resolved_match(regular_item, matched_text),
+            _resolved_match(custom_item, matched_text),
+        ],
+    }
 
 
 def _variant_family_request(
@@ -793,6 +1037,96 @@ def resolve_restaurant_menu_items(
     )
     phrases = _load_or_build_phrases(context, menu_items, aliases)
     matches, _ = _find_matches(utterance, phrases)
+
+    sushi_utterance = utterance
+    sushi_request = _yz_sushi_request(
+        context,
+        sushi_utterance,
+        menu_items,
+        matches,
+    )
+    if sushi_request is None:
+        pending_sushi_utterance = _pending_sushi_utterance(entries)
+        if pending_sushi_utterance is not None:
+            sushi_utterance = pending_sushi_utterance
+            sushi_request = _yz_sushi_request(
+                context,
+                sushi_utterance,
+                menu_items,
+                matches,
+            )
+    if sushi_request is not None:
+        direct_match_values = [
+            {
+                "menu_item_id": _parse_menu_item_id(
+                    phrase.item.get("id")
+                ),
+                "official_name": str(
+                    phrase.item.get("official_name") or ""
+                ).strip(),
+                "customer_display_name": str(
+                    phrase.item.get("customer_display_name")
+                    or phrase.item.get("official_name")
+                    or ""
+                ).strip(),
+                "matched_text": phrase.normalized_text,
+                "match_source": phrase.source,
+            }
+            for phrase in matches
+        ]
+        if sushi_request["status"] == "MATCH":
+            selected_match = _resolved_match(
+                sushi_request["selected_item"],
+                sushi_request["matched_text"],
+            )
+            known_ids = {
+                str(match["menu_item_id"])
+                for match in direct_match_values
+            }
+            if str(selected_match["menu_item_id"]) not in known_ids:
+                direct_match_values.append(selected_match)
+            customer_message = None
+            if not sushi_request["is_custom"]:
+                customer_message = _single_match_customer_message(
+                    direct_match_values,
+                    sushi_utterance,
+                )
+            return {
+                "success": True,
+                "status": "MATCH",
+                "action": "continue",
+                "unresolved_attempt": 0,
+                "stop_recovery": False,
+                "customer_message": customer_message,
+                "required_agent_action": (
+                    "say_customer_message_exactly"
+                    if customer_message
+                    else "accept_matches_without_variant_questions"
+                ),
+                "all_required_variants_resolved": True,
+                "matches": direct_match_values,
+            }
+
+        known_ids = {
+            str(match["menu_item_id"])
+            for match in direct_match_values
+        }
+        direct_match_values.extend(
+            match
+            for match in sushi_request["matches"]
+            if str(match["menu_item_id"]) not in known_ids
+        )
+        return {
+            "success": True,
+            "status": "AMBIGUOUS",
+            "action": "clarify",
+            "unresolved_attempt": 0,
+            "stop_recovery": False,
+            "customer_message": sushi_request["customer_message"],
+            "required_agent_action": "say_customer_message_exactly",
+            "all_required_variants_resolved": False,
+            "matches": direct_match_values,
+        }
 
     family_utterance = utterance
     family_request = _variant_family_request(
