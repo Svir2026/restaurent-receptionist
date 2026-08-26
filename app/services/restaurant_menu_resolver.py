@@ -21,6 +21,7 @@ from app.services.restaurant_menu_pricing import (
     _parse_menu_item_id,
 )
 from app.services.elevenlabs_tool_definitions import (
+    YZ_MENU_RESOLVER_V2_TOOL_NAME,
     YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME,
 )
 from app.services.supabase_client import get_client
@@ -29,6 +30,12 @@ from app.services.supabase_client import get_client
 logger = logging.getLogger(__name__)
 
 YZ_MENU_RESOLVER_TOOL_NAME = YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME
+YZ_MENU_RESOLVER_TOOL_NAMES = frozenset(
+    {
+        YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME,
+        YZ_MENU_RESOLVER_V2_TOOL_NAME,
+    }
+)
 
 APPROVED_ALIAS_OVERRIDES = {
     "yz-thai-wok-sushi": {
@@ -402,7 +409,7 @@ def _tool_result_status(result: dict[str, Any]) -> str | None:
         or result.get("name")
         or ""
     ).strip()
-    if tool_name != YZ_MENU_RESOLVER_TOOL_NAME:
+    if tool_name not in YZ_MENU_RESOLVER_TOOL_NAMES:
         return None
 
     value: object = (

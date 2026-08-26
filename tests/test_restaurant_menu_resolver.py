@@ -35,6 +35,7 @@ from app.services.restaurant_menu_resolver import (
 )
 from app.services import restaurant_menu_resolver as resolver_module
 from app.services.elevenlabs_tool_definitions import (
+    YZ_MENU_RESOLVER_V2_TOOL_NAME,
     YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME,
     build_yz_test_menu_resolver_v2_tool_config,
 )
@@ -942,6 +943,42 @@ class RestaurantMenuResolverTests(unittest.TestCase):
                         "tool_results": [
                             {
                                 "tool_name": YZ_MENU_RESOLVER_TOOL_NAME,
+                                "result_value": json.dumps(
+                                    {"status": "NO_MATCH"}
+                                ),
+                            }
+                        ],
+                    },
+                    {"role": "user", "message": "månpizza"},
+                ],
+            }
+        )
+        with patch(
+            "app.services.restaurant_menu_resolver."
+            "_load_active_menu_items",
+            return_value=self.menu,
+        ), patch(
+            "app.services.restaurant_menu_resolver."
+            "_load_menu_item_aliases",
+            return_value=self.aliases,
+        ):
+            result = resolve_restaurant_menu_items(
+                context=self.context,
+                request=request,
+            )
+        self.assertEqual(result["unresolved_attempt"], 2)
+        self.assertEqual(result["action"], "not_on_menu")
+
+    def test_production_tool_results_increment_recovery(self) -> None:
+        request = ResolveMenuItemsV2Request(
+            conversation_history={
+                "x-elevenlabs-history": True,
+                "entries": [
+                    {
+                        "role": "tool",
+                        "tool_results": [
+                            {
+                                "tool_name": YZ_MENU_RESOLVER_V2_TOOL_NAME,
                                 "result_value": json.dumps(
                                     {"status": "NO_MATCH"}
                                 ),

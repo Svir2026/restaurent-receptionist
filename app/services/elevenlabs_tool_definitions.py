@@ -18,6 +18,9 @@ SVIR_TOOL_TOKEN_HEADER_NAME = "X-Svir-Tool-Token"
 YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME = (
     "svir_yz_test_strict_menu_resolver_v2"
 )
+YZ_MENU_RESOLVER_V2_TOOL_NAME = (
+    "svir_yz_strict_menu_resolver_v2"
+)
 
 YZ_CALCULATE_ORDER_TOTAL_V2_TOOL_NAME = (
     "svir_yz_thai_wok_sushi_calculate_order_total_v2"
