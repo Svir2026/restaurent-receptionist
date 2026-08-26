@@ -1351,22 +1351,6 @@ def resolve_restaurant_menu_items(
             "required_agent_action": "say_customer_message_exactly",
             "all_required_variants_resolved": False,
             "matches": direct_match_values,
-            "variant_candidates": [
-                {
-                    "menu_item_id": _parse_menu_item_id(item.get("id")),
-                    "official_name": str(
-                        item.get("official_name") or ""
-                    ).strip(),
-                    "customer_display_name": str(
-                        item.get("customer_display_name")
-                        or item.get("official_name")
-                        or ""
-                    ).strip(),
-                    "matched_text": family_name,
-                    "match_source": "canonical",
-                }
-                for item in variants
-            ],
         }
 
     if matches:

@@ -1110,13 +1110,6 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             {match["official_name"] for match in result["matches"]},
             {"24. Yakiniku", "Pad Med Mamuang – Kyckling"},
         )
-        self.assertEqual(
-            {
-                match["official_name"]
-                for match in result["variant_candidates"]
-            },
-            {"Gaeng Ped – Kyckling", "Gaeng Ped – Räkor"},
-        )
 
     def test_mixed_order_protein_follow_up_returns_every_resolved_item(
         self,
