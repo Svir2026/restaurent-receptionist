@@ -962,6 +962,83 @@ class RestaurantMenuResolverTests(unittest.TestCase):
                     f"{menu_family} – {menu_protein}",
                 )
 
+    def test_active_menu_protein_families_work_without_hard_coding(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("81000000-0000-4000-8000-000000000001"),
+                "Glasnudlar – Kyckling",
+            ),
+            _item(
+                UUID("81000000-0000-4000-8000-000000000002"),
+                "Glasnudlar – Tofu",
+            ),
+            _item(
+                UUID("81000000-0000-4000-8000-000000000003"),
+                "Kaow Pat – Kyckling",
+            ),
+            _item(
+                UUID("81000000-0000-4000-8000-000000000004"),
+                "Kaow Pat – Tofu",
+            ),
+        ]
+        for family, expected_name in (
+            ("glasnudlar", "Glasnudlar – Kyckling"),
+            ("kaow pat", "Kaow Pat – Kyckling"),
+        ):
+            with self.subTest(family=family):
+                _clear_resolver_catalog_cache()
+                initial = self._resolve(
+                    f"Jag vill ha {family}",
+                    menu=menu,
+                    aliases=[],
+                )
+                self.assertEqual(initial["status"], "AMBIGUOUS")
+                self.assertEqual(
+                    initial["customer_message"],
+                    "Vilket protein vill du ha?",
+                )
+
+                _clear_resolver_catalog_cache()
+                resolved = self._resolve_history(
+                    [
+                        {"role": "user", "message": f"Jag vill ha {family}"},
+                        {
+                            "role": "agent",
+                            "message": "Vilket protein vill du ha?",
+                        },
+                        {"role": "user", "message": "kyckling"},
+                    ],
+                    menu=menu,
+                    aliases=[],
+                )
+                self.assertEqual(resolved["status"], "MATCH")
+                self.assertEqual(
+                    resolved["matches"][0]["official_name"],
+                    expected_name,
+                )
+
+    def test_single_variant_does_not_become_a_protein_family(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("81000000-0000-4000-8000-000000000005"),
+                "Chilipasta – Kyckling",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha chilipasta",
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "NO_MATCH")
+        self.assertEqual(result["matches"], [])
+
     def test_one_protein_follow_up_resolves_every_pending_family(
         self,
     ) -> None:

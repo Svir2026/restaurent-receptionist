@@ -520,7 +520,7 @@ def _configured_variant_families(
     context: ToolRestaurantContext,
     menu_items: list[dict[str, Any]],
 ) -> dict[str, tuple[str, str]]:
-    """Add numbered variant families discovered from the active YZ menu."""
+    """Build strict protein families from configured and active menu data."""
 
     configured = dict(
         APPROVED_VARIANT_FAMILIES.get(context.restaurant_slug, {})
@@ -560,6 +560,27 @@ def _configured_variant_families(
         for spoken_number in spoken_numbers:
             configured.setdefault(f"nummer {spoken_number}", value)
             configured.setdefault(f"rätt {spoken_number}", value)
+
+    # A restaurant can add a complete protein family without also adding a
+    # hard-coded conversational alias. Its exact canonical family name is
+    # still deterministic: only activate it when at least two active menu
+    # products share the same parsed family and verified protein suffix.
+    by_family: dict[str, set[str]] = {}
+    for item in menu_items:
+        family_name = _variant_family_name_from_item(item)
+        if family_name is None:
+            continue
+        by_family.setdefault(family_name, set()).add(
+            str(_parse_menu_item_id(item.get("id")))
+        )
+
+    for family_name, item_ids in by_family.items():
+        if len(item_ids) < 2:
+            continue
+        configured.setdefault(
+            family_name,
+            (family_name, "Vilket protein vill du ha?"),
+        )
     return configured
 
 
