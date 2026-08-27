@@ -2570,6 +2570,57 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             "Vilket protein vill du ha?",
         )
 
+    def test_real_call_yakiniku_alias_and_filler_extra_cashews(
+        self,
+    ) -> None:
+        menu = [
+            _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(SATAY_ID, "23. Satay Gai", "Satay Gai"),
+            _item(
+                PAD_THAI_ID,
+                "Pad Thai – Kyckling",
+                "Pad Thai – Kyckling",
+            ),
+            _item(
+                COLA_ID,
+                "Pad Med Mamuang – Kyckling",
+                "Pad Med Mamuang – Kyckling",
+            ),
+            _item(
+                COLA_ZERO_ID,
+                "Pad Med Mamuang – Biff",
+                "Pad Med Mamuang – Biff",
+            ),
+            _item(
+                EXTRA_CASHEW_ID,
+                "Extra cashewnötter",
+                "Extra cashewnötter",
+            ),
+        ]
+        result = self._resolve(
+            (
+                "Hej, jag vill beställa en Pad Thai med kyckling och en "
+                "yakunyky och, eh, lägg gärna till, eh, cashewnötter."
+            ),
+            menu=menu,
+            aliases=[_alias(YAKINIKU_ID, "yakunyky")],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(result["action"], "continue")
+        self.assertEqual(
+            [match["official_name"] for match in result["matches"]],
+            [
+                "Pad Thai – Kyckling",
+                "24. Yakiniku",
+                "Extra cashewnötter",
+            ],
+        )
+        self.assertNotEqual(
+            result["customer_message"],
+            "Vilket protein vill du ha?",
+        )
+
     def test_cashew_wok_without_an_explicit_add_on_still_needs_protein(
         self,
     ) -> None:

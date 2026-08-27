@@ -1398,6 +1398,25 @@ def _find_matches(
     return unique, False
 
 
+def _resolver_phrase_position(
+    phrase: _ResolverPhrase,
+    utterance: str,
+) -> int:
+    """Return the caller-speech position for an already verified match."""
+
+    utterance_words = tuple(_normalize_match_text(utterance).split())
+    candidate_words = phrase.words
+    official_name = _normalize_match_text(phrase.item.get("official_name"))
+    if official_name.startswith("extra "):
+        candidate_words = tuple(official_name.split()[1:])
+
+    width = len(candidate_words)
+    for start in range(0, len(utterance_words) - width + 1):
+        if utterance_words[start : start + width] == candidate_words:
+            return start
+    return len(utterance_words)
+
+
 def _explicit_extra_add_on_matches(
     context: ToolRestaurantContext,
     utterance: str,
@@ -1414,16 +1433,7 @@ def _explicit_extra_add_on_matches(
         return []
 
     words = tuple(_normalize_spoken_text(utterance).split())
-    requested_suffixes: set[tuple[str, ...]] = set()
-    for index, word in enumerate(words):
-        if word == "extra" and index + 1 < len(words):
-            requested_suffixes.add(words[index + 1 :])
-        if (
-            word in {"lägg", "lägga"}
-            and index + 2 < len(words)
-            and words[index + 1] == "till"
-        ):
-            requested_suffixes.add(words[index + 2 :])
+    requested_suffixes = _explicit_extra_requested_suffixes(words)
 
     matches: list[_ResolverPhrase] = []
     for item in menu_items:
@@ -1456,6 +1466,62 @@ def _explicit_extra_add_on_matches(
             )
         )
     return matches
+
+
+def _explicit_extra_requested_suffixes(
+    words: tuple[str, ...],
+) -> set[tuple[str, ...]]:
+    """Read explicit add-on actions while tolerating short spoken fillers."""
+
+    filler_words = VARIANT_FAMILY_FILLER_WORDS | {"gärna", "snälla"}
+
+    def skip_fillers(index: int) -> int:
+        while index < len(words) and words[index] in filler_words:
+            index += 1
+        return index
+
+    requested_suffixes: set[tuple[str, ...]] = set()
+    for index, word in enumerate(words):
+        if word == "extra":
+            suffix_start = skip_fillers(index + 1)
+            if suffix_start < len(words):
+                requested_suffixes.add(words[suffix_start:])
+            continue
+        if word not in {"lägg", "lägga"}:
+            continue
+        till_index = skip_fillers(index + 1)
+        if till_index >= len(words) or words[till_index] != "till":
+            continue
+        suffix_start = skip_fillers(till_index + 1)
+        if suffix_start < len(words):
+            requested_suffixes.add(words[suffix_start:])
+    return requested_suffixes
+
+
+def _explicit_extra_blocks_variant_family(
+    spoken_family_name: str,
+    menu_family_name: str,
+    direct_matches: list[_ResolverPhrase],
+) -> bool:
+    """Keep an explicit Extra item from becoming a protein-family request."""
+
+    referenced_names = APPROVED_VARIANT_FAMILY_REFERENCE_WORDS.get(
+        _normalize_spoken_text(menu_family_name),
+        frozenset(),
+    )
+    if _normalize_spoken_text(spoken_family_name) not in referenced_names:
+        return False
+
+    for phrase in direct_matches:
+        official_name = _normalize_spoken_text(
+            phrase.item.get("official_name")
+        )
+        if not official_name.startswith("extra "):
+            continue
+        suffix = official_name.removeprefix("extra ")
+        if suffix in referenced_names:
+            return True
+    return False
 
 
 def _contains_words(
@@ -1858,6 +1924,13 @@ def _variant_family_request(
             spoken_family_name
         )
         if normalized_spoken_family in excluded_spoken_families:
+            continue
+        menu_family_name, _ = configured[normalized_spoken_family]
+        if _explicit_extra_blocks_variant_family(
+            normalized_spoken_family,
+            menu_family_name,
+            direct_matches,
+        ):
             continue
         spoken_family_words = tuple(
             normalized_spoken_family.split()
@@ -2463,6 +2536,9 @@ def resolve_restaurant_menu_items(
             }
 
     _append_selected_variant_matches(matches, family_requests)
+    matches.sort(
+        key=lambda phrase: _resolver_phrase_position(phrase, utterance)
+    )
     family_request = next(
         (request for request in family_requests if not request[3]),
         None,
