@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from difflib import SequenceMatcher
 from threading import Lock
 from time import monotonic
 import unicodedata
@@ -251,6 +252,21 @@ VARIANT_FOLLOW_UP_FILLER_WORDS = {
     "öh",
     "öhm",
 }
+
+# ASR can insert a short hesitation inside a dish name, for example
+# "gran, eh, curry". These are ignored only by the bounded family matcher.
+VARIANT_FAMILY_FILLER_WORDS = {
+    "eh",
+    "ehm",
+    "ehh",
+    "hm",
+    "hmm",
+    "öh",
+    "öhm",
+    "um",
+}
+VARIANT_FAMILY_FUZZY_MINIMUM_RATIO = 0.90
+VARIANT_FAMILY_FUZZY_MINIMUM_MARGIN = 0.08
 
 RESOLVER_CATALOG_CACHE_TTL_SECONDS = 30.0
 ALIAS_PAGE_SIZE = 1000
@@ -957,6 +973,86 @@ def _contains_words(
     )
 
 
+def _unique_fuzzy_variant_family(
+    utterance_words: tuple[str, ...],
+    configured: dict[str, tuple[str, str]],
+    excluded_spoken_families: frozenset[str],
+    direct_matches: list[_ResolverPhrase],
+) -> tuple[str, tuple[str, ...]] | None:
+    """Return one high-confidence configured family match, or nothing.
+
+    This operates only on approved variant-family aliases. It never
+    fuzzy-matches the general menu, and it rejects ties instead of guessing.
+    """
+
+    comparable_words = tuple(
+        word
+        for word in utterance_words
+        if word not in VARIANT_FAMILY_FILLER_WORDS
+    )
+    best_by_family: dict[str, tuple[float, str, tuple[str, ...]]] = {}
+
+    for spoken_family_name, family_config in configured.items():
+        normalized_spoken_family = _normalize_spoken_text(
+            spoken_family_name
+        )
+        if normalized_spoken_family in excluded_spoken_families:
+            continue
+
+        spoken_words = tuple(normalized_spoken_family.split())
+        width = len(spoken_words)
+        if not width or width > len(comparable_words):
+            continue
+        if any(
+            _contains_words(phrase.words, spoken_words)
+            or _contains_words(spoken_words, phrase.words)
+            for phrase in direct_matches
+        ):
+            continue
+
+        best_ratio = 0.0
+        for start in range(0, len(comparable_words) - width + 1):
+            candidate = " ".join(
+                comparable_words[start : start + width]
+            )
+            ratio = SequenceMatcher(
+                None,
+                candidate,
+                normalized_spoken_family,
+            ).ratio()
+            best_ratio = max(best_ratio, ratio)
+
+        if best_ratio < VARIANT_FAMILY_FUZZY_MINIMUM_RATIO:
+            continue
+
+        menu_family_name = _normalize_spoken_text(family_config[0])
+        previous = best_by_family.get(menu_family_name)
+        candidate = (
+            best_ratio,
+            normalized_spoken_family,
+            spoken_words,
+        )
+        if previous is None or candidate > previous:
+            best_by_family[menu_family_name] = candidate
+
+    if not best_by_family:
+        return None
+
+    ranked = sorted(
+        best_by_family.items(),
+        key=lambda value: (-value[1][0], value[0]),
+    )
+    winning = ranked[0][1]
+    if (
+        len(ranked) > 1
+        and winning[0] - ranked[1][1][0]
+        < VARIANT_FAMILY_FUZZY_MINIMUM_MARGIN
+    ):
+        return None
+
+    return winning[1], winning[2]
+
+
 def _sushi_size_from_words(words: tuple[str, ...]) -> int | None:
     sizes: set[int] = set()
     for index, word in enumerate(words):
@@ -1135,8 +1231,8 @@ def _variant_family_request(
             _normalize_spoken_text(value[0]).split()
         ),
     )
-    for spoken_family_name, family_config in configured_families:
-        menu_family_name, customer_message = family_config
+    selected_family: tuple[str, tuple[str, ...], bool] | None = None
+    for spoken_family_name, _ in configured_families:
         normalized_spoken_family = _normalize_spoken_text(
             spoken_family_name
         )
@@ -1145,53 +1241,74 @@ def _variant_family_request(
         spoken_family_words = tuple(
             normalized_spoken_family.split()
         )
-        if not _contains_words(
-            utterance_words,
-            spoken_family_words,
-        ):
+        if not _contains_words(utterance_words, spoken_family_words):
             continue
-
         if any(
             _contains_words(phrase.words, spoken_family_words)
             for phrase in direct_matches
         ):
             continue
-
-        normalized_menu_family = _normalize_spoken_text(
-            menu_family_name
+        selected_family = (
+            normalized_spoken_family,
+            spoken_family_words,
+            False,
         )
+        break
 
-        variants: list[dict[str, Any]] = []
-        variants_by_protein: dict[str, dict[str, Any]] = {}
-        for item in menu_items:
-            normalized_names = {
-                _normalize_spoken_text(item.get(field_name))
-                for field_name in MENU_ITEM_NAME_FIELDS
-            }
-            normalized_names.discard("")
-            is_family_item = False
-            for normalized_name in normalized_names:
-                if normalized_name == normalized_menu_family:
-                    is_family_item = True
-                    break
-                prefix = f"{normalized_menu_family} "
-                if not normalized_name.startswith(prefix):
-                    continue
-                suffix_words = normalized_name[len(prefix) :].split()
-                if suffix_words[:1] == ["med"]:
-                    suffix_words = suffix_words[1:]
-                protein = " ".join(suffix_words)
-                if protein in VERIFIED_PROTEIN_VARIANTS:
-                    is_family_item = True
-                    variants_by_protein[protein] = item
-                    break
-            if is_family_item:
-                variants.append(item)
+    if selected_family is None:
+        fuzzy_family = _unique_fuzzy_variant_family(
+            utterance_words,
+            configured,
+            excluded_spoken_families,
+            direct_matches,
+        )
+        if fuzzy_family is None:
+            return None
+        selected_family = (*fuzzy_family, True)
 
-        if not variants:
-            continue
+    normalized_spoken_family, spoken_family_words, fuzzy_match = (
+        selected_family
+    )
+    menu_family_name, customer_message = configured[
+        normalized_spoken_family
+    ]
+    normalized_menu_family = _normalize_spoken_text(menu_family_name)
+    variants: list[dict[str, Any]] = []
+    variants_by_protein: dict[str, dict[str, Any]] = {}
+    for item in menu_items:
+        normalized_names = {
+            _normalize_spoken_text(item.get(field_name))
+            for field_name in MENU_ITEM_NAME_FIELDS
+        }
+        normalized_names.discard("")
+        is_family_item = False
+        for normalized_name in normalized_names:
+            if normalized_name == normalized_menu_family:
+                is_family_item = True
+                break
+            prefix = f"{normalized_menu_family} "
+            if not normalized_name.startswith(prefix):
+                continue
+            suffix_words = normalized_name[len(prefix) :].split()
+            if suffix_words[:1] == ["med"]:
+                suffix_words = suffix_words[1:]
+            protein = " ".join(suffix_words)
+            if protein in VERIFIED_PROTEIN_VARIANTS:
+                is_family_item = True
+                variants_by_protein[protein] = item
+                break
+        if is_family_item:
+            variants.append(item)
 
-        selected_variants: list[dict[str, Any]] = []
+    if not variants:
+        return None
+
+    selected_variants: list[dict[str, Any]] = []
+    if fuzzy_match:
+        protein = _variant_follow_up_protein(utterance)
+        if protein in variants_by_protein:
+            selected_variants.append(variants_by_protein[protein])
+    else:
         for protein, item in variants_by_protein.items():
             spoken_forms = (
                 (*spoken_family_words, protein),
@@ -1205,22 +1322,12 @@ def _variant_family_request(
             ):
                 selected_variants.append(item)
 
-        if selected_variants:
-            return (
-                normalized_spoken_family,
-                customer_message,
-                variants,
-                selected_variants,
-            )
-
-        return (
-            normalized_spoken_family,
-            customer_message,
-            variants,
-            [],
-        )
-
-    return None
+    return (
+        normalized_spoken_family,
+        customer_message,
+        variants,
+        selected_variants,
+    )
 
 
 def _variant_family_requests(

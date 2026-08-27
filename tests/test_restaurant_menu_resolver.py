@@ -630,6 +630,55 @@ class RestaurantMenuResolverTests(unittest.TestCase):
                     },
                 )
 
+    def test_live_asr_hesitation_inside_green_curry_is_resolved(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("73000000-0000-4000-8000-000000000001"),
+                "Gaeng Keowan – Kyckling",
+            ),
+        ]
+        result = self._resolve(
+            "Nej, jag vill beställa en gran, eh, curry.",
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(result["action"], "clarify")
+        self.assertEqual(
+            result["customer_message"],
+            "Vilket protein vill du ha?",
+        )
+
+    def test_fuzzy_green_curry_with_protein_resolves_only_to_green_curry(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("74000000-0000-4000-8000-000000000001"),
+                "Gaeng Keowan – Kyckling",
+            ),
+            _item(
+                UUID("74000000-0000-4000-8000-000000000002"),
+                "Gaeng Ped – Kyckling",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha gran curri med kyckling",
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Gaeng Keowan – Kyckling",
+        )
+
     def test_overlapping_family_aliases_do_not_duplicate_matches(
         self,
     ) -> None:
