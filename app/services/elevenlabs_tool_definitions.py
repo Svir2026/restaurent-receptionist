@@ -116,7 +116,9 @@ def build_yz_test_menu_resolver_v2_tool_config(
             "wait for the customer's required variant. If status is "
             "MATCH and required_agent_action is "
             "say_customer_message_exactly, say customer_message exactly "
-            "without another protein question. If the result is "
+            "without another protein question. Preserve a non-empty "
+            "notes value on each returned match for that exact order item "
+            "when calculating or submitting the order. If the result is "
             "NO_MATCH, say customer_message exactly."
         ),
         "response_timeout_secs": 10,

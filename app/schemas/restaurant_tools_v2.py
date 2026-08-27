@@ -105,6 +105,10 @@ class ResolveMenuItemsV2Match(BaseModel):
     customer_display_name: str = Field(min_length=1)
     matched_text: str = Field(min_length=1)
     match_source: MenuResolutionSource
+    notes: str | None = Field(
+        default=None,
+        max_length=500,
+    )
 
 
 class ResolveMenuItemsV2Response(BaseModel):

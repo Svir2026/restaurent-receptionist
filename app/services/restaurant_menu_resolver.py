@@ -888,6 +888,112 @@ def _primary_variant_order_protein(value: str) -> str | None:
     return proteins[0] if len(proteins) >= 2 else None
 
 
+def _proteins_for_spoken_family(
+    value: str,
+    family_words: tuple[str, ...],
+) -> list[str]:
+    """Return ordered proteins stated for one occurrence of a dish family."""
+
+    words = [
+        APPROVED_PROTEIN_ALIASES.get(word, word)
+        for word in _normalize_spoken_text(value).split()
+    ]
+    width = len(family_words)
+    if width == 0:
+        return []
+
+    for start in range(0, len(words) - width + 1):
+        if tuple(words[start : start + width]) != family_words:
+            continue
+
+        proteins: list[str] = []
+        for index in range(start + width, len(words)):
+            # "och en ..." / "och två ..." starts a new ordered dish,
+            # not another protein for this family.
+            if (
+                words[index] in {"och", "samt"}
+                and index + 1 < len(words)
+                and words[index + 1]
+                in {"en", "ett", "två", "tre", "fyra", "fem"}
+            ):
+                break
+            protein = words[index]
+            if protein in VERIFIED_PROTEIN_VARIANTS:
+                proteins.append(protein)
+        return proteins
+
+    return []
+
+
+def _variant_protein_from_item(item: dict[str, Any]) -> str | None:
+    """Read the verified protein suffix from one active menu variant."""
+
+    for field_name in MENU_ITEM_NAME_FIELDS:
+        raw_value = MENU_NUMBER_PREFIX.sub(
+            "",
+            str(item.get(field_name) or ""),
+        ).strip()
+        parts = [
+            part.strip()
+            for part in re.split(r"\s*(?:[–/-])\s*", raw_value)
+            if part.strip()
+        ]
+        if len(parts) < 2:
+            continue
+        protein = _normalize_spoken_text(parts[-1])
+        if protein in VERIFIED_PROTEIN_VARIANTS:
+            return protein
+    return None
+
+
+def _extra_protein_matches(
+    *,
+    context: ToolRestaurantContext,
+    utterance: str,
+    family_words: tuple[str, ...],
+    selected_variants: list[dict[str, Any]],
+    menu_items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Convert a second stated protein into YZ's priced menu add-on.
+
+    A caller can say "Pad Thai med kyckling och räkor" for one dish.
+    The first protein is the dish variant; every later distinct protein is
+    represented by the real, active "Extra protein" menu item with a note
+    for the kitchen. This never invents an add-on and does not run for two
+    separately stated dishes.
+    """
+
+    if (
+        context.restaurant_slug != "yz-thai-wok-sushi"
+        or len(selected_variants) != 1
+    ):
+        return []
+
+    proteins = _proteins_for_spoken_family(utterance, family_words)
+    primary_protein = _variant_protein_from_item(selected_variants[0])
+    if primary_protein is None or len(proteins) < 2:
+        return []
+
+    extras: list[str] = []
+    for protein in proteins[1:]:
+        if protein != primary_protein and protein not in extras:
+            extras.append(protein)
+    if not extras:
+        return []
+
+    extra_item = _exact_active_item(menu_items, "Extra protein")
+    if extra_item is None:
+        return []
+
+    return [
+        {
+            **_resolved_match(extra_item, "extra protein"),
+            "notes": protein,
+        }
+        for protein in extras
+    ]
+
+
 def _referenced_variant_family_proteins(
     context: ToolRestaurantContext,
     follow_up: str,
@@ -1806,11 +1912,21 @@ def _variant_family_request(
             selected_variants,
         )
 
+    spoken_proteins = _proteins_for_spoken_family(
+        utterance,
+        spoken_family_words,
+    )
+    if len(spoken_proteins) >= 2:
+        primary_protein = spoken_proteins[0]
+        if primary_protein in variants_by_protein:
+            selected_variants.append(
+                variants_by_protein[primary_protein]
+            )
     if fuzzy_match:
         protein = _primary_variant_order_protein(utterance)
-        if protein in variants_by_protein:
+        if not selected_variants and protein in variants_by_protein:
             selected_variants.append(variants_by_protein[protein])
-    else:
+    elif not selected_variants:
         for protein, item in variants_by_protein.items():
             spoken_forms = (
                 (*spoken_family_words, protein),
@@ -2472,10 +2588,38 @@ def resolve_restaurant_menu_items(
                 )
             resolved_matches.sort(key=lambda value: value[0])
             match_values = [value[1] for value in resolved_matches]
-            customer_message = _single_match_customer_message(
-                match_values,
-                family_utterance,
+            extra_protein_matches = _extra_protein_matches(
+                context=context,
+                utterance=family_utterance,
+                family_words=tuple(family_name.split()),
+                selected_variants=selected_variants,
+                menu_items=menu_items,
             )
+            if extra_protein_matches:
+                primary_protein = _variant_protein_from_item(
+                    selected_variants[0]
+                )
+                base_message = _single_match_customer_message(
+                    [match_values[-1]],
+                    " ".join(
+                        [family_name, primary_protein or ""]
+                    ),
+                )
+                extra_words = " och ".join(
+                    f"extra {match['notes']}"
+                    for match in extra_protein_matches
+                )
+                if base_message is not None:
+                    customer_message = base_message.replace(
+                        ". Har jag fått med allting?",
+                        f" och {extra_words}. Har jag fått med allting?",
+                    )
+                match_values.extend(extra_protein_matches)
+            else:
+                customer_message = _single_match_customer_message(
+                    match_values,
+                    family_utterance,
+                )
             return {
                 "success": True,
                 "status": "MATCH",
@@ -2540,10 +2684,47 @@ def resolve_restaurant_menu_items(
             }
             for phrase in matches
         ]
-        customer_message = _single_match_customer_message(
-            match_values,
-            family_utterance,
+        extra_protein_matches: list[dict[str, Any]] = []
+        selected_request = next(
+            (request for request in family_requests if request[3]),
+            None,
         )
+        if selected_request is not None:
+            extra_protein_matches = _extra_protein_matches(
+                context=context,
+                utterance=family_utterance,
+                family_words=tuple(selected_request[0].split()),
+                selected_variants=selected_request[3],
+                menu_items=menu_items,
+            )
+        if extra_protein_matches:
+            primary_protein = _variant_protein_from_item(
+                selected_request[3][0]
+            )
+            base_message = _single_match_customer_message(
+                match_values,
+                " ".join(
+                    [selected_request[0], primary_protein or ""]
+                ),
+            )
+            extra_words = " och ".join(
+                f"extra {match['notes']}"
+                for match in extra_protein_matches
+            )
+            customer_message = (
+                base_message.replace(
+                    ". Har jag fått med allting?",
+                    f" och {extra_words}. Har jag fått med allting?",
+                )
+                if base_message is not None
+                else None
+            )
+            match_values.extend(extra_protein_matches)
+        else:
+            customer_message = _single_match_customer_message(
+                match_values,
+                family_utterance,
+            )
         return {
             "success": True,
             "status": "MATCH",
