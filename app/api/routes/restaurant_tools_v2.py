@@ -90,6 +90,12 @@ YZ_WEEKDAY_OPEN = time(hour=10, minute=30)
 YZ_WEEKEND_OPEN = time(hour=11, minute=30)
 YZ_DAILY_CLOSE = time(hour=21, minute=0)
 
+# Temporary, opt-in training override. It is disabled unless the live
+# environment explicitly enables it, so normal opening hours stay intact.
+YZ_AFTER_HOURS_TRAINING_MODE_ENV_NAME = (
+    "YZ_AFTER_HOURS_TRAINING_MODE_ENABLED"
+)
+
 YZ_CLOSED_FIRST_MESSAGE = (
     "Vi har tyvärr stängt just nu. Vi har öppet vardagar "
     "halv elva till nio och helger halv tolv till nio. "
@@ -439,6 +445,27 @@ def _is_yz_restaurant_open(
     return opening_time <= local_time < YZ_DAILY_CLOSE
 
 
+def _is_yz_after_hours_training_mode_enabled() -> bool:
+    """
+    Return whether YZ is temporarily accepting after-hours training calls.
+
+    This is deliberately isolated to the YZ conversation-initiation path and
+    remains disabled unless the deployment environment explicitly opts in.
+    """
+
+    configured_value = os.environ.get(
+        YZ_AFTER_HOURS_TRAINING_MODE_ENV_NAME,
+        "",
+    )
+
+    return configured_value.strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def _next_yz_opening(
     local_datetime: datetime,
 ) -> datetime:
@@ -491,7 +518,10 @@ def _build_yz_conversation_initiation_data(
     stockholm_datetime = local_datetime.astimezone(
         YZ_TIMEZONE
     )
-    is_open = _is_yz_restaurant_open(
+    training_mode_enabled = (
+        _is_yz_after_hours_training_mode_enabled()
+    )
+    is_open = training_mode_enabled or _is_yz_restaurant_open(
         stockholm_datetime
     )
 
@@ -500,6 +530,7 @@ def _build_yz_conversation_initiation_data(
         "restaurant_opening_status": (
             "open" if is_open else "closed"
         ),
+        "restaurant_training_mode": training_mode_enabled,
         "restaurant_timezone": YZ_TIMEZONE_NAME,
         "restaurant_local_time_iso": (
             stockholm_datetime.isoformat(
