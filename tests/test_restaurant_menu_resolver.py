@@ -209,6 +209,45 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(result["matches"][0]["official_name"], "24. Yakiniku")
         self.assertEqual(result["matches"][0]["match_source"], "alias")
 
+    def test_unique_high_confidence_menu_fuzz_resolves_spoken_soup(self) -> None:
+        tom_kha_id = UUID("00000000-0000-0000-0000-000000000006")
+        menu = [
+            *self.menu,
+            _item(tom_kha_id, "5. Tom Kha Gai", "Tom Kha Gai"),
+        ]
+        result = self._resolve(
+            "Jag vill ha tom ka gai",
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(result["matches"][0]["official_name"], "5. Tom Kha Gai")
+        self.assertEqual(result["matches"][0]["match_source"], "fuzzy")
+
+    def test_menu_fuzz_rejects_close_tie_instead_of_guessing(self) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("00000000-0000-0000-0000-000000000007"),
+                "Tom Kha Gai",
+                "Tom Kha Gai",
+            ),
+            _item(
+                UUID("00000000-0000-0000-0000-000000000008"),
+                "Tom Ka Gai",
+                "Tom Ka Gai",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha tom kha gay",
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "NO_MATCH")
+        self.assertEqual(result["matches"], [])
+
     def test_yakinaki_is_an_approved_yakiniku_alias(self) -> None:
         result = self._resolve(
             "Jag tar en yakinaki",
@@ -1895,6 +1934,93 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             result["customer_message"],
             "Okej perfekt, en röd curry med kyckling. "
             "Har jag fått med allting?",
+        )
+
+    def test_referenced_two_curry_proteins_resolve_to_correct_dishes(
+        self,
+    ) -> None:
+        green_curry_chicken_id = UUID(
+            "00000000-0000-0000-0000-000000000007"
+        )
+        red_curry_beef_id = UUID(
+            "00000000-0000-0000-0000-000000000008"
+        )
+        menu = [
+            *self.menu,
+            _item(
+                green_curry_chicken_id,
+                "Gaeng Keowan - Kyckling",
+                "Gaeng Keowan - Kyckling",
+            ),
+            _item(
+                red_curry_beef_id,
+                "Gaeng Ped - Biff",
+                "Gaeng Ped - Biff",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": "Jag vill beställa en grön och röd curry.",
+                },
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {
+                    "role": "user",
+                    "message": (
+                        "Äh, på den gröna kringeln vill jag ha kyckling "
+                        "och på den röda kringeln vill jag ha biff."
+                    ),
+                },
+            ],
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertTrue(result["all_required_variants_resolved"])
+        self.assertEqual(
+            {match["official_name"] for match in result["matches"]},
+            {"Gaeng Keowan - Kyckling", "Gaeng Ped - Biff"},
+        )
+
+    def test_two_unreferenced_proteins_do_not_guess_curry_assignment(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("00000000-0000-0000-0000-000000000007"),
+                "Gaeng Keowan - Kyckling",
+            ),
+            _item(
+                UUID("00000000-0000-0000-0000-000000000008"),
+                "Gaeng Ped - Biff",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": "Jag vill beställa en grön och röd curry.",
+                },
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {"role": "user", "message": "Kyckling och biff."},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(
+            result["customer_message"],
+            "Vilket protein vill du ha?",
         )
 
     def test_mixed_order_keeps_matches_while_red_curry_needs_protein(
