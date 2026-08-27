@@ -2231,6 +2231,13 @@ def _variant_family_requests(
         selected_menu_family = _normalize_spoken_text(
             selected_config[0]
         )
+        if selected_menu_family == "poké bowl":
+            # A caller may order two Poké Bowls with different proteins in
+            # one utterance. Keep distinct spoken Poke forms available for
+            # the next pass while still preventing duplicate matching of the
+            # same spoken form.
+            excluded.add(request[0])
+            continue
         excluded.update(
             _normalize_spoken_text(spoken_family)
             for spoken_family, family_config in configured.items()

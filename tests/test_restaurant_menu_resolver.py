@@ -539,6 +539,29 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             "Poké Bowl – Friterade räkor",
         )
 
+    def test_multiple_poke_bowls_keep_each_explicit_protein_variant(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(COLA_ID, "Poké Bowl – Lax"),
+            _item(COLA_ZERO_ID, "Poké Bowl – Tonfisk"),
+            _item(SATAY_ID, "Poké Bowl – Kyckling"),
+            _item(EXTRA_CASHEW_ID, "Poké Bowl – Friterade räkor"),
+            _item(CASHEW_SUSHI_COMBO_ID, "Poké Bowl – Tofu"),
+        ]
+        result = self._resolve(
+            "En pokebowl med lax och en poke skål med tonfisk",
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            [match["official_name"] for match in result["matches"]],
+            ["Poké Bowl – Lax", "Poké Bowl – Tonfisk"],
+        )
+
     def test_menu_number_18_asks_for_pad_thai_protein(self) -> None:
         chicken = _item(
             PAD_THAI_ID,
