@@ -1226,6 +1226,73 @@ def _pending_sushi_utterance(
     return f"sushi {latest_utterance}"
 
 
+def _pending_spring_roll_selection(
+    entries: list[dict[str, Any]],
+    menu_items: list[dict[str, Any]],
+) -> _ResolverPhrase | None:
+    """Resolve a bare 6/12 reply only after the spring-roll size question."""
+
+    latest_user_index: int | None = None
+    for index in range(len(entries) - 1, -1, -1):
+        role = str(entries[index].get("role") or "").casefold()
+        if role in {"user", "customer"}:
+            latest_user_index = index
+            break
+    if latest_user_index is None:
+        return None
+
+    latest_utterance = _entry_message(entries[latest_user_index])
+    if latest_utterance is None:
+        return None
+
+    agent_message: str | None = None
+    for index in range(latest_user_index - 1, -1, -1):
+        role = str(entries[index].get("role") or "").casefold()
+        if role in {"agent", "assistant"}:
+            agent_message = _entry_message(entries[index])
+            break
+        if role in {"user", "customer"}:
+            return None
+    normalized_agent_message = _normalize_spoken_text(agent_message or "")
+    asked_for_roll_size = (
+        "vårrullar" in normalized_agent_message
+        and any(value in normalized_agent_message.split() for value in ("6", "sex"))
+        and any(
+            value in normalized_agent_message.split()
+            for value in ("12", "tolv")
+        )
+    )
+    if not asked_for_roll_size:
+        return None
+
+    sizes = {
+        {"6": "6", "sex": "6", "12": "12", "tolv": "12"}.get(word)
+        for word in _normalize_spoken_text(latest_utterance).split()
+    }
+    sizes.discard(None)
+    if len(sizes) != 1:
+        return None
+    selected_size = next(iter(sizes))
+
+    candidates = [
+        item
+        for item in menu_items
+        if "vårrullar" in _normalize_spoken_text(
+            item.get("official_name")
+        )
+        and selected_size
+        in _normalize_spoken_text(item.get("official_name")).split()
+    ]
+    if len(candidates) != 1:
+        return None
+    return _ResolverPhrase(
+        normalized_text=f"vårrullar {selected_size}",
+        words=("vårrullar", selected_size),
+        item=candidates[0],
+        source="canonical",
+    )
+
+
 def _tool_result_status(result: dict[str, Any]) -> str | None:
     tool_name = str(
         result.get("tool_name")
@@ -2510,6 +2577,16 @@ def resolve_restaurant_menu_items(
             and numbered_match is not None
         ):
             matches = [numbered_match]
+        pending_roll_match = _pending_spring_roll_selection(
+            entries,
+            menu_items,
+        )
+        if (
+            not matches
+            and not family_requests
+            and pending_roll_match is not None
+        ):
+            matches = [pending_roll_match]
         if (
             not matches
             and not family_requests

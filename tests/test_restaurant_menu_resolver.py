@@ -1904,6 +1904,42 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             "Vill du ha vanlig femtonbitars sushi eller blanda egen?",
         )
 
+    def test_spring_roll_count_follow_up_resolves_bare_twelve(self) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"),
+                "32. Vårrullar – 6 stycken",
+            ),
+            _item(
+                UUID("ffffffff-ffff-4fff-8fff-ffffffffffff"),
+                "32. Vårrullar – 12 stycken",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {
+                    "role": "user",
+                    "message": "Två Pad Thai och vårrullar.",
+                },
+                {
+                    "role": "agent",
+                    "message": (
+                        "Jag behöver också veta hur många vårrullar du "
+                        "vill ha, sex eller tolv stycken?"
+                    ),
+                },
+                {"role": "user", "message": "Eh, tolv stycken, tack."},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            [match["official_name"] for match in result["matches"]],
+            ["32. Vårrullar – 12 stycken"],
+        )
+
     def test_colloquial_thirty_after_sushi_size_list_keeps_sushi_context(
         self,
     ) -> None:
