@@ -659,6 +659,34 @@ def _variant_follow_up_protein(value: str) -> str | None:
     return None
 
 
+def _primary_variant_order_protein(value: str) -> str | None:
+    """Return the explicitly first protein for one newly ordered family.
+
+    The normal follow-up parser deliberately rejects two proteins because a
+    bare response such as "kyckling och biff" cannot safely be assigned to
+    two pending dishes. In a single new dish request, however, callers often
+    say "Pad Thai med kyckling och räkor" to mean chicken plus an extra
+    shrimp modifier. The first protein is the only deterministic base variant
+    in that grammar; the later food word remains available to the agent as a
+    customer note.
+    """
+
+    protein = _variant_follow_up_protein(value)
+    if protein is not None:
+        return protein
+
+    words = [
+        APPROVED_PROTEIN_ALIASES.get(word, word)
+        for word in _normalize_spoken_text(value).split()
+    ]
+    proteins = [
+        word
+        for word in words
+        if word in VERIFIED_PROTEIN_VARIANTS
+    ]
+    return proteins[0] if len(proteins) >= 2 else None
+
+
 def _referenced_variant_family_proteins(
     context: ToolRestaurantContext,
     follow_up: str,
@@ -1130,7 +1158,7 @@ def _unique_fuzzy_variant_family(
 
         spoken_words = tuple(normalized_spoken_family.split())
         width = len(spoken_words)
-        if not width or width > len(comparable_words):
+        if not width or width - 1 > len(comparable_words):
             continue
         if any(
             _contains_words(phrase.words, spoken_words)
@@ -1140,16 +1168,25 @@ def _unique_fuzzy_variant_family(
             continue
 
         best_ratio = 0.0
-        for start in range(0, len(comparable_words) - width + 1):
-            candidate = " ".join(
-                comparable_words[start : start + width]
-            )
-            ratio = SequenceMatcher(
-                None,
-                candidate,
-                normalized_spoken_family,
-            ).ratio()
-            best_ratio = max(best_ratio, ratio)
+        for candidate_width in range(
+            max(1, width - 1),
+            min(len(comparable_words), width + 1) + 1,
+        ):
+            for start in range(
+                0,
+                len(comparable_words) - candidate_width + 1,
+            ):
+                candidate = " ".join(
+                    comparable_words[
+                        start : start + candidate_width
+                    ]
+                )
+                ratio = SequenceMatcher(
+                    None,
+                    candidate,
+                    normalized_spoken_family,
+                ).ratio()
+                best_ratio = max(best_ratio, ratio)
 
         if best_ratio < VARIANT_FAMILY_FUZZY_MINIMUM_RATIO:
             continue
@@ -1525,7 +1562,7 @@ def _variant_family_request(
 
     selected_variants: list[dict[str, Any]] = []
     if fuzzy_match:
-        protein = _variant_follow_up_protein(utterance)
+        protein = _primary_variant_order_protein(utterance)
         if protein in variants_by_protein:
             selected_variants.append(variants_by_protein[protein])
     else:

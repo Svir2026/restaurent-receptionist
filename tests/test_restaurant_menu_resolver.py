@@ -1905,6 +1905,42 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             "Har jag fått med allting?",
         )
 
+    def test_padthai_without_space_still_requires_protein(self) -> None:
+        result = self._resolve("Jag vill ha en padthai")
+
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(
+            result["customer_message"],
+            "Vilket protein vill du ha?",
+        )
+
+    def test_padthai_without_space_keeps_chicken_as_primary_protein(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                COLA_ID,
+                "Pad Thai - Räkor",
+                "Pad Thai med räkor",
+            ),
+        ]
+        result = self._resolve(
+            "Hej jag vill ha en padthai med kyckling och räkor",
+            menu=menu,
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Pad Thai - Kyckling",
+        )
+        self.assertEqual(
+            result["customer_message"],
+            "Okej perfekt, en Pad Thai med kyckling och extra räkor. "
+            "Har jag fått med allting?",
+        )
+
     def test_red_curry_protein_follow_up_resolves_pending_family(self) -> None:
         menu = [
             *self.menu,
