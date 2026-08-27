@@ -434,6 +434,153 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(result["unresolved_attempt"], 0)
         self.assertEqual(result["action"], "clarify")
 
+    def test_menu_number_18_asks_for_pad_thai_protein(self) -> None:
+        chicken = _item(
+            PAD_THAI_ID,
+            "Pad Thai - Kyckling",
+            "Pad Thai med kyckling",
+        )
+        chicken["kitchen_display_name"] = "18. Pad Thai / Kyckling"
+        beef = _item(
+            COLA_ID,
+            "Pad Thai - Biff",
+            "Pad Thai med biff",
+        )
+        beef["kitchen_display_name"] = "18. Pad Thai / Biff"
+        result = self._resolve(
+            "Jag vill ha nummer arton",
+            menu=[self.menu[0], self.menu[1], chicken, beef],
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(
+            result["customer_message"],
+            "Vilket protein vill du ha?",
+        )
+
+    def test_menu_number_18_protein_follow_up_resolves_pad_thai(self) -> None:
+        chicken = _item(
+            PAD_THAI_ID,
+            "Pad Thai - Kyckling",
+            "Pad Thai med kyckling",
+        )
+        chicken["kitchen_display_name"] = "18. Pad Thai / Kyckling"
+        beef = _item(
+            COLA_ID,
+            "Pad Thai - Biff",
+            "Pad Thai med biff",
+        )
+        beef["kitchen_display_name"] = "18. Pad Thai / Biff"
+        result = self._resolve_history(
+            [
+                {"role": "user", "message": "Jag vill ha nummer 18"},
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {"role": "user", "message": "Kyckling"},
+            ],
+            menu=[self.menu[0], self.menu[1], chicken, beef],
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Pad Thai - Kyckling",
+        )
+
+    def test_menu_number_15_protein_follow_up_resolves_specialwok(self) -> None:
+        chicken = _item(
+            PAD_THAI_ID,
+            "Specialwok - grönsaker och ostronsås - Kyckling",
+        )
+        chicken["kitchen_display_name"] = (
+            "15. Specialwok / Kyckling"
+        )
+        beef = _item(
+            COLA_ID,
+            "Specialwok - grönsaker och ostronsås - Biff",
+        )
+        beef["kitchen_display_name"] = "15. Specialwok / Biff"
+        result = self._resolve_history(
+            [
+                {"role": "user", "message": "Jag vill ha rätt femton"},
+                {
+                    "role": "agent",
+                    "message": "Vilket protein vill du ha?",
+                },
+                {"role": "user", "message": "Biff"},
+            ],
+            menu=[self.menu[0], self.menu[1], chicken, beef],
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Specialwok - grönsaker och ostronsås - Biff",
+        )
+
+    def test_unique_menu_number_resolves_the_matching_item(self) -> None:
+        satay = _item(
+            SATAY_ID,
+            "23. Satay Gai",
+            "Kycklingspett med jordnötssås",
+        )
+        result = self._resolve(
+            "Jag vill ha nummer 23",
+            menu=[self.menu[0], satay, self.menu[2]],
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "23. Satay Gai",
+        )
+
+    def test_unique_menu_number_never_fuzzes_to_a_protein_family(self) -> None:
+        soup = _item(
+            UUID("00000000-0000-0000-0000-000000000005"),
+            "5. Tom Kha Gai",
+            "Tom Kha Gai",
+        )
+        result = self._resolve(
+            "Jag vill ha nummer fem",
+            menu=[self.menu[0], self.menu[1], soup, self.menu[2]],
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "5. Tom Kha Gai",
+        )
+
+    def test_menu_number_32_asks_for_spring_roll_size(self) -> None:
+        six_rolls = _item(
+            UUID("00000000-0000-0000-0000-000000000032"),
+            "32. Vårrullar - 6 stycken",
+        )
+        twelve_rolls = _item(
+            UUID("00000000-0000-0000-0000-000000000033"),
+            "32. Vårrullar - 12 stycken",
+        )
+        result = self._resolve(
+            "Jag vill ha nummer 32",
+            menu=[self.menu[0], self.menu[1], six_rolls, twelve_rolls],
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(
+            result["customer_message"],
+            "Vill du ha sex eller tolv vårrullar?",
+        )
+        self.assertEqual(result["matches"], [])
+
     def test_bare_red_curry_asks_for_protein(self) -> None:
         menu = [
             _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),

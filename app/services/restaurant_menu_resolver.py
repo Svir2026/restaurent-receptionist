@@ -322,6 +322,33 @@ VERIFIED_SPOKEN_NUMBER_TOKENS = {
     "fem": "5",
 }
 
+SPOKEN_MENU_NUMBER_TOKENS = {
+    "en": "1",
+    "ett": "1",
+    "två": "2",
+    "tre": "3",
+    "fyra": "4",
+    "fem": "5",
+    "sex": "6",
+    "sju": "7",
+    "åtta": "8",
+    "nio": "9",
+    "tio": "10",
+    "elva": "11",
+    "tolv": "12",
+    "tretton": "13",
+    "fjorton": "14",
+    "femton": "15",
+    "sexton": "16",
+    "sjutton": "17",
+    "arton": "18",
+    "nitton": "19",
+    "tjugo": "20",
+    "trettio": "30",
+}
+
+MENU_NUMBER_PREFIX = re.compile(r"^\s*(\d+)\.\s*")
+
 YZ_SUSHI_REGULAR_NAMES = {
     8: "Liten Sushi – 8 bitar",
     10: "Mellan Sushi – 10 bitar",
@@ -420,6 +447,159 @@ def _normalize_match_text(value: object) -> str:
         VERIFIED_SPOKEN_NUMBER_TOKENS.get(word, word)
         for word in words
     )
+
+
+def _requested_menu_number(utterance: str) -> str | None:
+    """Read an explicitly requested menu number, never a bare quantity."""
+
+    words = _normalize_spoken_text(utterance).split()
+    markers = {"nummer", "numret", "rätt", "ratten"}
+    for index, word in enumerate(words[:-1]):
+        if word not in markers:
+            continue
+        first = words[index + 1]
+        if first.isdigit():
+            return first
+        if first in {"tjugo", "trettio"} and index + 2 < len(words):
+            suffix = SPOKEN_MENU_NUMBER_TOKENS.get(words[index + 2])
+            if suffix and int(suffix) < 10:
+                return str(int(SPOKEN_MENU_NUMBER_TOKENS[first]) + int(suffix))
+        spoken = SPOKEN_MENU_NUMBER_TOKENS.get(first)
+        if spoken is not None:
+            return spoken
+    return None
+
+
+def _numbered_menu_items(
+    menu_items: list[dict[str, Any]],
+    menu_number: str,
+) -> list[dict[str, Any]]:
+    """Return active items whose displayed menu number matches exactly."""
+
+    matches: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for item in menu_items:
+        for field_name in ("kitchen_display_name", "official_name"):
+            raw_value = str(item.get(field_name) or "")
+            prefix = MENU_NUMBER_PREFIX.match(raw_value)
+            if prefix is None or prefix.group(1) != menu_number:
+                continue
+            item_id = str(_parse_menu_item_id(item.get("id")))
+            if item_id not in seen_ids:
+                matches.append(item)
+                seen_ids.add(item_id)
+            break
+    return matches
+
+
+def _variant_family_name_from_item(
+    item: dict[str, Any],
+) -> str | None:
+    """Extract a verified family prefix from a dashed menu variant."""
+
+    for field_name in MENU_ITEM_NAME_FIELDS:
+        raw_value = str(item.get(field_name) or "")
+        raw_value = MENU_NUMBER_PREFIX.sub("", raw_value).strip()
+        parts = [
+            part.strip()
+            for part in re.split(r"\s*(?:[–/-])\s*", raw_value)
+            if part.strip()
+        ]
+        if len(parts) < 2:
+            continue
+        protein = _normalize_spoken_text(parts[-1])
+        if protein not in VERIFIED_PROTEIN_VARIANTS:
+            continue
+        family_name = _normalize_spoken_text(" ".join(parts[:-1]))
+        if family_name:
+            return family_name
+    return None
+
+
+def _configured_variant_families(
+    context: ToolRestaurantContext,
+    menu_items: list[dict[str, Any]],
+) -> dict[str, tuple[str, str]]:
+    """Add numbered variant families discovered from the active YZ menu."""
+
+    configured = dict(
+        APPROVED_VARIANT_FAMILIES.get(context.restaurant_slug, {})
+    )
+    by_number: dict[str, list[dict[str, Any]]] = {}
+    for item in menu_items:
+        for field_name in ("kitchen_display_name", "official_name"):
+            prefix = MENU_NUMBER_PREFIX.match(
+                str(item.get(field_name) or "")
+            )
+            if prefix is None:
+                continue
+            by_number.setdefault(prefix.group(1), []).append(item)
+            break
+
+    for number, numbered_items in by_number.items():
+        if len(numbered_items) < 2:
+            continue
+        family_names = {
+            family_name
+            for item in numbered_items
+            if (
+                family_name := _variant_family_name_from_item(item)
+            )
+            is not None
+        }
+        if len(family_names) != 1:
+            continue
+        family_name = next(iter(family_names))
+        value = (family_name, "Vilket protein vill du ha?")
+        spoken_numbers = [number]
+        spoken_numbers.extend(
+            spoken
+            for spoken, numeric_value in SPOKEN_MENU_NUMBER_TOKENS.items()
+            if numeric_value == number
+        )
+        for spoken_number in spoken_numbers:
+            configured.setdefault(f"nummer {spoken_number}", value)
+            configured.setdefault(f"rätt {spoken_number}", value)
+    return configured
+
+
+def _numbered_menu_resolution(
+    utterance: str,
+    menu_items: list[dict[str, Any]],
+) -> tuple[_ResolverPhrase | None, str | None]:
+    """Resolve one numbered item, or return a required size question."""
+
+    menu_number = _requested_menu_number(utterance)
+    if menu_number is None:
+        return None, None
+    numbered_items = _numbered_menu_items(menu_items, menu_number)
+    if len(numbered_items) == 1:
+        item = numbered_items[0]
+        return (
+            _ResolverPhrase(
+                normalized_text=f"nummer {menu_number}",
+                words=("nummer", menu_number),
+                item=item,
+                source="canonical",
+            ),
+            None,
+        )
+    if len(numbered_items) != 2:
+        return None, None
+
+    normalized_names = [
+        _normalize_spoken_text(item.get("official_name"))
+        for item in numbered_items
+    ]
+    roll_sizes = {
+        size
+        for name in normalized_names
+        for size in re.findall(r"\b(6|12)\b", name)
+        if "vårrullar" in name
+    }
+    if roll_sizes == {"6", "12"}:
+        return None, "Vill du ha sex eller tolv vårrullar?"
+    return None, None
 
 
 def _load_menu_item_aliases(
@@ -1467,10 +1647,7 @@ def _variant_family_request(
     list[dict[str, Any]],
     list[dict[str, Any]],
 ] | None:
-    configured = APPROVED_VARIANT_FAMILIES.get(
-        context.restaurant_slug,
-        {},
-    )
+    configured = _configured_variant_families(context, menu_items)
     utterance_words = tuple(
         APPROVED_PROTEIN_ALIASES.get(word, word)
         for word in _normalize_spoken_text(utterance).split()
@@ -1513,6 +1690,10 @@ def _variant_family_request(
         break
 
     if selected_family is None:
+        # A stated menu number has its own deterministic resolver below. It
+        # must never be fuzzed into a different numbered protein family.
+        if _requested_menu_number(utterance) is not None:
+            return None
         fuzzy_family = _unique_fuzzy_variant_family(
             utterance_words,
             configured,
@@ -1609,10 +1790,7 @@ def _variant_family_requests(
         ]
     ] = []
     excluded: set[str] = set()
-    configured = APPROVED_VARIANT_FAMILIES.get(
-        context.restaurant_slug,
-        {},
-    )
+    configured = _configured_variant_families(context, menu_items)
     while True:
         request = _variant_family_request(
             context,
@@ -1653,9 +1831,23 @@ def _variant_request_key(
         {},
     )
     family_config = configured.get(request[0])
-    return _normalize_spoken_text(
-        family_config[0] if family_config is not None else request[0]
+    if family_config is not None:
+        return _normalize_spoken_text(family_config[0])
+
+    family_names = {
+        family_name
+        for item in request[2]
+        if (
+            family_name := _variant_family_name_from_item(item)
+        )
+        is not None
+    }
+    target = (
+        next(iter(family_names))
+        if len(family_names) == 1
+        else request[0]
     )
+    return _normalize_spoken_text(target)
 
 
 def _selected_variant_for_protein(
@@ -1982,14 +2174,37 @@ def resolve_restaurant_menu_items(
             menu_items,
             matches,
         )
+        numbered_match, numbered_customer_message = (
+            _numbered_menu_resolution(utterance, menu_items)
+        )
         if (
             not matches
             and not family_requests
+            and numbered_match is not None
+        ):
+            matches = [numbered_match]
+        if (
+            not matches
+            and not family_requests
+            and numbered_customer_message is None
             and "sushi" not in _normalize_spoken_text(utterance).split()
         ):
             fuzzy_phrase = _unique_fuzzy_menu_phrase(utterance, phrases)
             if fuzzy_phrase is not None:
                 matches = [fuzzy_phrase]
+
+        if numbered_customer_message is not None:
+            return {
+                "success": True,
+                "status": "AMBIGUOUS",
+                "action": "clarify",
+                "unresolved_attempt": 0,
+                "stop_recovery": False,
+                "customer_message": numbered_customer_message,
+                "required_agent_action": "say_customer_message_exactly",
+                "all_required_variants_resolved": False,
+                "matches": [],
+            }
 
     _append_selected_variant_matches(matches, family_requests)
     family_request = next(
