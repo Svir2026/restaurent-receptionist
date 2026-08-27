@@ -372,6 +372,7 @@ YZ_SUSHI_SIZE_TOKENS = {
     "tjugo": 20,
     "30": 30,
     "trettio": 30,
+    "tretti": 30,
     "50": 50,
     "femtio": 50,
 }
@@ -1199,7 +1200,10 @@ def _pending_sushi_utterance(
     agent_message = _entry_message(entries[agent_index])
     normalized_agent_message = _normalize_spoken_text(agent_message or "")
     asks_for_sushi_size = (
-        "hur många bitar" in normalized_agent_message
+        (
+            "hur många bitar" in normalized_agent_message
+            or "vilken storlek" in normalized_agent_message
+        )
         and "sushi" in normalized_agent_message
     )
     asks_for_sushi_type = (
@@ -1217,15 +1221,9 @@ def _pending_sushi_utterance(
             return None
         return f"sushi {sushi_size} bitar {latest_utterance}"
 
-    for index in range(agent_index - 1, -1, -1):
-        role = str(entries[index].get("role") or "").casefold()
-        if role not in {"user", "customer"}:
-            continue
-        prior_utterance = _entry_message(entries[index])
-        if prior_utterance:
-            return f"{prior_utterance} {latest_utterance}"
-        return None
-    return None
+    # A short answer such as "tretti" needs the explicit sushi context even
+    # when the customer previously only asked what sizes are available.
+    return f"sushi {latest_utterance}"
 
 
 def _tool_result_status(result: dict[str, Any]) -> str | None:

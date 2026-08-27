@@ -51,6 +51,8 @@ EXTRA_CASHEW_ID = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 CASHEW_SUSHI_COMBO_ID = UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
 REGULAR_SUSHI_15_ID = UUID("cccccccc-cccc-4ccc-8ccc-cccccccccccc")
 CUSTOM_SUSHI_15_ID = UUID("dddddddd-dddd-4ddd-8ddd-dddddddddddd")
+REGULAR_SUSHI_30_ID = UUID("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee")
+CUSTOM_SUSHI_30_ID = UUID("ffffffff-ffff-4fff-8fff-ffffffffffff")
 CASHEW_IDS = {
     protein: UUID(f"99999999-9999-4999-8999-{index:012d}")
     for index, protein in enumerate(
@@ -1900,6 +1902,39 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(
             result["customer_message"],
             "Vill du ha vanlig femtonbitars sushi eller blanda egen?",
+        )
+
+    def test_colloquial_thirty_after_sushi_size_list_keeps_sushi_context(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(REGULAR_SUSHI_30_ID, "Familje Sushi – 30 bitar"),
+            _item(
+                CUSTOM_SUSHI_30_ID,
+                "Egenkomponerad sushi – 30 bitar",
+            ),
+        ]
+        result = self._resolve_history(
+            [
+                {"role": "user", "message": "Vad är alla storlekar ni har?"},
+                {
+                    "role": "agent",
+                    "message": (
+                        "Vi har sushi i följande storlekar: åtta, tio, "
+                        "tolv, femton, tjugo, trettio och femtio bitar. "
+                        "Vilken storlek vill du beställa?"
+                    ),
+                },
+                {"role": "user", "message": "Tretti"},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(
+            result["customer_message"],
+            "Vill du ha vanlig trettiobitars sushi eller blanda egen?",
         )
 
     def test_regular_sushi_follow_up_selects_exact_regular_item(self) -> None:
