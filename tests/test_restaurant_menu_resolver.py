@@ -446,6 +446,11 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             _item(SATAY_ID, "Poké Bowl – Kyckling"),
             _item(EXTRA_CASHEW_ID, "Poké Bowl – Friterade räkor"),
             _item(CASHEW_SUSHI_COMBO_ID, "Poké Bowl – Tofu"),
+            _item(
+                UUID("30000000-0000-4000-8000-000000000001"),
+                "20. Friterade räkor",
+                "Friterade räkor",
+            ),
         ]
         result = self._resolve(
             "Jag vill ha en poke bowl",
@@ -470,6 +475,11 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             _item(SATAY_ID, "Poké Bowl – Kyckling"),
             _item(EXTRA_CASHEW_ID, "Poké Bowl – Friterade räkor"),
             _item(CASHEW_SUSHI_COMBO_ID, "Poké Bowl – Tofu"),
+            _item(
+                UUID("30000000-0000-4000-8000-000000000003"),
+                "20. Friterade räkor",
+                "Friterade räkor",
+            ),
         ]
         cases = (
             ("En Poké Bowl med kyckling", "Poké Bowl – Kyckling"),
@@ -490,6 +500,7 @@ class RestaurantMenuResolverTests(unittest.TestCase):
                     aliases=[],
                 )
                 self.assertEqual(result["status"], "MATCH")
+                self.assertEqual(len(result["matches"]), 1)
                 self.assertEqual(
                     result["matches"][0]["official_name"],
                     expected_name,
@@ -505,6 +516,11 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             _item(SATAY_ID, "Poké Bowl – Kyckling"),
             _item(EXTRA_CASHEW_ID, "Poké Bowl – Friterade räkor"),
             _item(CASHEW_SUSHI_COMBO_ID, "Poké Bowl – Tofu"),
+            _item(
+                UUID("30000000-0000-4000-8000-000000000002"),
+                "20. Friterade räkor",
+                "Friterade räkor",
+            ),
         ]
         result = self._resolve_history(
             [
@@ -517,6 +533,7 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         )
 
         self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(len(result["matches"]), 1)
         self.assertEqual(
             result["matches"][0]["official_name"],
             "Poké Bowl – Friterade räkor",

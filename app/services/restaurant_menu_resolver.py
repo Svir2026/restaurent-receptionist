@@ -2442,6 +2442,47 @@ def _append_selected_variant_matches(
             )
 
 
+def _remove_poke_protein_duplicate_matches(
+    matches: list[_ResolverPhrase],
+    family_requests: list[
+        tuple[
+            str,
+            str,
+            list[dict[str, Any]],
+            list[dict[str, Any]],
+        ]
+    ],
+) -> None:
+    """Keep a Poké Bowl protein reply from becoming a second menu item."""
+
+    selected_item_ids: set[str] = set()
+    selected_proteins: set[tuple[str, ...]] = set()
+    for _, _, _, selected_variants in family_requests:
+        if not any(
+            _variant_family_name_from_item(item) == "poké bowl"
+            for item in selected_variants
+        ):
+            continue
+        for item in selected_variants:
+            selected_item_ids.add(
+                str(_parse_menu_item_id(item.get("id")))
+            )
+            protein = _variant_protein_from_item(item)
+            if protein is not None:
+                selected_proteins.add(tuple(protein.split()))
+
+    if not selected_proteins:
+        return
+
+    matches[:] = [
+        phrase
+        for phrase in matches
+        if str(_parse_menu_item_id(phrase.item.get("id")))
+        in selected_item_ids
+        or phrase.words not in selected_proteins
+    ]
+
+
 def _single_match_customer_message(
     matches: list[dict[str, Any]],
     utterance: str,
@@ -2655,6 +2696,7 @@ def resolve_restaurant_menu_items(
             }
 
     _append_selected_variant_matches(matches, family_requests)
+    _remove_poke_protein_duplicate_matches(matches, family_requests)
     matches.sort(
         key=lambda phrase: _resolver_phrase_position(phrase, utterance)
     )
