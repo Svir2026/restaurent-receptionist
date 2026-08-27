@@ -2538,6 +2538,136 @@ class RestaurantMenuResolverTests(unittest.TestCase):
             )
         )
 
+    def test_explicit_add_cashews_is_an_extra_not_cashew_wok(self) -> None:
+        menu = [
+            _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(SATAY_ID, "23. Satay Gai"),
+            _item(
+                PAD_THAI_ID,
+                "Pad Med Mamuang – Kyckling",
+                "Pad Med Mamuang – Kyckling",
+            ),
+            _item(
+                EXTRA_CASHEW_ID,
+                "Extra cashewnötter",
+                "Extra cashewnötter",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill beställa en Yakiniki och kan du lägga till cashewnötter?",
+            menu=menu,
+            aliases=[_alias(YAKINIKU_ID, "yakiniki")],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(result["action"], "continue")
+        self.assertEqual(
+            [match["official_name"] for match in result["matches"]],
+            ["24. Yakiniku", "Extra cashewnötter"],
+        )
+        self.assertNotEqual(
+            result["customer_message"],
+            "Vilket protein vill du ha?",
+        )
+
+    def test_cashew_wok_without_an_explicit_add_on_still_needs_protein(
+        self,
+    ) -> None:
+        menu = [
+            _item(YAKINIKU_ID, "24. Yakiniku", "Yakiniku"),
+            _item(SATAY_ID, "23. Satay Gai"),
+            _item(
+                PAD_THAI_ID,
+                "Pad Med Mamuang – Kyckling",
+                "Pad Med Mamuang – Kyckling",
+            ),
+            _item(
+                COLA_ID,
+                "Pad Med Mamuang – Biff",
+                "Pad Med Mamuang – Biff",
+            ),
+            _item(
+                EXTRA_CASHEW_ID,
+                "Extra cashewnötter",
+                "Extra cashewnötter",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha cashewnötter",
+            menu=menu,
+        )
+
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(
+            result["customer_message"],
+            "Vilket protein vill du ha?",
+        )
+
+    def test_explicit_add_on_actions_cover_active_extra_menu_items(
+        self,
+    ) -> None:
+        extra_names = (
+            "Extra ris",
+            "Extra nudlar",
+            "Extra jordnötssås",
+            "Extra grönsaker",
+            "Extra chilimajonnäs",
+        )
+        menu = [
+            *self.menu,
+            *[
+                _item(
+                    UUID(f"aaaaaaaa-aaaa-4aaa-8aaa-{index:012d}"),
+                    extra_name,
+                    extra_name,
+                )
+                for index, extra_name in enumerate(extra_names, start=1)
+            ],
+        ]
+        spoken_names = (
+            "ris",
+            "nudlar",
+            "jordnötssås",
+            "grönsaker",
+            "chilimajonnäs",
+        )
+
+        for extra_name, spoken_name in zip(
+            extra_names,
+            spoken_names,
+            strict=True,
+        ):
+            with self.subTest(extra_name=extra_name):
+                result = self._resolve(
+                    f"Yakiniku och lägg till {spoken_name}",
+                    menu=menu,
+                )
+                self.assertEqual(result["status"], "MATCH")
+                self.assertEqual(
+                    [match["official_name"] for match in result["matches"]],
+                    ["24. Yakiniku", extra_name],
+                )
+
+    def test_add_on_with_it_resolves_to_the_active_extra_item(self) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                EXTRA_CASHEW_ID,
+                "Extra cashewnötter",
+                "Extra cashewnötter",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha Yakiniku och jag vill ha cashewnötter med den",
+            menu=menu,
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            [match["official_name"] for match in result["matches"]],
+            ["24. Yakiniku", "Extra cashewnötter"],
+        )
+
     def test_large_order_with_bare_pad_thai_requests_protein(self) -> None:
         result = self._resolve("En Pad Thai och en Yakiniku")
         self.assertEqual(result["status"], "AMBIGUOUS")

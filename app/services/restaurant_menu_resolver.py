@@ -1398,6 +1398,66 @@ def _find_matches(
     return unique, False
 
 
+def _explicit_extra_add_on_matches(
+    context: ToolRestaurantContext,
+    utterance: str,
+    menu_items: list[dict[str, Any]],
+) -> list[_ResolverPhrase]:
+    """Resolve a spoken add-on request to an active ``Extra ...`` item.
+
+    "Lägg till cashewnötter" is an explicit add-on action, not a request
+    for the protein family that happens to contain the same food word. Only
+    an active, canonical ``Extra ...`` menu item can be returned here.
+    """
+
+    if context.restaurant_slug != "yz-thai-wok-sushi":
+        return []
+
+    words = tuple(_normalize_spoken_text(utterance).split())
+    requested_suffixes: set[tuple[str, ...]] = set()
+    for index, word in enumerate(words):
+        if word == "extra" and index + 1 < len(words):
+            requested_suffixes.add(words[index + 1 :])
+        if (
+            word in {"lägg", "lägga"}
+            and index + 2 < len(words)
+            and words[index + 1] == "till"
+        ):
+            requested_suffixes.add(words[index + 2 :])
+
+    matches: list[_ResolverPhrase] = []
+    for item in menu_items:
+        official_name = _normalize_spoken_text(
+            item.get("official_name")
+        )
+        if not official_name.startswith("extra "):
+            continue
+        suffix = tuple(official_name.split()[1:])
+        if not suffix:
+            continue
+        requested_by_action = any(
+            _contains_words(requested, suffix)
+            for requested in requested_suffixes
+        )
+        requested_with_pronoun = any(
+            words[index : index + len(suffix)] == suffix
+            and words[index + len(suffix) : index + len(suffix) + 2]
+            in {("med", "den"), ("med", "det"), ("till", "den"), ("till", "det")}
+            for index in range(0, len(words) - len(suffix) + 1)
+        )
+        if not requested_by_action and not requested_with_pronoun:
+            continue
+        matches.append(
+            _ResolverPhrase(
+                normalized_text=official_name,
+                words=tuple(official_name.split()),
+                item=item,
+                source="canonical",
+            )
+        )
+    return matches
+
+
 def _contains_words(
     words: tuple[str, ...],
     phrase_words: tuple[str, ...],
@@ -2347,6 +2407,22 @@ def resolve_restaurant_menu_items(
         )
     else:
         matches, _ = _find_matches(utterance, phrases)
+        known_match_ids = {
+            str(_parse_menu_item_id(phrase.item.get("id")))
+            for phrase in matches
+        }
+        for extra_match in _explicit_extra_add_on_matches(
+            context,
+            utterance,
+            menu_items,
+        ):
+            extra_item_id = str(
+                _parse_menu_item_id(extra_match.item.get("id"))
+            )
+            if extra_item_id in known_match_ids:
+                continue
+            matches.append(extra_match)
+            known_match_ids.add(extra_item_id)
         family_utterance = utterance
         family_requests = _variant_family_requests(
             context,
