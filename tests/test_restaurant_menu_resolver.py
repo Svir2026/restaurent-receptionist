@@ -436,6 +436,92 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(result["unresolved_attempt"], 0)
         self.assertEqual(result["action"], "clarify")
 
+    def test_bare_poke_bowl_requires_a_verified_protein_choice(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(COLA_ID, "Poké Bowl – Lax"),
+            _item(COLA_ZERO_ID, "Poké Bowl – Tonfisk"),
+            _item(SATAY_ID, "Poké Bowl – Kyckling"),
+            _item(EXTRA_CASHEW_ID, "Poké Bowl – Friterade räkor"),
+            _item(CASHEW_SUSHI_COMBO_ID, "Poké Bowl – Tofu"),
+        ]
+        result = self._resolve(
+            "Jag vill ha en poke bowl",
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "AMBIGUOUS")
+        self.assertEqual(
+            result["customer_message"],
+            "Vilket protein vill du ha?",
+        )
+        self.assertEqual(result["unresolved_attempt"], 0)
+
+    def test_poke_bowl_with_protein_resolves_to_the_kitchen_variant(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(COLA_ID, "Poké Bowl – Lax"),
+            _item(COLA_ZERO_ID, "Poké Bowl – Tonfisk"),
+            _item(SATAY_ID, "Poké Bowl – Kyckling"),
+            _item(EXTRA_CASHEW_ID, "Poké Bowl – Friterade räkor"),
+            _item(CASHEW_SUSHI_COMBO_ID, "Poké Bowl – Tofu"),
+        ]
+        cases = (
+            ("En Poké Bowl med kyckling", "Poké Bowl – Kyckling"),
+            ("En poke bowl med lax", "Poké Bowl – Lax"),
+            ("En pokebowl med tonfisk", "Poké Bowl – Tonfisk"),
+            (
+                "En poke boll med friterade räkor",
+                "Poké Bowl – Friterade räkor",
+            ),
+        )
+
+        for utterance, expected_name in cases:
+            with self.subTest(utterance=utterance):
+                _clear_resolver_catalog_cache()
+                result = self._resolve(
+                    utterance,
+                    menu=menu,
+                    aliases=[],
+                )
+                self.assertEqual(result["status"], "MATCH")
+                self.assertEqual(
+                    result["matches"][0]["official_name"],
+                    expected_name,
+                )
+
+    def test_poke_bowl_fried_shrimp_follow_up_resolves_the_variant(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(COLA_ID, "Poké Bowl – Lax"),
+            _item(COLA_ZERO_ID, "Poké Bowl – Tonfisk"),
+            _item(SATAY_ID, "Poké Bowl – Kyckling"),
+            _item(EXTRA_CASHEW_ID, "Poké Bowl – Friterade räkor"),
+            _item(CASHEW_SUSHI_COMBO_ID, "Poké Bowl – Tofu"),
+        ]
+        result = self._resolve_history(
+            [
+                {"role": "user", "message": "Jag vill ha en Poké Bowl"},
+                {"role": "agent", "message": "Vilket protein vill du ha?"},
+                {"role": "user", "message": "Friterade räkor"},
+            ],
+            menu=menu,
+            aliases=[],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Poké Bowl – Friterade räkor",
+        )
+
     def test_menu_number_18_asks_for_pad_thai_protein(self) -> None:
         chicken = _item(
             PAD_THAI_ID,

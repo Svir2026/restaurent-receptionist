@@ -224,6 +224,30 @@ APPROVED_VARIANT_FAMILIES = {
             "pad med mamuang",
             "Vilket protein vill du ha?",
         ),
+        "poké bowl": (
+            "poké bowl",
+            "Vilket protein vill du ha?",
+        ),
+        "poke bowl": (
+            "poké bowl",
+            "Vilket protein vill du ha?",
+        ),
+        "pokebowl": (
+            "poké bowl",
+            "Vilket protein vill du ha?",
+        ),
+        "poke boll": (
+            "poké bowl",
+            "Vilket protein vill du ha?",
+        ),
+        "poke skål": (
+            "poké bowl",
+            "Vilket protein vill du ha?",
+        ),
+        "pokè bowl": (
+            "poké bowl",
+            "Vilket protein vill du ha?",
+        ),
     },
 }
 
@@ -231,9 +255,12 @@ VERIFIED_PROTEIN_VARIANTS = {
     "anka",
     "biff",
     "bläckfisk",
+    "friterade räkor",
     "fläsk",
     "kyckling",
+    "lax",
     "räkor",
+    "tonfisk",
     "tofu",
 }
 
@@ -851,11 +878,7 @@ def _variant_follow_up_protein(value: str) -> str | None:
         if modifier_start is not None
         else words
     )
-    proteins = {
-        word
-        for word in primary_words
-        if word in VERIFIED_PROTEIN_VARIANTS
-    }
+    proteins = set(_spoken_protein_variants(primary_words))
     if len(proteins) == 1:
         return next(iter(proteins))
     return None
@@ -881,12 +904,34 @@ def _primary_variant_order_protein(value: str) -> str | None:
         APPROVED_PROTEIN_ALIASES.get(word, word)
         for word in _normalize_spoken_text(value).split()
     ]
-    proteins = [
-        word
-        for word in words
-        if word in VERIFIED_PROTEIN_VARIANTS
-    ]
+    proteins = _spoken_protein_variants(words)
     return proteins[0] if len(proteins) >= 2 else None
+
+
+def _spoken_protein_variants(words: list[str]) -> list[str]:
+    """Return verified protein phrases in spoken order without overlap."""
+
+    protein_forms = sorted(
+        (
+            (protein, tuple(protein.split()))
+            for protein in VERIFIED_PROTEIN_VARIANTS
+        ),
+        key=lambda value: len(value[1]),
+        reverse=True,
+    )
+    proteins: list[str] = []
+    index = 0
+    while index < len(words):
+        for protein, protein_words in protein_forms:
+            width = len(protein_words)
+            if tuple(words[index : index + width]) != protein_words:
+                continue
+            proteins.append(protein)
+            index += width
+            break
+        else:
+            index += 1
+    return proteins
 
 
 def _proteins_for_spoken_family(
@@ -907,7 +952,7 @@ def _proteins_for_spoken_family(
         if tuple(words[start : start + width]) != family_words:
             continue
 
-        proteins: list[str] = []
+        protein_words: list[str] = []
         for index in range(start + width, len(words)):
             # "och en ..." / "och två ..." starts a new ordered dish,
             # not another protein for this family.
@@ -918,10 +963,8 @@ def _proteins_for_spoken_family(
                 in {"en", "ett", "två", "tre", "fyra", "fem"}
             ):
                 break
-            protein = words[index]
-            if protein in VERIFIED_PROTEIN_VARIANTS:
-                proteins.append(protein)
-        return proteins
+            protein_words.append(words[index])
+        return _spoken_protein_variants(protein_words)
 
     return []
 
@@ -2126,11 +2169,12 @@ def _variant_family_request(
             selected_variants.append(variants_by_protein[protein])
     elif not selected_variants:
         for protein, item in variants_by_protein.items():
+            protein_words = tuple(protein.split())
             spoken_forms = (
-                (*spoken_family_words, protein),
-                (*spoken_family_words, "med", protein),
-                (protein, *spoken_family_words),
-                (protein, "med", *spoken_family_words),
+                (*spoken_family_words, *protein_words),
+                (*spoken_family_words, "med", *protein_words),
+                (*protein_words, *spoken_family_words),
+                (*protein_words, "med", *spoken_family_words),
             )
             if any(
                 _contains_words(utterance_words, form)
