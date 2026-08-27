@@ -32,6 +32,7 @@ MenuResolutionAction = Literal[
 MenuResolutionSource = Literal[
     "canonical",
     "alias",
+    "fuzzy",
 ]
 
 

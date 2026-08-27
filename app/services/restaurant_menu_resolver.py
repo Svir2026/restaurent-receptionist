@@ -242,6 +242,23 @@ APPROVED_PROTEIN_ALIASES = {
     "kycklingpapadah": "kyckling",
 }
 
+# Explicit Swedish references customers use after the agent asks which
+# protein belongs to several pending curry dishes. They identify a known
+# family; they are never used to invent a new menu item.
+APPROVED_VARIANT_FAMILY_REFERENCE_WORDS = {
+    "gaeng ped": frozenset({"röd", "röda", "rod", "roda", "red"}),
+    "gaeng keowan": frozenset(
+        {"grön", "gröna", "gron", "grona", "green"}
+    ),
+    "gaeng panang": frozenset({"panang", "penang", "paneng"}),
+    "massamang curry": frozenset(
+        {"massaman", "massamang", "matsaman"}
+    ),
+    "pad krapow": frozenset({"krapow", "kaprao"}),
+    "pad priawan": frozenset({"priawan", "priewan", "privan"}),
+    "pad med mamuang": frozenset({"cashew", "cashewnötter"}),
+}
+
 VARIANT_FOLLOW_UP_FILLER_WORDS = {
     "alltså",
     "eh",
@@ -267,6 +284,30 @@ VARIANT_FAMILY_FILLER_WORDS = {
 }
 VARIANT_FAMILY_FUZZY_MINIMUM_RATIO = 0.90
 VARIANT_FAMILY_FUZZY_MINIMUM_MARGIN = 0.08
+
+# General menu fuzz is intentionally stricter than the small family matcher.
+# It is only consulted after exact canonical names, approved aliases, and the
+# deterministic variant layer all fail. One uniquely strong candidate is
+# accepted; ties are left for the recovery flow instead of becoming an order.
+MENU_FUZZY_MINIMUM_RATIO = 0.93
+MENU_FUZZY_MINIMUM_MARGIN = 0.07
+MENU_FUZZY_MINIMUM_SINGLE_WORD_LENGTH = 7
+MENU_FUZZY_FILLER_WORDS = VARIANT_FAMILY_FILLER_WORDS | {
+    "alltså",
+    "beställa",
+    "en",
+    "ett",
+    "gärna",
+    "ha",
+    "hej",
+    "jag",
+    "kan",
+    "skulle",
+    "ta",
+    "tack",
+    "vill",
+    "villha",
+}
 
 RESOLVER_CATALOG_CACHE_TTL_SECONDS = 30.0
 ALIAS_PAGE_SIZE = 1000
@@ -354,7 +395,7 @@ class _ResolverPhrase:
     normalized_text: str
     words: tuple[str, ...]
     item: dict[str, Any]
-    source: Literal["canonical", "alias"]
+    source: Literal["canonical", "alias", "fuzzy"]
 
 
 _phrase_cache: dict[str, tuple[float, list[_ResolverPhrase]]] = {}
@@ -616,6 +657,66 @@ def _variant_follow_up_protein(value: str) -> str | None:
     if len(proteins) == 1:
         return next(iter(proteins))
     return None
+
+
+def _referenced_variant_family_proteins(
+    context: ToolRestaurantContext,
+    follow_up: str,
+    requests: list[
+        tuple[
+            str,
+            str,
+            list[dict[str, Any]],
+            list[dict[str, Any]],
+        ]
+    ],
+) -> dict[str, str]:
+    """Map explicitly referenced pending families to one stated protein.
+
+    For example, "den gröna ... kyckling och den röda ... biff" maps
+    Gaeng Keowan to Kyckling and Gaeng Ped to Biff. A bare list of two
+    proteins is intentionally left unresolved because its assignment is not
+    deterministic.
+    """
+
+    words = [
+        APPROVED_PROTEIN_ALIASES.get(word, word)
+        for word in _normalize_spoken_text(follow_up).split()
+    ]
+    pending_keys = {
+        _variant_request_key(context, request)
+        for request in requests
+        if not request[3]
+    }
+    references: list[tuple[int, str]] = []
+    for family_key in pending_keys:
+        for index, word in enumerate(words):
+            if word in APPROVED_VARIANT_FAMILY_REFERENCE_WORDS.get(
+                family_key,
+                frozenset(),
+            ):
+                references.append((index, family_key))
+
+    references.sort()
+    if len(references) < 2:
+        return {}
+
+    assignments: dict[str, str] = {}
+    for index, (start, family_key) in enumerate(references):
+        end = (
+            references[index + 1][0]
+            if index + 1 < len(references)
+            else len(words)
+        )
+        proteins = {
+            word
+            for word in words[start + 1 : end]
+            if word in VERIFIED_PROTEIN_VARIANTS
+        }
+        if len(proteins) == 1:
+            assignments[family_key] = next(iter(proteins))
+
+    return assignments
 
 
 def _pending_variant_history(
@@ -973,6 +1074,34 @@ def _contains_words(
     )
 
 
+def _contains_coordinated_family_words(
+    words: tuple[str, ...],
+    phrase_words: tuple[str, ...],
+) -> bool:
+    """Recognize a shared final word in a coordinated family request.
+
+    Swedish callers naturally say "grön och röd curry". The word "curry"
+    belongs to both color qualifiers even though it is spoken once. This is an
+    exact structural match, not a fuzzy match: it only applies to two-word
+    configured family phrases and requires the literal conjunction "och".
+    """
+
+    if len(phrase_words) != 2:
+        return False
+
+    qualifier, shared_word = phrase_words
+    for start, word in enumerate(words):
+        if word != qualifier:
+            continue
+        for end in range(start + 2, len(words)):
+            if words[end] != shared_word:
+                continue
+            if words[start + 1 : end].count("och") == 1:
+                return True
+            break
+    return False
+
+
 def _unique_fuzzy_variant_family(
     utterance_words: tuple[str, ...],
     configured: dict[str, tuple[str, str]],
@@ -1051,6 +1180,91 @@ def _unique_fuzzy_variant_family(
         return None
 
     return winning[1], winning[2]
+
+
+def _fuzzy_menu_phrase_words(
+    phrase: _ResolverPhrase,
+) -> tuple[str, ...]:
+    """Return customer-spoken words without an optional menu number."""
+
+    words = phrase.words
+    return words[1:] if words[:1] and words[0].isdigit() else words
+
+
+def _unique_fuzzy_menu_phrase(
+    utterance: str,
+    phrases: list[_ResolverPhrase],
+) -> _ResolverPhrase | None:
+    """Resolve one unambiguous high-confidence menu phrase, or nothing.
+
+    This is deliberately a final fallback rather than a similarity search over
+    the whole order. Exact names and approved aliases have already had their
+    chance. The caller must also ensure no variant-family rule applies.
+    """
+
+    utterance_words = tuple(
+        word
+        for word in _normalize_match_text(utterance).split()
+        if word not in MENU_FUZZY_FILLER_WORDS
+    )
+    if not utterance_words:
+        return None
+
+    best_by_item_id: dict[str, tuple[float, _ResolverPhrase]] = {}
+    for phrase in phrases:
+        phrase_words = _fuzzy_menu_phrase_words(phrase)
+        if not phrase_words:
+            continue
+        if (
+            len(phrase_words) == 1
+            and len(phrase_words[0])
+            < MENU_FUZZY_MINIMUM_SINGLE_WORD_LENGTH
+        ):
+            continue
+
+        best_ratio = 0.0
+        for width in range(
+            max(1, len(phrase_words) - 1),
+            min(len(utterance_words), len(phrase_words) + 1) + 1,
+        ):
+            for start in range(0, len(utterance_words) - width + 1):
+                candidate = " ".join(utterance_words[start : start + width])
+                ratio = SequenceMatcher(
+                    None,
+                    candidate,
+                    " ".join(phrase_words),
+                ).ratio()
+                best_ratio = max(best_ratio, ratio)
+
+        if best_ratio < MENU_FUZZY_MINIMUM_RATIO:
+            continue
+
+        item_id = str(_parse_menu_item_id(phrase.item.get("id")))
+        previous = best_by_item_id.get(item_id)
+        candidate = (best_ratio, phrase)
+        if previous is None or candidate[0] > previous[0]:
+            best_by_item_id[item_id] = candidate
+
+    if not best_by_item_id:
+        return None
+
+    ranked = sorted(
+        best_by_item_id.values(),
+        key=lambda value: (-value[0], value[1].normalized_text),
+    )
+    winning_ratio, winning_phrase = ranked[0]
+    if (
+        len(ranked) > 1
+        and winning_ratio - ranked[1][0] < MENU_FUZZY_MINIMUM_MARGIN
+    ):
+        return None
+
+    return _ResolverPhrase(
+        normalized_text=winning_phrase.normalized_text,
+        words=winning_phrase.words,
+        item=winning_phrase.item,
+        source="fuzzy",
+    )
 
 
 def _sushi_size_from_words(words: tuple[str, ...]) -> int | None:
@@ -1241,7 +1455,13 @@ def _variant_family_request(
         spoken_family_words = tuple(
             normalized_spoken_family.split()
         )
-        if not _contains_words(utterance_words, spoken_family_words):
+        if not (
+            _contains_words(utterance_words, spoken_family_words)
+            or _contains_coordinated_family_words(
+                utterance_words,
+                spoken_family_words,
+            )
+        ):
             continue
         if any(
             _contains_words(phrase.words, spoken_family_words)
@@ -1477,6 +1697,34 @@ def _apply_pending_variant_follow_ups(
             if explicit_request[3]:
                 requests[existing_index] = explicit_request
 
+        referenced_proteins = _referenced_variant_family_proteins(
+            context,
+            follow_up,
+            requests,
+        )
+        if referenced_proteins:
+            indexes = request_indexes()
+            for key, protein in referenced_proteins.items():
+                index = indexes.get(key)
+                if index is None:
+                    continue
+                request = requests[index]
+                if request[3]:
+                    continue
+                selected_variants = _selected_variant_for_protein(
+                    context,
+                    request,
+                    protein,
+                    menu_items,
+                )
+                if selected_variants:
+                    requests[index] = (
+                        request[0],
+                        request[1],
+                        request[2],
+                        selected_variants,
+                    )
+
         protein = _variant_follow_up_protein(follow_up)
         if protein is None:
             continue
@@ -1697,6 +1945,14 @@ def resolve_restaurant_menu_items(
             menu_items,
             matches,
         )
+        if (
+            not matches
+            and not family_requests
+            and "sushi" not in _normalize_spoken_text(utterance).split()
+        ):
+            fuzzy_phrase = _unique_fuzzy_menu_phrase(utterance, phrases)
+            if fuzzy_phrase is not None:
+                matches = [fuzzy_phrase]
 
     _append_selected_variant_matches(matches, family_requests)
     family_request = next(
