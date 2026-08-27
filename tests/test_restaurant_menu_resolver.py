@@ -1039,6 +1039,79 @@ class RestaurantMenuResolverTests(unittest.TestCase):
         self.assertEqual(result["status"], "NO_MATCH")
         self.assertEqual(result["matches"], [])
 
+    def test_full_variant_alias_is_not_downgraded_to_protein_question(
+        self,
+    ) -> None:
+        chicken_id = UUID("81000000-0000-4000-8000-000000000006")
+        menu = [
+            *self.menu,
+            _item(chicken_id, "Gaeng Ped – Kyckling"),
+            _item(
+                UUID("81000000-0000-4000-8000-000000000007"),
+                "Gaeng Ped – Tofu",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha geng ped kycklig",
+            menu=menu,
+            aliases=[_alias(chicken_id, "geng ped kycklig")],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(result["action"], "continue")
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Gaeng Ped – Kyckling",
+        )
+
+    def test_direct_non_variant_alias_is_not_replaced_by_fuzzy_family(
+        self,
+    ) -> None:
+        extra_cashew_id = UUID("81000000-0000-4000-8000-000000000008")
+        menu = [
+            *self.menu,
+            _item(extra_cashew_id, "Extra cashewnötter"),
+            _item(
+                UUID("81000000-0000-4000-8000-000000000009"),
+                "Pad Med Mamuang – Kyckling",
+            ),
+            _item(
+                UUID("81000000-0000-4000-8000-000000000010"),
+                "Pad Med Mamuang – Tofu",
+            ),
+        ]
+        result = self._resolve(
+            "Jag vill ha extra cashewnotter",
+            menu=menu,
+            aliases=[_alias(extra_cashew_id, "extra cashewnotter")],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Extra cashewnötter",
+        )
+
+    def test_sushi_word_in_direct_alias_prevents_size_question(
+        self,
+    ) -> None:
+        deluxe_id = UUID("81000000-0000-4000-8000-000000000011")
+        menu = [
+            *self.menu,
+            _item(deluxe_id, "Fuji Deluxe – 12 bitar"),
+        ]
+        result = self._resolve(
+            "Jag vill ha deluxe sushi",
+            menu=menu,
+            aliases=[_alias(deluxe_id, "deluxe sushi")],
+        )
+
+        self.assertEqual(result["status"], "MATCH")
+        self.assertEqual(
+            result["matches"][0]["official_name"],
+            "Fuji Deluxe – 12 bitar",
+        )
+
     def test_one_protein_follow_up_resolves_every_pending_family(
         self,
     ) -> None:

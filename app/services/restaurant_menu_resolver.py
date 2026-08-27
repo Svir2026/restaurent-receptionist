@@ -1591,6 +1591,12 @@ def _yz_sushi_request(
             }
         return None
 
+    if any("sushi" in phrase.words for phrase in direct_matches):
+        # A deterministic alias such as "deluxe sushi" already identifies
+        # the menu product, even if its official name does not contain the
+        # word "sushi".
+        return None
+
     size = _sushi_size_from_words(words)
     if size is None:
         has_active_sushi_pair = any(
@@ -1715,6 +1721,19 @@ def _variant_family_request(
         # must never be fuzzed into a different numbered protein family.
         if _requested_menu_number(utterance) is not None:
             return None
+        utterance_content_words = tuple(
+            word
+            for word in utterance_words
+            if word not in MENU_FUZZY_FILLER_WORDS
+        )
+        if any(
+            _variant_family_name_from_item(phrase.item) is None
+            and phrase.words == utterance_content_words
+            for phrase in direct_matches
+        ):
+            # An exact canonical name or approved alias for a non-variant
+            # product must not be replaced by a fuzzy protein-family guess.
+            return None
         fuzzy_family = _unique_fuzzy_variant_family(
             utterance_words,
             configured,
@@ -1763,6 +1782,30 @@ def _variant_family_request(
         return None
 
     selected_variants: list[dict[str, Any]] = []
+    # A canonical name or approved alias can already identify one complete
+    # protein variant even when its family words are misspelled. Do not
+    # downgrade that deterministic match into another protein question.
+    direct_variant_ids: set[str] = set()
+    for phrase in direct_matches:
+        if (
+            _variant_family_name_from_item(phrase.item)
+            != normalized_menu_family
+        ):
+            continue
+        item_id = str(_parse_menu_item_id(phrase.item.get("id")))
+        if item_id in direct_variant_ids:
+            continue
+        direct_variant_ids.add(item_id)
+        selected_variants.append(phrase.item)
+
+    if selected_variants:
+        return (
+            normalized_spoken_family,
+            customer_message,
+            variants,
+            selected_variants,
+        )
+
     if fuzzy_match:
         protein = _primary_variant_order_protein(utterance)
         if protein in variants_by_protein:
