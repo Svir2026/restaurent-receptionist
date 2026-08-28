@@ -224,6 +224,26 @@ APPROVED_VARIANT_FAMILIES = {
             "pad med mamuang",
             "Vilket protein vill du ha?",
         ),
+        "fried rice": (
+            "kaow pat",
+            "Vilket protein vill du ha?",
+        ),
+        "friedrice": (
+            "kaow pat",
+            "Vilket protein vill du ha?",
+        ),
+        "stekt ris": (
+            "kaow pat",
+            "Vilket protein vill du ha?",
+        ),
+        "friterat ris": (
+            "kaow pat",
+            "Vilket protein vill du ha?",
+        ),
+        "friterad ris": (
+            "kaow pat",
+            "Vilket protein vill du ha?",
+        ),
         "poké bowl": (
             "poké bowl",
             "Vilket protein vill du ha?",
@@ -1576,6 +1596,51 @@ def _explicit_extra_add_on_matches(
     return matches
 
 
+def _yz_child_menu_match(
+    context: ToolRestaurantContext,
+    utterance: str,
+    menu_items: list[dict[str, Any]],
+) -> _ResolverPhrase | None:
+    """Resolve child-specific wording to the matching active YZ item."""
+
+    if context.restaurant_slug != "yz-thai-wok-sushi":
+        return None
+
+    words = tuple(_normalize_spoken_text(utterance).split())
+    if not {
+        "barn",
+        "barnmeny",
+        "barnratt",
+        "barnrätt",
+        "barnportion",
+    }.intersection(words):
+        return None
+
+    if _contains_words(words, ("friterad", "kyckling")):
+        official_name = "34. Barnmeny Friterad kyckling"
+    elif "kycklingspett" in words or "satay" in words:
+        official_name = "35. Barnmeny Satay Gai"
+    else:
+        return None
+
+    matches = [
+        item
+        for item in menu_items
+        if str(item.get("official_name") or "").strip()
+        == official_name
+    ]
+    if len(matches) != 1:
+        return None
+
+    normalized_name = _normalize_spoken_text(official_name)
+    return _ResolverPhrase(
+        normalized_text=normalized_name,
+        words=tuple(normalized_name.split()),
+        item=matches[0],
+        source="canonical",
+    )
+
+
 def _explicit_extra_requested_suffixes(
     words: tuple[str, ...],
 ) -> set[tuple[str, ...]]:
@@ -2637,6 +2702,21 @@ def resolve_restaurant_menu_items(
         )
     else:
         matches, _ = _find_matches(utterance, phrases)
+        child_menu_match = _yz_child_menu_match(
+            context,
+            utterance,
+            menu_items,
+        )
+        if child_menu_match is not None:
+            # "Kycklingspett" normally maps to the regular Satay Gai.
+            # Explicit child wording must instead select the child item.
+            matches = [
+                phrase
+                for phrase in matches
+                if str(phrase.item.get("official_name") or "").strip()
+                != "23. Satay Gai"
+            ]
+            matches.append(child_menu_match)
         known_match_ids = {
             str(_parse_menu_item_id(phrase.item.get("id")))
             for phrase in matches

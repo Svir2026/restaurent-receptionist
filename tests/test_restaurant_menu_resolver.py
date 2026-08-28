@@ -1148,6 +1148,66 @@ class RestaurantMenuResolverTests(unittest.TestCase):
                     expected_name,
                 )
 
+    def test_fried_rice_forms_resolve_to_the_active_kaow_pat_variant(
+        self,
+    ) -> None:
+        menu = [
+            *self.menu,
+            _item(
+                UUID("82000000-0000-4000-8000-000000000001"),
+                "Kaow Pat – Räkor",
+            ),
+        ]
+        for spoken_name in (
+            "fried rice med räkor",
+            "friedrice med räkor",
+            "stekt ris med räkor",
+            "friterat ris med räkor",
+            "friterad ris med räkor",
+        ):
+            with self.subTest(spoken_name=spoken_name):
+                _clear_resolver_catalog_cache()
+                result = self._resolve(
+                    f"Jag vill ha {spoken_name}",
+                    menu=menu,
+                    aliases=[],
+                )
+                self.assertEqual(result["status"], "MATCH")
+                self.assertEqual(
+                    result["matches"][0]["official_name"],
+                    "Kaow Pat – Räkor",
+                )
+
+    def test_child_menu_aliases_do_not_resolve_to_regular_satay(
+        self,
+    ) -> None:
+        child_chicken_id = UUID("83000000-0000-4000-8000-000000000001")
+        child_satay_id = UUID("83000000-0000-4000-8000-000000000002")
+        menu = [
+            *self.menu,
+            _item(child_chicken_id, "34. Barnmeny Friterad kyckling"),
+            _item(child_satay_id, "35. Barnmeny Satay Gai"),
+        ]
+        cases = (
+            ("barnmeny friterad kyckling", "34. Barnmeny Friterad kyckling"),
+            ("friterad kyckling för barn", "34. Barnmeny Friterad kyckling"),
+            ("barnmeny kycklingspett", "35. Barnmeny Satay Gai"),
+            ("kycklingspett för barn", "35. Barnmeny Satay Gai"),
+        )
+        for utterance, expected_name in cases:
+            with self.subTest(utterance=utterance):
+                _clear_resolver_catalog_cache()
+                result = self._resolve(
+                    f"Jag vill ha {utterance}",
+                    menu=menu,
+                    aliases=[],
+                )
+                self.assertEqual(result["status"], "MATCH")
+                self.assertEqual(
+                    result["matches"][0]["official_name"],
+                    expected_name,
+                )
+
     def test_single_variant_does_not_become_a_protein_family(
         self,
     ) -> None:
