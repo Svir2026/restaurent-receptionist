@@ -402,6 +402,9 @@ def build_yz_submit_order_v2_tool_config(
                     "Final confirmed YZ Thai Wok & Sushi order. "
                     "customer_name and order_type may be omitted so "
                     "Railway can apply the phone-order defaults. "
+                    "customer_phone is supplied automatically when "
+                    "caller ID is available and may be omitted for "
+                    "a hidden caller ID. "
                     "For takeaway, pickup_time is optional and must "
                     "only be sent when explicitly stated by the caller. "
                     "For dine_in, use dine_in_time. Never send both "
@@ -510,7 +513,6 @@ def build_yz_submit_order_v2_tool_config(
                 },
                 "required": [
                     "conversation_id",
-                    "customer_phone",
                     "order_items",
                 ],
             },

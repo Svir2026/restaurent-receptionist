@@ -317,9 +317,8 @@ class SubmitOrderV2Request(BaseModel):
         max_length=120,
     )
 
-    customer_phone: str = Field(
-        ...,
-        min_length=5,
+    customer_phone: str | None = Field(
+        default=None,
         max_length=32,
     )
 

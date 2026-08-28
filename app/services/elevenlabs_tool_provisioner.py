@@ -689,7 +689,6 @@ def _validate_yz_submit_order_request_body_schema(
         body_schema.get("required"),
         expected_values={
             "conversation_id",
-            "customer_phone",
             "order_items",
         },
         field_name="api_schema.request_body_schema.required",

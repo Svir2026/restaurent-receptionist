@@ -139,10 +139,16 @@ def _extract_first_row(
 
 
 def _normalize_customer_phone(
-    value: str,
+    value: str | None,
 ) -> str:
+    raw_value = str(value or "").strip()
+    # Calls with hidden caller ID reach ElevenLabs without a usable digit.
+    # Orders remain valid, but cannot later be looked up by phone number.
+    if not raw_value or not any(char.isdigit() for char in raw_value):
+        return ""
+
     try:
-        return normalize_phone(value)
+        return normalize_phone(raw_value)
     except ValueError as error:
         raise RestaurantOrderSubmissionError(
             code="INVALID_CUSTOMER_PHONE",
