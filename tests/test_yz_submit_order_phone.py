@@ -14,6 +14,7 @@ os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-service-key")
 
 from app.schemas.restaurant_tools_v2 import SubmitOrderV2Request
 from app.services.elevenlabs_tool_definitions import (
+    YZ_CALLER_ID_HEADER_NAME,
     build_yz_submit_order_v2_tool_config,
 )
 from app.services.restaurant_order_submitter import (
@@ -46,3 +47,9 @@ def test_submit_tool_does_not_require_a_caller_id() -> None:
         body["properties"]["customer_phone"]["dynamic_variable"]
         == "system__caller_id"
     )
+    assert config["api_schema"]["request_headers"] == {
+        "X-Svir-Tool-Token": "svir_tool_" + "a" * 64,
+        YZ_CALLER_ID_HEADER_NAME: {
+            "variable_name": "system__caller_id",
+        },
+    }

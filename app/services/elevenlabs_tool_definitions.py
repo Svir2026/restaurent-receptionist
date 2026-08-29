@@ -14,6 +14,7 @@ TESTKOK2_CALCULATE_ORDER_TOTAL_V2_URL = (
     "v2/calculate-order-total"
 )
 SVIR_TOOL_TOKEN_HEADER_NAME = "X-Svir-Tool-Token"
+YZ_CALLER_ID_HEADER_NAME = "X-Svir-Caller-Id"
 
 YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME = (
     "svir_yz_test_strict_menu_resolver_v2"
@@ -518,6 +519,9 @@ def build_yz_submit_order_v2_tool_config(
             },
             "request_headers": {
                 SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
+                YZ_CALLER_ID_HEADER_NAME: {
+                    "variable_name": "system__caller_id",
+                },
             },
         },
         "dynamic_variables": {

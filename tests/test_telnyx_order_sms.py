@@ -141,6 +141,8 @@ class TelnyxOrderSmsTests(unittest.TestCase):
         result: dict[str, object],
         *,
         context: ToolRestaurantContext | None = None,
+        request: SubmitOrderV2Request | None = None,
+        caller_id: str | None = None,
     ) -> tuple[object, BackgroundTasks]:
         tasks = BackgroundTasks()
         with patch(
@@ -149,11 +151,92 @@ class TelnyxOrderSmsTests(unittest.TestCase):
             return_value=result,
         ):
             response = submit_order_v2(
-                self._request(),
+                request or self._request(),
                 tasks,
                 context or self._context(),
+                caller_id,
             )
         return response, tasks
+
+    def test_yz_caller_id_header_fills_omitted_body_phone(self) -> None:
+        request = self._request(phone=None)
+        with patch(
+            "app.api.routes.restaurant_tools_v2."
+            "submit_restaurant_order",
+            return_value=self._result(phone="46701234567"),
+        ) as submit_order:
+            response = submit_order_v2(
+                request,
+                BackgroundTasks(),
+                self._context(),
+                "0701234567",
+            )
+
+        self.assertTrue(response.success)
+        submitted_request = submit_order.call_args.kwargs["request"]
+        self.assertEqual(
+            submitted_request.customer_phone,
+            "0701234567",
+        )
+
+    def test_blank_caller_id_keeps_hidden_number_orders_valid(self) -> None:
+        request = self._request(phone=None)
+        with patch(
+            "app.api.routes.restaurant_tools_v2."
+            "submit_restaurant_order",
+            return_value=self._result(phone=""),
+        ) as submit_order:
+            response = submit_order_v2(
+                request,
+                BackgroundTasks(),
+                self._context(),
+                "",
+            )
+
+        self.assertTrue(response.success)
+        submitted_request = submit_order.call_args.kwargs["request"]
+        self.assertIsNone(submitted_request.customer_phone)
+
+    def test_yz_caller_id_header_never_overwrites_a_body_phone(self) -> None:
+        request = self._request(phone="0701111111")
+        with patch(
+            "app.api.routes.restaurant_tools_v2."
+            "submit_restaurant_order",
+            return_value=self._result(phone="46701111111"),
+        ) as submit_order:
+            submit_order_v2(
+                request,
+                BackgroundTasks(),
+                self._context(),
+                "0702222222",
+            )
+
+        submitted_request = submit_order.call_args.kwargs["request"]
+        self.assertEqual(
+            submitted_request.customer_phone,
+            "0701111111",
+        )
+
+    def test_other_restaurants_ignore_the_yz_caller_id_header(self) -> None:
+        other_id = "44444444-4444-4444-8444-444444444444"
+        request = self._request(phone=None)
+        with patch(
+            "app.api.routes.restaurant_tools_v2."
+            "submit_restaurant_order",
+            return_value=self._result(
+                restaurant_id=other_id,
+                phone="",
+            ),
+        ) as submit_order:
+            submit_order_v2(
+                request,
+                BackgroundTasks(),
+                self._context(other_id),
+                "0701234567",
+            )
+
+        submitted_request = submit_order.call_args.kwargs["request"]
+        self.assertIsNone(submitted_request.customer_phone)
 
     def test_new_successful_yz_order_schedules_one_sms(self) -> None:
         response, tasks = self._call_route(self._result())

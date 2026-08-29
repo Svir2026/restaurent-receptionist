@@ -56,6 +56,7 @@ from app.services.restaurant_order_submitter import (
     submit_restaurant_order,
 )
 from app.services.telnyx_order_sms import (
+    YZ_RESTAURANT_ID,
     prepare_yz_order_confirmation_sms,
     send_yz_order_confirmation_sms,
 )
@@ -92,6 +93,7 @@ YZ_INITIATION_SECRET_ENV_NAME = (
 YZ_INITIATION_SECRET_HEADER_NAME = (
     "X-Svir-Conversation-Initiation-Secret"
 )
+YZ_CALLER_ID_HEADER_NAME = "X-Svir-Caller-Id"
 
 YZ_TIMEZONE_NAME = "Europe/Stockholm"
 YZ_TIMEZONE = ZoneInfo(YZ_TIMEZONE_NAME)
@@ -698,6 +700,10 @@ def submit_order_v2(
         ToolRestaurantContext,
         Depends(require_restaurant_tool_context),
     ],
+    caller_id: Annotated[
+        str | None,
+        Header(alias=YZ_CALLER_ID_HEADER_NAME),
+    ] = None,
 ) -> SubmitOrderV2Response:
     """
     Verify and submit one restaurant-scoped order.
@@ -709,6 +715,19 @@ def submit_order_v2(
     The caller cannot provide restaurant_id, price, total,
     currency, or order status.
     """
+
+    # ElevenLabs supplies caller ID at the system layer. Keep it out of
+    # LLM-generated body fields, and use it only for authenticated YZ calls
+    # where the optional body value was omitted.
+    if (
+        str(context.restaurant_id) == YZ_RESTAURANT_ID
+        and not str(payload.customer_phone or "").strip()
+        and isinstance(caller_id, str)
+        and caller_id.strip()
+    ):
+        payload = payload.model_copy(
+            update={"customer_phone": caller_id.strip()}
+        )
 
     try:
         result = submit_restaurant_order(

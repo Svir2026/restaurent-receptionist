@@ -22,6 +22,7 @@ from app.services.elevenlabs_tool_definitions import (
     YZ_CHECK_ORDER_STATUS_V2_URL,
     YZ_SUBMIT_ORDER_V2_TOOL_NAME,
     YZ_SUBMIT_ORDER_V2_URL,
+    YZ_CALLER_ID_HEADER_NAME,
     YZ_UPDATE_ORDER_V2_TOOL_NAME,
     YZ_UPDATE_ORDER_V2_URL,
     build_testkok2_calculate_order_total_v2_tool_config,
@@ -897,6 +898,7 @@ def _validate_yz_submit_order_tool_snapshot(
     }
     expected_header_names = {
         SVIR_TOOL_TOKEN_HEADER_NAME.lower(),
+        YZ_CALLER_ID_HEADER_NAME.lower(),
     }
 
     if (
