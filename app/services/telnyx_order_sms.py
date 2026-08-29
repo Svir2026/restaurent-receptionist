@@ -178,8 +178,8 @@ def build_yz_order_confirmation_text(
 
     item_summary = "\n".join(item_texts)
     return (
-        f"Tack för din beställning hos {YZ_SMS_RESTAURANT_NAME}.\n"
-        f"Din order är registrerad:\n{item_summary}\n"
+        f"Tack för din beställning hos {YZ_SMS_RESTAURANT_NAME}.\n\n"
+        f"Din order är registrerad:\n\n{item_summary}\n\n"
         "Välkommen!"
     )
 

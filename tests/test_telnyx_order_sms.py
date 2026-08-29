@@ -306,10 +306,10 @@ class TelnyxOrderSmsTests(unittest.TestCase):
 
         self.assertEqual(
             text,
-            "Tack för din beställning hos Thai Wok & Sushi.\n"
-            "Din order är registrerad:\n"
+            "Tack för din beställning hos Thai Wok & Sushi.\n\n"
+            "Din order är registrerad:\n\n"
             "1x Pad Thai med kyckling och extra räkor\n"
-            "2x Yakiniku\n"
+            "2x Yakiniku\n\n"
             "Välkommen!",
         )
         self.assertIn(
