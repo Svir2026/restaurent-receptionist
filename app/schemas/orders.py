@@ -22,7 +22,7 @@ class OrderItem(BaseModel):
 class SubmitOrderRequest(BaseModel):
     customer_name: str | None = Field(default=None, max_length=120)
     customer_phone: str | None = Field(default=None, max_length=32)
-    order_type: OrderType
+    order_type: OrderType | None = None
     order_items: list[OrderItem] | str = Field(..., min_length=1)
     total: float | None = Field(default=None, ge=0)
 
@@ -46,9 +46,6 @@ class SubmitOrderRequest(BaseModel):
                 raise ValueError("order_items must be a JSON array")
             self.order_items = [OrderItem.model_validate(x) for x in parsed]
 
-        if self.order_type == "takeaway":
-            if self.pickup_time is None:
-                raise ValueError("pickup_time is required for takeaway orders")
         if self.total is None:
             raise ValueError("total is required")
         return self
