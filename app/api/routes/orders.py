@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import ulid
 from fastapi import APIRouter, HTTPException, Query
@@ -257,11 +257,17 @@ def submit_order(payload: SubmitOrderRequest) -> SubmitOrderResponse:
     now = tz_now(settings.restaurant_timezone)
     order_id = str(ulid.new())
 
+    order_type: OrderType = payload.order_type or "takeaway"
+    default_ready_time = now + timedelta(minutes=15)
     dine_in_time = (
-        coerce_to_tz(payload.dine_in_time, settings.restaurant_timezone) if payload.dine_in_time else None
+        coerce_to_tz(payload.dine_in_time, settings.restaurant_timezone)
+        if payload.dine_in_time
+        else (default_ready_time if order_type == "dine_in" else None)
     )
     pickup_time = (
-        coerce_to_tz(payload.pickup_time, settings.restaurant_timezone) if payload.pickup_time else None
+        coerce_to_tz(payload.pickup_time, settings.restaurant_timezone)
+        if payload.pickup_time
+        else (default_ready_time if order_type == "takeaway" else None)
     )
 
     order_status = "new order"
@@ -269,11 +275,11 @@ def submit_order(payload: SubmitOrderRequest) -> SubmitOrderResponse:
     total = float(payload.total) if payload.total is not None else None
     order_row = {
         "order_id": order_id,
-        "customer_name": payload.customer_name or "",
+        "customer_name": payload.customer_name or "Telefonkund",
         "customer_phone": phone,
         "order_status": order_status,
         "created_at": now.isoformat(),
-        "order_type": payload.order_type,
+        "order_type": order_type,
         "order_items": items,
         "party_size": payload.party_size,
         "dine_in_time": _fmt_dt(dine_in_time),
