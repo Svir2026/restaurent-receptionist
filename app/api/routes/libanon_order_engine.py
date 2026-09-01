@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from functools import lru_cache
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,7 +20,9 @@ from app.services.libanon_menu_catalog import (
 )
 from app.services.libanon_order_engine import process_libanon_order_turn
 from app.services.voice_order_state import (
+    SQLiteVoiceOrderStateRepository,
     SupabaseVoiceOrderStateRepository,
+    VoiceOrderStateRepository,
     VoiceOrderStateError,
 )
 
@@ -30,6 +33,8 @@ router = APIRouter(
 )
 
 ENABLE_ENV = "LIBANON_ORDER_ENGINE_TEST_ENABLED"
+STATE_BACKEND_ENV = "LIBANON_ORDER_STATE_BACKEND"
+SQLITE_PATH_ENV = "LIBANON_ORDER_SQLITE_PATH"
 
 
 def _is_enabled() -> bool:
@@ -39,6 +44,30 @@ def _is_enabled() -> bool:
         "yes",
         "on",
     }
+
+
+@lru_cache(maxsize=2)
+def _state_repository(
+    backend: str,
+    sqlite_path: str,
+) -> VoiceOrderStateRepository:
+    if backend == "sqlite":
+        return SQLiteVoiceOrderStateRepository(sqlite_path)
+    if backend == "supabase":
+        return SupabaseVoiceOrderStateRepository()
+    raise VoiceOrderStateError(
+        "INVALID_VOICE_ORDER_STATE_BACKEND",
+        "Orderlagringen är felkonfigurerad.",
+    )
+
+
+def get_state_repository() -> VoiceOrderStateRepository:
+    backend = os.environ.get(STATE_BACKEND_ENV, "supabase").strip().casefold()
+    sqlite_path = os.environ.get(
+        SQLITE_PATH_ENV,
+        "/tmp/libanon_voice_order_state.sqlite3",
+    ).strip()
+    return _state_repository(backend, sqlite_path)
 
 
 @router.post(
@@ -78,7 +107,7 @@ def libanon_order_turn(
     try:
         return process_libanon_order_turn(
             request=payload,
-            repository=SupabaseVoiceOrderStateRepository(),
+            repository=get_state_repository(),
         )
     except VoiceOrderStateError as error:
         raise HTTPException(

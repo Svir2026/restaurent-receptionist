@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -22,14 +23,21 @@ os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
 os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-service-key")
 
 from app.schemas.libanon_order_engine import LibanonOrderTurnRequest
-from app.api.routes.libanon_order_engine import libanon_order_turn
+from app.api.routes.libanon_order_engine import (
+    _state_repository,
+    libanon_order_turn,
+)
 from app.core.tool_auth import ToolRestaurantContext
 from app.services.libanon_menu_catalog import (
     LIBANON_RESTAURANT_ID,
     get_libanon_catalog,
 )
 from app.services.libanon_order_engine import process_libanon_order_turn
-from app.services.voice_order_state import InMemoryVoiceOrderStateRepository
+from app.services.voice_order_state import (
+    InMemoryVoiceOrderStateRepository,
+    SQLiteVoiceOrderStateRepository,
+    VoiceOrderStateError,
+)
 
 
 class EngineConversation:
@@ -554,6 +562,72 @@ class LibanonOrderEngineRouteIsolationTests(unittest.TestCase):
                 libanon_order_turn(self.payload, other_context)
 
         self.assertEqual(caught.exception.status_code, 403)
+
+
+class SQLiteVoiceOrderStateTests(unittest.TestCase):
+    def test_state_and_idempotency_survive_repository_recreation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database_path = os.path.join(directory, "voice-state.sqlite3")
+            request = LibanonOrderTurnRequest(
+                conversation_id="conv-sqlite-persistence",
+                conversation_history=[{"role": "user", "message": "En kebabpizza"}],
+            )
+
+            first = process_libanon_order_turn(
+                request=request,
+                repository=SQLiteVoiceOrderStateRepository(database_path),
+            )
+            replay = process_libanon_order_turn(
+                request=request,
+                repository=SQLiteVoiceOrderStateRepository(database_path),
+            )
+
+            self.assertFalse(first.idempotent_replay)
+            self.assertTrue(replay.idempotent_replay)
+            self.assertEqual(len(replay.cart), 1)
+            self.assertEqual(replay.cart[0].quantity, 1)
+
+    def test_sqlite_path_must_be_absolute(self) -> None:
+        with self.assertRaises(VoiceOrderStateError) as caught:
+            SQLiteVoiceOrderStateRepository("relative/state.sqlite3")
+        self.assertEqual(caught.exception.code, "INVALID_SQLITE_STATE_PATH")
+
+    def test_enabled_route_can_use_isolated_sqlite_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database_path = os.path.join(directory, "route-state.sqlite3")
+            _state_repository.cache_clear()
+            with patch.dict(
+                os.environ,
+                {
+                    "LIBANON_ORDER_ENGINE_TEST_ENABLED": "true",
+                    "LIBANON_ORDER_STATE_BACKEND": "sqlite",
+                    "LIBANON_ORDER_SQLITE_PATH": database_path,
+                },
+                clear=False,
+            ):
+                context = ToolRestaurantContext(
+                    credential_id=UUID("10000000-0000-0000-0000-000000000003"),
+                    restaurant_id=UUID(LIBANON_RESTAURANT_ID),
+                    restaurant_name="Libanon Kolgrill",
+                    restaurant_slug="lebanon-kolgrill",
+                    restaurant_is_active=True,
+                    provisioning_job_id=None,
+                    provisioning_job_status=None,
+                    provisioning_current_step=None,
+                )
+                response = libanon_order_turn(
+                    LibanonOrderTurnRequest(
+                        conversation_id="conv-route-sqlite",
+                        conversation_history=[
+                            {"role": "user", "message": "En kebabpizza"}
+                        ],
+                    ),
+                    context,
+                )
+
+            _state_repository.cache_clear()
+            self.assertEqual(response.action, "confirm_delta")
+            self.assertEqual(response.cart[0].official_name, "Kebab Pizza")
 
 
 if __name__ == "__main__":
