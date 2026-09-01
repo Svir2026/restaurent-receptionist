@@ -26,6 +26,7 @@ from app.schemas.libanon_order_engine import LibanonOrderTurnRequest
 from app.api.routes.libanon_order_engine import (
     _state_repository,
     libanon_order_turn,
+    require_libanon_order_engine_context,
 )
 from app.core.tool_auth import ToolRestaurantContext
 from app.services.libanon_menu_catalog import (
@@ -562,6 +563,40 @@ class LibanonOrderEngineRouteIsolationTests(unittest.TestCase):
                 libanon_order_turn(self.payload, other_context)
 
         self.assertEqual(caught.exception.status_code, 403)
+
+    def test_isolated_preview_token_resolves_only_in_sqlite_test_mode(self) -> None:
+        preview_token = "preview-token-that-is-longer-than-thirty-two-characters"
+        with patch.dict(
+            os.environ,
+            {
+                "LIBANON_ORDER_ENGINE_TEST_ENABLED": "true",
+                "LIBANON_ORDER_STATE_BACKEND": "sqlite",
+                "LIBANON_PREVIEW_TOOL_TOKEN": preview_token,
+            },
+            clear=False,
+        ):
+            context = require_libanon_order_engine_context(preview_token)
+            with self.assertRaises(HTTPException) as caught:
+                require_libanon_order_engine_context("wrong-token")
+
+        self.assertEqual(str(context.restaurant_id), LIBANON_RESTAURANT_ID)
+        self.assertEqual(context.restaurant_slug, "lebanon-kolgrill")
+        self.assertEqual(caught.exception.status_code, 401)
+
+    def test_preview_auth_fails_closed_when_token_is_missing(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "LIBANON_ORDER_ENGINE_TEST_ENABLED": "true",
+                "LIBANON_ORDER_STATE_BACKEND": "sqlite",
+                "LIBANON_PREVIEW_TOOL_TOKEN": "",
+            },
+            clear=False,
+        ):
+            with self.assertRaises(HTTPException) as caught:
+                require_libanon_order_engine_context("any-token")
+
+        self.assertEqual(caught.exception.status_code, 503)
 
 
 class SQLiteVoiceOrderStateTests(unittest.TestCase):

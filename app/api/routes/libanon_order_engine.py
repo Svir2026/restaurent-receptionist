@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import hmac
 import os
 from functools import lru_cache
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 
 from app.core.tool_auth import (
+    TOOL_TOKEN_HEADER,
     ToolRestaurantContext,
     require_restaurant_tool_context,
 )
@@ -35,6 +38,7 @@ router = APIRouter(
 ENABLE_ENV = "LIBANON_ORDER_ENGINE_TEST_ENABLED"
 STATE_BACKEND_ENV = "LIBANON_ORDER_STATE_BACKEND"
 SQLITE_PATH_ENV = "LIBANON_ORDER_SQLITE_PATH"
+PREVIEW_TOKEN_ENV = "LIBANON_PREVIEW_TOOL_TOKEN"
 
 
 def _is_enabled() -> bool:
@@ -70,6 +74,49 @@ def get_state_repository() -> VoiceOrderStateRepository:
     return _state_repository(backend, sqlite_path)
 
 
+def require_libanon_order_engine_context(
+    tool_token: Annotated[
+        str | None,
+        Header(
+            alias=TOOL_TOKEN_HEADER,
+            convert_underscores=False,
+        ),
+    ] = None,
+) -> ToolRestaurantContext:
+    backend = os.environ.get(STATE_BACKEND_ENV, "supabase").strip().casefold()
+    if _is_enabled() and backend == "sqlite":
+        expected = os.environ.get(PREVIEW_TOKEN_ENV, "").strip()
+        supplied = str(tool_token or "").strip()
+        if len(expected) < 32:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "LIBANON_PREVIEW_AUTH_UNAVAILABLE",
+                    "message": "Libanons testautentisering är inte konfigurerad.",
+                },
+            )
+        if not hmac.compare_digest(supplied, expected):
+            raise HTTPException(
+                status_code=401,
+                detail={
+                    "code": "INVALID_TOOL_TOKEN",
+                    "message": "Verktygsanropet kunde inte autentiseras.",
+                },
+            )
+        return ToolRestaurantContext(
+            credential_id=UUID("00000000-0000-0000-0000-000000000001"),
+            restaurant_id=UUID(LIBANON_RESTAURANT_ID),
+            restaurant_name="Libanon Kolgrill",
+            restaurant_slug=LIBANON_RESTAURANT_SLUG,
+            restaurant_is_active=True,
+            provisioning_job_id=None,
+            provisioning_job_status=None,
+            provisioning_current_step=None,
+        )
+
+    return require_restaurant_tool_context(tool_token)
+
+
 @router.post(
     "/order-turn",
     response_model=LibanonOrderTurnResponse,
@@ -78,7 +125,7 @@ def libanon_order_turn(
     payload: LibanonOrderTurnRequest,
     context: Annotated[
         ToolRestaurantContext,
-        Depends(require_restaurant_tool_context),
+        Depends(require_libanon_order_engine_context),
     ],
 ) -> LibanonOrderTurnResponse:
     """Test-only Libanon turn engine. It never submits a real order."""
