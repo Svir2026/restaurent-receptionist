@@ -16,6 +16,11 @@ TESTKOK2_CALCULATE_ORDER_TOTAL_V2_URL = (
 SVIR_TOOL_TOKEN_HEADER_NAME = "X-Svir-Tool-Token"
 YZ_CALLER_ID_HEADER_NAME = "X-Svir-Caller-Id"
 
+LIBANON_ORDER_TURN_TEST_TOOL_NAME = (
+    "svir_libanon_order_turn_hardening_test"
+)
+LIBANON_ORDER_TURN_TEST_PATH = "/v2/libanon/order-turn-agent"
+
 YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME = (
     "svir_yz_test_strict_menu_resolver_v2"
 )
@@ -62,6 +67,94 @@ YZ_CANCEL_ORDER_V2_URL = (
     "https://web-production-f25f2.up.railway.app/"
     "v2/cancel-order"
 )
+
+
+def build_libanon_order_turn_test_tool_config(
+    tool_token: str,
+    order_turn_url: str,
+) -> dict:
+    """Build Libanon's isolated, non-submitting order-turn tool."""
+
+    if not isinstance(tool_token, str):
+        raise TypeError("tool_token must be a string")
+    normalized_tool_token = tool_token.strip()
+    if len(normalized_tool_token) < 32:
+        raise ValueError("tool_token must contain at least 32 characters")
+
+    if not isinstance(order_turn_url, str):
+        raise TypeError("order_turn_url must be a string")
+    normalized_url = order_turn_url.strip()
+    parsed_url = urlparse(normalized_url)
+    if (
+        parsed_url.scheme != "https"
+        or not parsed_url.netloc
+        or parsed_url.username is not None
+        or parsed_url.password is not None
+        or parsed_url.query
+        or parsed_url.fragment
+        or parsed_url.path != LIBANON_ORDER_TURN_TEST_PATH
+    ):
+        raise ValueError(
+            "order_turn_url must be an HTTPS URL ending exactly in "
+            f"{LIBANON_ORDER_TURN_TEST_PATH}"
+        )
+
+    return {
+        "type": "webhook",
+        "name": LIBANON_ORDER_TURN_TEST_TOOL_NAME,
+        "description": (
+            "TEST ONLY. Call this exactly once for every customer turn "
+            "that may change or confirm the active order: a new product, "
+            "quantity, required choice, addition, removal, special request, "
+            "or yes/no answer to the current order question. The backend "
+            "reads the raw ElevenLabs conversation history, owns the cart, "
+            "matches only the verified Libanon catalog and approved aliases, "
+            "queues missing choices, and returns the exact next Swedish "
+            "sentence in `say`. After the tool succeeds, say only `say` "
+            "verbatim and add nothing. Never infer a product, option, price, "
+            "or order state yourself. This test tool cannot submit a real "
+            "restaurant order."
+        ),
+        "response_timeout_secs": 10,
+        "api_schema": {
+            "url": normalized_url,
+            "method": "POST",
+            "path_params_schema": {},
+            "query_params_schema": None,
+            "request_body_schema": {
+                "type": "object",
+                "description": (
+                    "System-supplied conversation identity and raw history. "
+                    "No LLM-generated menu candidate is accepted."
+                ),
+                "properties": {
+                    "conversation_id": {
+                        "type": "string",
+                        "dynamic_variable": "system__conversation_id",
+                    },
+                    "conversation_history": {
+                        "type": "string",
+                        "dynamic_variable": "system__conversation_history",
+                    },
+                    "customer_phone": {
+                        "type": "string",
+                        "dynamic_variable": "system__caller_id",
+                    },
+                },
+                "required": [
+                    "conversation_id",
+                    "conversation_history",
+                ],
+                "additionalProperties": False,
+            },
+            "request_headers": {
+                SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
+            },
+        },
+        "dynamic_variables": {
+            "dynamic_variable_placeholders": {},
+        },
+    }
 
 
 def build_yz_test_menu_resolver_v2_tool_config(

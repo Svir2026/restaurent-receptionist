@@ -25,8 +25,13 @@ os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-service-key")
 from app.schemas.libanon_order_engine import LibanonOrderTurnRequest
 from app.api.routes.libanon_order_engine import (
     _state_repository,
+    libanon_agent_order_turn,
     libanon_order_turn,
     require_libanon_order_engine_context,
+)
+from app.services.elevenlabs_tool_definitions import (
+    LIBANON_ORDER_TURN_TEST_TOOL_NAME,
+    build_libanon_order_turn_test_tool_config,
 )
 from app.core.tool_auth import ToolRestaurantContext
 from app.services.libanon_menu_catalog import (
@@ -120,6 +125,32 @@ class LibanonCatalogTests(unittest.TestCase):
         self.assertIsNotNone(suggestion)
         assert suggestion is not None
         self.assertEqual(suggestion.item.official_name, "Capricciosa")
+
+    def test_elevenlabs_test_tool_accepts_only_raw_system_state(self) -> None:
+        config = build_libanon_order_turn_test_tool_config(
+            "preview-token-that-is-longer-than-thirty-two-characters",
+            "https://libanon-test.example/v2/libanon/order-turn-agent",
+        )
+        body = config["api_schema"]["request_body_schema"]
+
+        self.assertEqual(config["name"], LIBANON_ORDER_TURN_TEST_TOOL_NAME)
+        self.assertEqual(
+            body["properties"]["conversation_id"]["dynamic_variable"],
+            "system__conversation_id",
+        )
+        self.assertEqual(
+            body["properties"]["conversation_history"]["dynamic_variable"],
+            "system__conversation_history",
+        )
+        self.assertFalse(body["additionalProperties"])
+        self.assertIn("say only `say` verbatim", config["description"])
+
+    def test_elevenlabs_test_tool_rejects_wrong_endpoint(self) -> None:
+        with self.assertRaises(ValueError):
+            build_libanon_order_turn_test_tool_config(
+                "preview-token-that-is-longer-than-thirty-two-characters",
+                "https://libanon-test.example/v2/libanon/order-turn",
+            )
 
 
 class LibanonOrderEngineTests(unittest.TestCase):
@@ -597,6 +628,41 @@ class LibanonOrderEngineRouteIsolationTests(unittest.TestCase):
                 require_libanon_order_engine_context("any-token")
 
         self.assertEqual(caught.exception.status_code, 503)
+
+    def test_agent_route_returns_only_compact_non_submitting_response(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _state_repository.cache_clear()
+            with patch.dict(
+                os.environ,
+                {
+                    "LIBANON_ORDER_ENGINE_TEST_ENABLED": "true",
+                    "LIBANON_ORDER_STATE_BACKEND": "sqlite",
+                    "LIBANON_ORDER_SQLITE_PATH": os.path.join(
+                        directory,
+                        "agent-route.sqlite3",
+                    ),
+                },
+                clear=False,
+            ):
+                response = libanon_agent_order_turn(
+                    self.payload,
+                    self.libanon_context,
+                )
+
+        _state_repository.cache_clear()
+        self.assertEqual(
+            set(response.model_dump()),
+            {
+                "success",
+                "action",
+                "say",
+                "idempotent_replay",
+                "state_revision",
+                "order_ready",
+                "submission_allowed",
+            },
+        )
+        self.assertFalse(response.submission_allowed)
 
 
 class SQLiteVoiceOrderStateTests(unittest.TestCase):

@@ -14,6 +14,7 @@ from app.core.tool_auth import (
     require_restaurant_tool_context,
 )
 from app.schemas.libanon_order_engine import (
+    LibanonAgentOrderTurnResponse,
     LibanonOrderTurnRequest,
     LibanonOrderTurnResponse,
 )
@@ -161,3 +162,28 @@ def libanon_order_turn(
             status_code=(409 if error.code == "VOICE_ORDER_REVISION_CONFLICT" else 503),
             detail={"code": error.code, "message": error.message},
         ) from error
+
+
+@router.post(
+    "/order-turn-agent",
+    response_model=LibanonAgentOrderTurnResponse,
+)
+def libanon_agent_order_turn(
+    payload: LibanonOrderTurnRequest,
+    context: Annotated[
+        ToolRestaurantContext,
+        Depends(require_libanon_order_engine_context),
+    ],
+) -> LibanonAgentOrderTurnResponse:
+    """Compact voice-agent view of the isolated, non-submitting engine."""
+
+    result = libanon_order_turn(payload, context)
+    return LibanonAgentOrderTurnResponse(
+        success=result.success,
+        action=result.action,
+        say=result.say,
+        idempotent_replay=result.idempotent_replay,
+        state_revision=result.state_revision,
+        order_ready=result.order_ready,
+        submission_allowed=result.submission_allowed,
+    )

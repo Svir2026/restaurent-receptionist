@@ -143,3 +143,15 @@ class LibanonOrderTurnResponse(LibanonEngineModel):
     delta_lines: list[LibanonOrderLine] = Field(default_factory=list)
     cart: list[LibanonOrderLine] = Field(default_factory=list)
     pending_questions: list[LibanonPendingQuestion] = Field(default_factory=list)
+
+
+class LibanonAgentOrderTurnResponse(LibanonEngineModel):
+    """Minimal response exposed to the voice model to limit input tokens."""
+
+    success: bool
+    action: LibanonOrderAction
+    say: str = Field(min_length=1, max_length=1500)
+    idempotent_replay: bool
+    state_revision: int = Field(ge=0)
+    order_ready: bool
+    submission_allowed: bool

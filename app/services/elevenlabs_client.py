@@ -1105,6 +1105,8 @@ def _build_agent_state_without_prompt_tool_ids(
         )
 
     prompt_config.pop("tool_ids", None)
+    # ElevenLabs regenerates this expanded view when tool_ids changes.
+    prompt_config.pop("tools", None)
 
     return {
         "agent_id": normalized_payload.get("agent_id"),
@@ -1134,9 +1136,10 @@ def attach_agent_prompt_tool_ids(
     branch_id: str,
     tool_ids: list[str],
     expected_current_tool_ids: list[str],
+    require_exactly_five: bool = True,
 ) -> dict:
     """
-    Attach exactly five workspace tools to one explicit agent branch.
+    Attach an exact workspace-tool list to one explicit agent branch.
 
     Safety properties:
     - Reads the exact branch before writing.
@@ -1168,7 +1171,7 @@ def attach_agent_prompt_tool_ids(
         _normalize_agent_attachment_tool_ids(
             tool_ids,
             field_name="tool_ids",
-            require_exactly_five=True,
+            require_exactly_five=require_exactly_five,
         )
     )
     normalized_expected_tool_ids = (
@@ -1297,6 +1300,126 @@ def attach_agent_prompt_tool_ids(
             "conversation_config.agent.prompt.tool_ids",
         ],
     }
+
+
+def _build_main_branch_guard_state(payload: dict) -> dict:
+    """Capture every Main field relevant to runtime behavior."""
+
+    return {
+        "agent_id": payload.get("agent_id"),
+        "branch_id": payload.get("branch_id"),
+        "main_branch_id": payload.get("main_branch_id"),
+        "version_id": payload.get("version_id"),
+        "conversation_config": payload.get("conversation_config"),
+        "platform_settings": payload.get("platform_settings"),
+        "workflow": payload.get("workflow"),
+        "phone_numbers": payload.get("phone_numbers"),
+        "whatsapp_accounts": payload.get("whatsapp_accounts"),
+        "tags": payload.get("tags"),
+    }
+
+
+def _read_and_validate_test_branch_pair(
+    *,
+    agent_id: str,
+    branch_id: str,
+    main_branch_id: str,
+    operation_prefix: str,
+) -> tuple[dict, dict]:
+    """Read a Main/test pair and fail closed on branch confusion."""
+
+    if branch_id == main_branch_id:
+        raise ElevenLabsClientError(
+            "The requested test branch is Main. No update was attempted."
+        )
+
+    main_payload = _read_agent_branch_payload(
+        agent_id=agent_id,
+        branch_id=main_branch_id,
+        operation=f"{operation_prefix}: read protected Main branch",
+    )
+    test_payload = _read_agent_branch_payload(
+        agent_id=agent_id,
+        branch_id=branch_id,
+        operation=f"{operation_prefix}: read test branch",
+    )
+
+    if test_payload.get("main_branch_id") != main_branch_id:
+        raise ElevenLabsClientError(
+            "The requested branch does not belong to the protected Main "
+            "branch. No update was attempted."
+        )
+    if main_payload.get("main_branch_id") != main_branch_id:
+        raise ElevenLabsClientError(
+            "The protected branch is not reported as Main. No update was "
+            "attempted."
+        )
+
+    return main_payload, test_payload
+
+
+def replace_test_branch_prompt_tool_ids(
+    *,
+    agent_id: str,
+    branch_id: str,
+    main_branch_id: str,
+    tool_ids: list[str],
+    expected_current_tool_ids: list[str],
+) -> dict:
+    """Replace tools on a verified non-Main branch and guard Main."""
+
+    normalized_agent_id = _normalize_agent_attachment_identifier(
+        agent_id,
+        field_name="agent_id",
+        required_prefix="agent_",
+    )
+    normalized_branch_id = _normalize_agent_attachment_identifier(
+        branch_id,
+        field_name="branch_id",
+        required_prefix="agtbrch_",
+    )
+    normalized_main_branch_id = _normalize_agent_attachment_identifier(
+        main_branch_id,
+        field_name="main_branch_id",
+        required_prefix="agtbrch_",
+    )
+    normalized_tool_ids = _normalize_agent_attachment_tool_ids(
+        tool_ids,
+        field_name="tool_ids",
+        require_exactly_five=False,
+    )
+    if not normalized_tool_ids:
+        raise ElevenLabsClientError(
+            "A test branch must retain at least one workspace tool."
+        )
+
+    main_before, _ = _read_and_validate_test_branch_pair(
+        agent_id=normalized_agent_id,
+        branch_id=normalized_branch_id,
+        main_branch_id=normalized_main_branch_id,
+        operation_prefix="replace test branch tools",
+    )
+    main_guard = _build_main_branch_guard_state(main_before)
+
+    result = attach_agent_prompt_tool_ids(
+        agent_id=normalized_agent_id,
+        branch_id=normalized_branch_id,
+        tool_ids=normalized_tool_ids,
+        expected_current_tool_ids=expected_current_tool_ids,
+        require_exactly_five=False,
+    )
+
+    main_after = _read_agent_branch_payload(
+        agent_id=normalized_agent_id,
+        branch_id=normalized_main_branch_id,
+        operation="verify protected Main after test tool replacement",
+    )
+    if _build_main_branch_guard_state(main_after) != main_guard:
+        raise ElevenLabsClientError(
+            "Protected Main changed while updating the test branch."
+        )
+
+    return result
 
 
 def _extract_agent_prompt_text(
@@ -1564,6 +1687,7 @@ def update_agent_prompt_text(
     expected_current_prompt_sha256: str,
     required_tool_ids: list[str],
     required_knowledge_base_document_ids: list[str],
+    require_exactly_five_tools: bool = True,
 ) -> dict:
     """
     Update only the prompt text on one explicit ElevenLabs branch.
@@ -1608,7 +1732,7 @@ def update_agent_prompt_text(
         _normalize_agent_attachment_tool_ids(
             required_tool_ids,
             field_name="required_tool_ids",
-            require_exactly_five=True,
+            require_exactly_five=require_exactly_five_tools,
         )
     )
     normalized_required_document_ids = (
@@ -1789,3 +1913,64 @@ def update_agent_prompt_text(
             "conversation_config.agent.prompt.prompt",
         ],
     }
+
+
+def update_test_branch_prompt_text(
+    *,
+    agent_id: str,
+    branch_id: str,
+    main_branch_id: str,
+    prompt_text: str,
+    expected_current_prompt_sha256: str,
+    required_tool_ids: list[str],
+    required_knowledge_base_document_ids: list[str],
+) -> dict:
+    """Update prompt text on a verified non-Main branch and guard Main."""
+
+    normalized_agent_id = _normalize_agent_attachment_identifier(
+        agent_id,
+        field_name="agent_id",
+        required_prefix="agent_",
+    )
+    normalized_branch_id = _normalize_agent_attachment_identifier(
+        branch_id,
+        field_name="branch_id",
+        required_prefix="agtbrch_",
+    )
+    normalized_main_branch_id = _normalize_agent_attachment_identifier(
+        main_branch_id,
+        field_name="main_branch_id",
+        required_prefix="agtbrch_",
+    )
+
+    main_before, _ = _read_and_validate_test_branch_pair(
+        agent_id=normalized_agent_id,
+        branch_id=normalized_branch_id,
+        main_branch_id=normalized_main_branch_id,
+        operation_prefix="update test branch prompt",
+    )
+    main_guard = _build_main_branch_guard_state(main_before)
+
+    result = update_agent_prompt_text(
+        agent_id=normalized_agent_id,
+        branch_id=normalized_branch_id,
+        prompt_text=prompt_text,
+        expected_current_prompt_sha256=expected_current_prompt_sha256,
+        required_tool_ids=required_tool_ids,
+        required_knowledge_base_document_ids=(
+            required_knowledge_base_document_ids
+        ),
+        require_exactly_five_tools=False,
+    )
+
+    main_after = _read_agent_branch_payload(
+        agent_id=normalized_agent_id,
+        branch_id=normalized_main_branch_id,
+        operation="verify protected Main after test prompt update",
+    )
+    if _build_main_branch_guard_state(main_after) != main_guard:
+        raise ElevenLabsClientError(
+            "Protected Main changed while updating the test branch."
+        )
+
+    return result
