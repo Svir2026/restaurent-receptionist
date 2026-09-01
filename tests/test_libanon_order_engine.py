@@ -142,7 +142,7 @@ class LibanonCatalogTests(unittest.TestCase):
             body["properties"]["conversation_history"]["dynamic_variable"],
             "system__conversation_history",
         )
-        self.assertFalse(body["additionalProperties"])
+        self.assertNotIn("additionalProperties", body)
         self.assertIn("say only `say` verbatim", config["description"])
 
     def test_elevenlabs_test_tool_rejects_wrong_endpoint(self) -> None:

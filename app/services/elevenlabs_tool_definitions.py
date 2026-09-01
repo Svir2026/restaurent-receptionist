@@ -145,7 +145,6 @@ def build_libanon_order_turn_test_tool_config(
                     "conversation_id",
                     "conversation_history",
                 ],
-                "additionalProperties": False,
             },
             "request_headers": {
                 SVIR_TOOL_TOKEN_HEADER_NAME: normalized_tool_token,
