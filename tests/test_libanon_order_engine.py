@@ -147,6 +147,7 @@ class LibanonCatalogTests(unittest.TestCase):
         self.assertIn("unknown or invented", config["description"])
         self.assertIn("Never use the knowledge base", config["description"])
         self.assertIn("must be the first action", config["description"])
+        self.assertIn("built-in `end_call`", config["description"])
 
     def test_test_prompt_routes_every_order_attempt_to_tool(self) -> None:
         prompt_path = os.path.join(
@@ -166,9 +167,8 @@ class LibanonCatalogTests(unittest.TestCase):
             prompt,
         )
         self.assertIn("Verktygsanropet måste vara din allra första handling", prompt)
-        self.assertIn("Fråga aldrig om något mer då", prompt)
-        self.assertIn("tredje tekniska stopp", prompt)
-        self.assertIn("orderdialogen stängd för resten av", prompt)
+        self.assertIn("inbyggda verktyget", prompt)
+        self.assertIn("`confirm_full_order` eller `technical_stop`", prompt)
 
     def test_elevenlabs_test_tool_rejects_wrong_endpoint(self) -> None:
         with self.assertRaises(ValueError):

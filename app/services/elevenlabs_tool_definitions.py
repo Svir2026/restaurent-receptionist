@@ -119,7 +119,9 @@ def build_libanon_order_turn_test_tool_config(
             "matches only the verified Libanon catalog and approved aliases, "
             "queues missing choices, and returns the exact next Swedish "
             "sentence in `say`. After the tool succeeds, say only `say` "
-            "verbatim and add nothing. Never infer a product, option, price, "
+            "verbatim and add nothing. If `action` is `confirm_full_order` "
+            "or `technical_stop`, speak `say` and then immediately call the "
+            "built-in `end_call` tool without more speech. Never infer a product, option, price, "
             "or order state yourself. This test tool cannot submit a real "
             "restaurant order."
         ),
