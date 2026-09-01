@@ -103,10 +103,16 @@ def build_libanon_order_turn_test_tool_config(
         "type": "webhook",
         "name": LIBANON_ORDER_TURN_TEST_TOOL_NAME,
         "description": (
-            "TEST ONLY. Call this exactly once for every customer turn "
-            "that may change or confirm the active order: a new product, "
-            "quantity, required choice, addition, removal, special request, "
-            "or yes/no answer to the current order question. The backend "
+            "TEST ONLY. MANDATORY: call this exactly once for every customer "
+            "turn that attempts to order, change, or confirm anything. This "
+            "includes canonical products, spoken aliases, unknown or invented "
+            "product-like words, 'regular' or 'vanlig', quantities, required "
+            "choices, additions, removals, half-and-half or other unusual "
+            "special requests, and yes/no answers to the current order "
+            "question. Never use the knowledge base to accept, reject, "
+            "interpret, or suggest alternatives for an order attempt. Use the "
+            "knowledge base without this tool only for an unmistakable pure "
+            "information question such as ingredients or opening hours. The backend "
             "reads the raw ElevenLabs conversation history, owns the cart, "
             "matches only the verified Libanon catalog and approved aliases, "
             "queues missing choices, and returns the exact next Swedish "

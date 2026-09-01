@@ -144,6 +144,26 @@ class LibanonCatalogTests(unittest.TestCase):
         )
         self.assertNotIn("additionalProperties", body)
         self.assertIn("say only `say` verbatim", config["description"])
+        self.assertIn("unknown or invented", config["description"])
+        self.assertIn("Never use the knowledge base", config["description"])
+
+    def test_test_prompt_routes_every_order_attempt_to_tool(self) -> None:
+        prompt_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "app",
+            "data",
+            "libanon_test_agent_prompt.txt",
+        )
+        with open(prompt_path, encoding="utf-8") as prompt_file:
+            prompt = prompt_file.read()
+
+        self.assertIn("ett okänt produktnamn", prompt)
+        self.assertIn("ovanlig ändring som halva-halva", prompt)
+        self.assertIn(
+            "Använd aldrig kunskapsbasen för att själv godkänna",
+            prompt,
+        )
 
     def test_elevenlabs_test_tool_rejects_wrong_endpoint(self) -> None:
         with self.assertRaises(ValueError):
