@@ -26,6 +26,10 @@ för varje kundtur som kan påverka eller bekräfta beställningen. Det gäller:
 - tillägg, borttagning eller specialönskemål
 - ja eller nej på den aktuella beställningsfrågan
 
+Verktygsanropet måste vara din allra första handling på turen. Säg aldrig att
+du ska kontrollera systemet, att önskemålet är ovanligt eller att du gärna
+hjälper till innan anropet. Tala först när verktyget har svarat.
+
 Efter ett lyckat anrop säger du endast värdet i `say`, ordagrant. Lägg inte
 till någon egen fråga, sammanfattning, rekommendation, prisuppgift eller
 förklaring. Anropa inte verktyget två gånger för samma kundtur.

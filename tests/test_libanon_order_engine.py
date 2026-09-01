@@ -146,6 +146,7 @@ class LibanonCatalogTests(unittest.TestCase):
         self.assertIn("say only `say` verbatim", config["description"])
         self.assertIn("unknown or invented", config["description"])
         self.assertIn("Never use the knowledge base", config["description"])
+        self.assertIn("must be the first action", config["description"])
 
     def test_test_prompt_routes_every_order_attempt_to_tool(self) -> None:
         prompt_path = os.path.join(
@@ -164,6 +165,7 @@ class LibanonCatalogTests(unittest.TestCase):
             "Använd aldrig kunskapsbasen för att själv godkänna",
             prompt,
         )
+        self.assertIn("Verktygsanropet måste vara din allra första handling", prompt)
 
     def test_elevenlabs_test_tool_rejects_wrong_endpoint(self) -> None:
         with self.assertRaises(ValueError):
@@ -275,6 +277,7 @@ class LibanonOrderEngineTests(unittest.TestCase):
         self.assertIn("Ost", [value.name for value in line.selected_options])
         self.assertNotIn("Extra ost", [value.text for value in line.notes])
         self.assertTrue(line.pricing_complete)
+        self.assertIn("med extra ost", result.say)
 
     def test_unpriced_extra_is_preserved_but_blocks_pricing(self) -> None:
         conversation = EngineConversation("conv-libanon-009")

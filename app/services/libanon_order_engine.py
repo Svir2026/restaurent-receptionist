@@ -528,9 +528,14 @@ def _format_line(line: LibanonOrderLine, *, include_quantity: bool = True) -> st
         normalized = normalize_spoken_text(option.name)
         if normalized in {"standard", "medium"}:
             continue
-        if normalize_spoken_text(option.group_name) == "storlek":
+        normalized_group = normalize_spoken_text(option.group_name)
+        if normalized_group == "storlek":
             visible_options.append(option.name.casefold())
-        elif normalize_spoken_text(option.group_name) != "dryck":
+        elif normalized_group.startswith("extra ingredienser"):
+            visible_options.append(
+                "med extra " + option.name.removeprefix("Med ").casefold()
+            )
+        elif normalized_group != "dryck":
             visible_options.append("med " + option.name.removeprefix("Med ").casefold())
 
     modifiers = [*visible_options, *(_format_note(value) for value in line.notes)]
