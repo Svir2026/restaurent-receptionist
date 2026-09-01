@@ -17,6 +17,9 @@ from app.api.routes.provisioning import (
 from app.api.routes.restaurant_tools_v2 import (
     router as restaurant_tools_v2_router,
 )
+from app.api.routes.libanon_order_engine import (
+    router as libanon_order_engine_router,
+)
 from app.api.routes.tool_auth_check import (
     router as tool_auth_check_router,
 )
@@ -38,6 +41,7 @@ def create_app() -> FastAPI:
     # Nya restaurangsäkra v2-endpoints.
     app.include_router(tool_auth_check_router)
     app.include_router(restaurant_tools_v2_router)
+    app.include_router(libanon_order_engine_router)
 
     return app
 

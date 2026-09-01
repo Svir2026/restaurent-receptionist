@@ -65,3 +65,4 @@ Desktop.ini
 *.json
 !.eslintrc.json
 !.prettierrc.json
+!app/data/libanon_menu_candidate.json
