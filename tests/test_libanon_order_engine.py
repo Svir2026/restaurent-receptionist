@@ -166,6 +166,8 @@ class LibanonCatalogTests(unittest.TestCase):
             prompt,
         )
         self.assertIn("Verktygsanropet måste vara din allra första handling", prompt)
+        self.assertIn("Fråga aldrig om något mer då", prompt)
+        self.assertIn("tredje tekniska stopp", prompt)
 
     def test_elevenlabs_test_tool_rejects_wrong_endpoint(self) -> None:
         with self.assertRaises(ValueError):
