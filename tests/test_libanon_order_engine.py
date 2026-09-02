@@ -237,6 +237,20 @@ class AlFornoOrderEngineTests(unittest.TestCase):
                 self.assertEqual(result.action, "confirm_delta")
                 self.assertEqual(result.cart[0].selected_options[0].name, "Large")
 
+    def test_pan_pizza_sizes_do_not_leak_between_multiple_items(self) -> None:
+        result = EngineConversation("conv-alforno-multiple-pan-sizes").turn(
+            "En barn pan pizza Rio, en pan pizza Catania och en familje pan pizza Palermo"
+        )
+        self.assertEqual(result.action, "confirm_delta")
+        self.assertEqual(
+            [item.official_name for item in result.cart],
+            ["Pan Pizza Rio", "Pan Pizza Catania", "Pan Pizza Palermo"],
+        )
+        self.assertEqual(
+            [item.selected_options[0].name for item in result.cart],
+            ["Small", "Medium", "Large"],
+        )
+
     def test_spoken_carbonara_alias_is_accepted_without_fuzzy_confirmation(self) -> None:
         result = EngineConversation("conv-alforno-carbonara-alias").turn(
             "En spagetti karbonara"

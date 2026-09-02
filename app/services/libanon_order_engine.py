@@ -114,6 +114,14 @@ SIZE_WORDS = {
         "familje pizza",
     },
 }
+SIZE_PHRASE_PATTERN = "|".join(
+    re.escape(value)
+    for value in sorted(
+        {phrase for values in SIZE_WORDS.values() for phrase in values},
+        key=len,
+        reverse=True,
+    )
+)
 
 
 def _latest_user_utterance(
@@ -826,7 +834,9 @@ def _segments_for_mentions(
         segment = normalized_utterance[mention.start : end].strip()
         if index + 1 < len(mentions):
             segment = re.sub(
-                r"(?:\s+och|\s+samt)?\s+(?:en|ett|två|tre|fyra|\d+)\s*$",
+                rf"(?:\s+(?:och|samt))?\s+"
+                rf"(?:(?:en|ett|två|tre|fyra|\d+)\s+)?"
+                rf"(?:(?:{SIZE_PHRASE_PATTERN})\s*)*$",
                 "",
                 segment,
             ).strip()
