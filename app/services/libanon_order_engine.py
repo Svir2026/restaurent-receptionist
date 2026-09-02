@@ -76,17 +76,7 @@ QUANTITY_WORDS = {
     "tio": 10,
 }
 
-CUSTOMER_ITEM_NAMES = {
-    "Favorite": "kycklingpizza med curry",
-    "Kebab Pizza": "kebabpizza",
-    "Shish Taouk": "kycklingspett",
-    "Shish Kafta": "köttfärsspett",
-    "Lamm Kafta": "lammfärsspett",
-    "Vitlökssås (I Burk)": "vitlökssås",
-    "Coca-Cola Original Taste 33 cl": "Cola",
-    "Coca-Cola Zero Sugar 33 cl": "Cola Zero",
-    "Fanta Orange 33cl - Fanta": "Fanta",
-}
+CUSTOMER_ITEM_NAMES: dict[str, str] = {}
 
 REMOVE_MARKERS = (
     "utan",
@@ -277,6 +267,10 @@ def _required_option_prompt(group: CatalogOptionGroup) -> str:
     normalized = normalize_spoken_text(group.name)
     option_names = [normalize_spoken_text(value.name) for value in group.options]
 
+    if normalized == "storlek":
+        return "Vill du ha small, medium eller large?"
+    if normalized == "vikt":
+        return "Vill du ha 90 gram eller 150 gram?"
     if normalized == "tillbehör" and any(
         "klyftpotatis" in value for value in option_names
     ):
@@ -331,7 +325,11 @@ def _split_modifier_values(
         )
         clause = normalized[match.end() : end].strip(" ,.\t")
         clause = re.sub(r"^(?:och\s+)+", "", clause)
-        clause = re.sub(r"\s+(?:också|pa den|på den)$", "", clause).strip()
+        clause = re.sub(
+            r"\s+(?:också|pa den|på den|med|pa|på)$",
+            "",
+            clause,
+        ).strip()
         for value in re.split(r"\s+och\s+|\s*,\s*", clause):
             value = value.strip(" ,.")
             if value:
@@ -373,6 +371,11 @@ def _notes_from_segment(
         normalized,
     ):
         value = match.group(1).strip(" ,.")
+        value = re.sub(
+            r"\s+(?:också|pa den|på den|pa|på)$",
+            "",
+            value,
+        ).strip()
         if not value:
             continue
         if half_and_half_match and value == half_and_half_match.group(0):
@@ -433,6 +436,8 @@ def _build_order_line(
             option = _size_option(group, f"{leading_context} {segment}")
             if option is not None:
                 selected.append(_selected_option(group, option))
+            elif group.is_required:
+                pending.append(_question_for_group(line_id=line_id, group=group))
 
     for group in item.option_groups:
         if group.group_type == "size" or not _group_is_active(group, selected):
@@ -526,10 +531,12 @@ def _format_line(line: LibanonOrderLine, *, include_quantity: bool = True) -> st
     visible_options = []
     for option in line.selected_options:
         normalized = normalize_spoken_text(option.name)
-        if normalized in {"standard", "medium"}:
+        if normalized == "standard":
             continue
         normalized_group = normalize_spoken_text(option.group_name)
         if normalized_group == "storlek":
+            visible_options.append(option.name.casefold())
+        elif normalized_group == "vikt":
             visible_options.append(option.name.casefold())
         elif normalized_group.startswith("extra ingredienser"):
             visible_options.append(
@@ -789,6 +796,93 @@ def _segments_for_mentions(
     return segments
 
 
+def _resolve_half_pizza_component(
+    catalog: LibanonCatalog,
+    value: str,
+) -> CatalogItem | None:
+    normalized = normalize_spoken_text(value)
+    shorthand = {
+        "kyckling": "Kycklingpizza",
+        "kebab": "Kebabpizza",
+        "gyros": "Gyrospizza",
+    }
+    target = shorthand.get(normalized)
+    if target is not None:
+        return next(
+            (item for item in catalog.items if item.official_name == target),
+            None,
+        )
+
+    mentions, ambiguities = catalog.find_exact_mentions(normalized)
+    pizza_mentions = [
+        mention.item
+        for mention in mentions
+        if mention.item.category_name == "Pizza"
+    ]
+    if ambiguities or len(pizza_mentions) != 1:
+        return None
+    return pizza_mentions[0]
+
+
+def _build_half_and_half_pizza_line(
+    *,
+    catalog: LibanonCatalog,
+    utterance: str,
+) -> LibanonOrderLine | None:
+    normalized = normalize_spoken_text(utterance)
+    match = re.search(
+        r"(?:halva|hälften)\s+(.+?)\s+(?:och\s+)?"
+        r"(?:halva|hälften)\s+(.+?)\s*$",
+        normalized,
+    )
+    if match is None:
+        return None
+
+    first = _resolve_half_pizza_component(catalog, match.group(1))
+    second = _resolve_half_pizza_component(catalog, match.group(2))
+    if first is None or second is None:
+        return None
+
+    priced_item = max((first, second), key=lambda item: item.base_price_minor)
+    quantity_match = re.search(
+        r"(?:^|\s)(\d+|en|ett|två|tva|tre|fyra)\s+(?:pizza\s+)?$",
+        normalized[: match.start()].strip(),
+    )
+    quantity = 1
+    if quantity_match is not None:
+        raw_quantity = quantity_match.group(1)
+        quantity = (
+            int(raw_quantity)
+            if raw_quantity.isdigit()
+            else QUANTITY_WORDS.get(raw_quantity, 1)
+        )
+
+    first_name = _customer_item_name(first)
+    second_name = _customer_item_name(second)
+    return LibanonOrderLine(
+        line_id=str(uuid4()),
+        item_source_key=priced_item.source_key,
+        official_name=f"Halva {first.official_name} / halva {second.official_name}",
+        customer_display_name="pizza",
+        kitchen_display_name=(
+            f"Halva {first.kitchen_display_name} / halva {second.kitchen_display_name}"
+        ),
+        category_name="Pizza",
+        quantity=max(1, min(quantity, 100)),
+        base_price_minor=priced_item.base_price_minor,
+        currency=priced_item.currency,
+        selected_options=[],
+        notes=[
+            LibanonOrderNote(
+                kind="instruction",
+                text=f"Halva {first_name}, halva {second_name}",
+            )
+        ],
+        price_verification_status="needs_review",
+        pricing_complete=False,
+    )
+
+
 def _is_existing_line_modification(
     *,
     normalized_utterance: str,
@@ -878,7 +972,7 @@ def _response(
     blocked_reason = None
     if order_ready and not submission_allowed:
         blocked_reason = (
-            "Libanons katalogpriser är ännu inte restaurangverifierade. "
+            "Al Fornos katalogpriser är ännu inte restaurangverifierade. "
             "Testordern får inte skickas till produktion."
         )
 
@@ -995,9 +1089,25 @@ def process_libanon_order_turn(
             cart_changed = False
         else:
             normalized = normalize_spoken_text(utterance)
+            half_and_half_line = _build_half_and_half_pizza_line(
+                catalog=catalog,
+                utterance=utterance,
+            )
             mentions, ambiguities = catalog.find_exact_mentions(utterance)
 
-            if ambiguities:
+            if half_and_half_line is not None:
+                had_existing_items = bool(state.items)
+                delta = [_append_line(state, half_and_half_line)]
+                state.pending_questions.clear()
+                state.unresolved_attempts = 0
+                state.status = "awaiting_confirmation"
+                say = _delta_confirmation(
+                    delta,
+                    had_existing_items=had_existing_items,
+                )
+                action = "confirm_delta"
+                cart_changed = True
+            elif ambiguities:
                 ambiguity = ambiguities[0]
                 state.pending_questions.append(
                     LibanonPendingQuestion(

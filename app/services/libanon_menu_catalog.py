@@ -10,10 +10,10 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-LIBANON_RESTAURANT_ID = "613079d4-7680-40b0-a5cc-465e813a5267"
-LIBANON_RESTAURANT_SLUG = "lebanon-kolgrill"
+LIBANON_RESTAURANT_ID = "162089e6-09b0-5928-944b-2906df01f10e"
+LIBANON_RESTAURANT_SLUG = "restaurang-al-forno"
 DEFAULT_CATALOG_PATH = (
-    Path(__file__).resolve().parent.parent / "data" / "libanon_menu_candidate.json"
+    Path(__file__).resolve().parent.parent / "data" / "al_forno_menu_candidate.json"
 )
 
 FUZZY_MIN_SCORE = 0.86
@@ -273,7 +273,7 @@ class LibanonCatalog:
             return self.item_index[source_key]
         except KeyError as error:
             raise LibanonCatalogError(
-                f"Unknown Libanon menu source key: {source_key}"
+                f"Unknown Al Forno menu source key: {source_key}"
             ) from error
 
 
@@ -350,21 +350,21 @@ def load_libanon_catalog(
     raw = json.loads(path.read_text(encoding="utf-8"))
 
     if raw.get("restaurant_id") != LIBANON_RESTAURANT_ID:
-        raise LibanonCatalogError("Catalog restaurant_id is not Libanon")
+        raise LibanonCatalogError("Catalog restaurant_id is not Al Forno")
     if raw.get("restaurant_slug") != LIBANON_RESTAURANT_SLUG:
-        raise LibanonCatalogError("Catalog restaurant_slug is not Libanon")
+        raise LibanonCatalogError("Catalog restaurant_slug is not Al Forno")
     if raw.get("currency") != "SEK":
-        raise LibanonCatalogError("Libanon catalog currency must be SEK")
+        raise LibanonCatalogError("Al Forno catalog currency must be SEK")
 
     items = tuple(
         _parse_item(value) for value in raw.get("items", []) if value.get("is_active")
     )
     if not items:
-        raise LibanonCatalogError("Libanon catalog contains no active items")
+        raise LibanonCatalogError("Al Forno catalog contains no active items")
 
     item_index = {item.source_key: item for item in items}
     if len(item_index) != len(items):
-        raise LibanonCatalogError("Libanon catalog has duplicate source keys")
+        raise LibanonCatalogError("Al Forno catalog has duplicate source keys")
 
     return LibanonCatalog(
         verification_status=str(raw.get("verification_status", "unverified")),

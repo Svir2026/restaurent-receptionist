@@ -66,3 +66,4 @@ Desktop.ini
 !.eslintrc.json
 !.prettierrc.json
 !app/data/libanon_menu_candidate.json
+!app/data/al_forno_menu_candidate.json

@@ -16,10 +16,8 @@ TESTKOK2_CALCULATE_ORDER_TOTAL_V2_URL = (
 SVIR_TOOL_TOKEN_HEADER_NAME = "X-Svir-Tool-Token"
 YZ_CALLER_ID_HEADER_NAME = "X-Svir-Caller-Id"
 
-LIBANON_ORDER_TURN_TEST_TOOL_NAME = (
-    "svir_libanon_order_turn_hardening_test"
-)
-LIBANON_ORDER_TURN_TEST_PATH = "/v2/libanon/order-turn-agent"
+LIBANON_ORDER_TURN_TEST_TOOL_NAME = "svir_al_forno_order_turn_test"
+LIBANON_ORDER_TURN_TEST_PATH = "/v2/al-forno/order-turn-agent"
 
 YZ_TEST_MENU_RESOLVER_V2_TOOL_NAME = (
     "svir_yz_test_strict_menu_resolver_v2"
@@ -73,7 +71,7 @@ def build_libanon_order_turn_test_tool_config(
     tool_token: str,
     order_turn_url: str,
 ) -> dict:
-    """Build Libanon's isolated, non-submitting order-turn tool."""
+    """Build Al Forno's isolated, non-submitting order-turn tool."""
 
     if not isinstance(tool_token, str):
         raise TypeError("tool_token must be a string")
@@ -116,7 +114,7 @@ def build_libanon_order_turn_test_tool_config(
             "tool call must be the first action of the turn: do not speak, "
             "narrate a check, or explain the request before calling it. The backend "
             "reads the raw ElevenLabs conversation history, owns the cart, "
-            "matches only the verified Libanon catalog and approved aliases, "
+            "matches only the supplied Al Forno catalog and approved aliases, "
             "queues missing choices, and returns the exact next Swedish "
             "sentence in `say`. After the tool succeeds, say only `say` "
             "verbatim and add nothing. If `action` is `confirm_full_order` "

@@ -1,0 +1,3390 @@
+{
+  "schema_version": 1,
+  "restaurant_id": "162089e6-09b0-5928-944b-2906df01f10e",
+  "restaurant_slug": "restaurang-al-forno",
+  "currency": "SEK",
+  "verification_status": "provided_by_user",
+  "source": {
+    "type": "user_provided_menu_cross_checked_with_official_site",
+    "urls": [
+      "https://www.alforno73.se/pizza",
+      "https://www.alforno73.se/pasta",
+      "https://www.alforno73.se/sallad",
+      "https://www.alforno73.se/kebab"
+    ],
+    "captured_at": "2026-09-02",
+    "warning": "Confirm the final menu and special-request pricing with the restaurant before production."
+  },
+  "categories": [
+    {
+      "source_key": "al-forno-category-pizza-a5f07960",
+      "name": "Pizza",
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "source_key": "al-forno-category-pan-pizza-3a1bfe58",
+      "name": "Pan Pizza",
+      "description": null,
+      "sort_order": 1,
+      "is_active": true
+    },
+    {
+      "source_key": "al-forno-category-pasta-998c0fb9",
+      "name": "Pasta",
+      "description": null,
+      "sort_order": 2,
+      "is_active": true
+    },
+    {
+      "source_key": "al-forno-category-sallad-5ca7b85e",
+      "name": "Sallad",
+      "description": null,
+      "sort_order": 3,
+      "is_active": true
+    },
+    {
+      "source_key": "al-forno-category-kebab-5388f5e7",
+      "name": "Kebab",
+      "description": null,
+      "sort_order": 4,
+      "is_active": true
+    },
+    {
+      "source_key": "al-forno-category-hamburgare-3140accb",
+      "name": "Hamburgare",
+      "description": null,
+      "sort_order": 5,
+      "is_active": true
+    },
+    {
+      "source_key": "al-forno-category-la-carte-94118b6e",
+      "name": "À la Carte",
+      "description": null,
+      "sort_order": 6,
+      "is_active": true
+    }
+  ],
+  "items": [
+    {
+      "source_key": "al-forno-item-pizza-margherita-1c6bc676",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Margherita",
+      "customer_display_name": "Margherita",
+      "kitchen_display_name": "Margherita",
+      "description": "Tomatsås, mozzarellaost",
+      "item_type": "food",
+      "base_price_minor": 12500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 0,
+      "aliases": [
+        "margarita",
+        "margerita"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Margherita",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-ruccola-71c56e0d",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Ruccola",
+      "customer_display_name": "Ruccola",
+      "kitchen_display_name": "Ruccola",
+      "description": "Tomatsås, mozzarellaost, ruccola, olivolja och kristallsalt",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 1,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Ruccola",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-funghi-e518613a",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Funghi",
+      "customer_display_name": "Funghi",
+      "kitchen_display_name": "Funghi",
+      "description": "Tomatsås, mozzarellaost och färska champinjoner",
+      "item_type": "food",
+      "base_price_minor": 12500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 2,
+      "aliases": [
+        "funji",
+        "fungi pizza"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Funghi",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-vesuvio-bcc5f3fb",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Vesuvio",
+      "customer_display_name": "Vesuvio",
+      "kitchen_display_name": "Vesuvio",
+      "description": "Tomatsås, mozzarellaost och skinka",
+      "item_type": "food",
+      "base_price_minor": 12900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 3,
+      "aliases": [
+        "vesovio",
+        "vesuvio pizza"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Vesuvio",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-pompei-3a02bf94",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Pompei",
+      "customer_display_name": "Pompei",
+      "kitchen_display_name": "Pompei",
+      "description": "Tomatsås, ost, bacon, lök och ägg",
+      "item_type": "food",
+      "base_price_minor": 12900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 4,
+      "aliases": [
+        "pompej",
+        "pompei pizza"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Pompei",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-hawaii-3f9bd6d5",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Hawaii",
+      "customer_display_name": "Hawaii",
+      "kitchen_display_name": "Hawaii",
+      "description": "Tomatsås, mozzarellaost, skinka och ananas",
+      "item_type": "food",
+      "base_price_minor": 12900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 5,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Hawaii",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-tropicana-938c2b62",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Tropicana",
+      "customer_display_name": "Tropicana",
+      "kitchen_display_name": "Tropicana",
+      "description": "Tomatsås, mozzarellaost, skinka, ananas, banan och curry",
+      "item_type": "food",
+      "base_price_minor": 14000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 6,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Tropicana",
+        "price_verification_status": "needs_review"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-capricciosa-eb344fec",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Capricciosa",
+      "customer_display_name": "Capricciosa",
+      "kitchen_display_name": "Capricciosa",
+      "description": "Tomatsås, mozzarellaost, skinka och färska champinjoner",
+      "item_type": "food",
+      "base_price_minor": 12900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 7,
+      "aliases": [
+        "caprichosa",
+        "kapricciosa",
+        "kaprichosa",
+        "capriciosa"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Capricciosa",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-bolognese-397e439e",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Bolognese",
+      "customer_display_name": "Bolognese",
+      "kitchen_display_name": "Bolognese",
+      "description": "Tomatsås, mozzarellaost, köttfärs och lök",
+      "item_type": "food",
+      "base_price_minor": 12900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 8,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Bolognese",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-marinara-0f493e25",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Marinara",
+      "customer_display_name": "Marinara",
+      "kitchen_display_name": "Marinara",
+      "description": "Tomatsås, mozzarellaost, musslor och räkor",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 9,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Marinara",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-gorgonzolapizza-d9c7a3bc",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Gorgonzolapizza",
+      "customer_display_name": "Gorgonzolapizza",
+      "kitchen_display_name": "Gorgonzolapizza",
+      "description": "Tomatsås, mozzarellaost, skinka, färska tomater och gorgonzolaost",
+      "item_type": "food",
+      "base_price_minor": 14500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 10,
+      "aliases": [
+        "gorgonzola pizza"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Gorgonzolapizza",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-quattro-stagioni-b136116c",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Quattro Stagioni",
+      "customer_display_name": "Quattro Stagioni",
+      "kitchen_display_name": "Quattro Stagioni",
+      "description": "Tomatsås, mozzarellaost, gröna musslor i skal, italiensk kokt skinka, räkor, färska champinjoner, svarta oliver och basilika",
+      "item_type": "food",
+      "base_price_minor": 14900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 11,
+      "aliases": [
+        "quattro stagione",
+        "quatro stagioni",
+        "kvattro stagioni",
+        "kvattro stagione"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Quattro Stagioni",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-bussola-85662f3a",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Bussola",
+      "customer_display_name": "Bussola",
+      "kitchen_display_name": "Bussola",
+      "description": "Tomatsås, ost, skinka och räkor",
+      "item_type": "food",
+      "base_price_minor": 12900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 12,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Bussola",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-al-tonno-a1cfa67d",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Al Tonno",
+      "customer_display_name": "Al Tonno",
+      "kitchen_display_name": "Al Tonno",
+      "description": "Tomatsås, ost, tonfisk och lök",
+      "item_type": "food",
+      "base_price_minor": 12900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 13,
+      "aliases": [
+        "al tono"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Al Tonno",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-campagnola-259673ae",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Campagnola",
+      "customer_display_name": "Campagnola",
+      "kitchen_display_name": "Campagnola",
+      "description": "Tomatsås, ost, salami och lök",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 14,
+      "aliases": [
+        "campanjola",
+        "kampanjola"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Campagnola",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-opera-c2a9abd8",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Opera",
+      "customer_display_name": "Opera",
+      "kitchen_display_name": "Opera",
+      "description": "Tomatsås, ost, tonfisk och skinka",
+      "item_type": "food",
+      "base_price_minor": 12900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 15,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Opera",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-parma-f637dbb8",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Parma",
+      "customer_display_name": "Parma",
+      "kitchen_display_name": "Parma",
+      "description": "Tomatsås, mozzarellaost, parmaskinka och ruccola",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 16,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Parma",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-buffalo-0466049a",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Buffalo",
+      "customer_display_name": "Buffalo",
+      "kitchen_display_name": "Buffalo",
+      "description": "Tomatsås, mozzarellaost, pepperonikorv, champinjoner, lök och paprika",
+      "item_type": "food",
+      "base_price_minor": 14500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 17,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Buffalo",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-la-farmacia-92921059",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "La Farmacia",
+      "customer_display_name": "La Farmacia",
+      "kitchen_display_name": "La Farmacia",
+      "description": "Tomatsås, mozzarellaost, gorgonzola, fetaost och parmesanost",
+      "item_type": "food",
+      "base_price_minor": 14500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 18,
+      "aliases": [
+        "farmacia",
+        "la farmasia"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "La Farmacia",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-spinatti-3a94cbcf",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Spinatti",
+      "customer_display_name": "Spinatti",
+      "kitchen_display_name": "Spinatti",
+      "description": "Tomatsås, mozzarellaost, aubergine, spenat, zucchini, champinjoner, parmesanost och ruccola",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 19,
+      "aliases": [
+        "spinati"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Spinatti",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-nikolas-6d66edb3",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Nikolas",
+      "customer_display_name": "Nikolas",
+      "kitchen_display_name": "Nikolas",
+      "description": "Tomatsås, mozzarellaost, salami, bacon, parmaskinka och ruccola",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 20,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Nikolas",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-sorrento-2bc7f294",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Sorrento",
+      "customer_display_name": "Sorrento",
+      "kitchen_display_name": "Sorrento",
+      "description": "Tomatsås, mozzarellaost, chèvreost, parmesanost, pinjenötter och honung",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 21,
+      "aliases": [
+        "sorento"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Sorrento",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-inter-b1a25b66",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Inter",
+      "customer_display_name": "Inter",
+      "kitchen_display_name": "Inter",
+      "description": "Tomatsås, mozzarellaost, fläskfilé, gorgonzola, räkor, champinjoner och tomater",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 22,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Inter",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-di-mare-e3696db6",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Di Mare",
+      "customer_display_name": "Di Mare",
+      "kitchen_display_name": "Di Mare",
+      "description": "Tomatsås, ost, scampi, räkor, musslor, körsbärstomater och mozzarella",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 23,
+      "aliases": [
+        "di mare pizza"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Di Mare",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-bella-rosa-671ab687",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Bella Rosa",
+      "customer_display_name": "Bella Rosa",
+      "kitchen_display_name": "Bella Rosa",
+      "description": "Tomatsås, ost, räkor, tonfisk, musslor och scampi",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 24,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Bella Rosa",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-ciao-ciao-72f3ab54",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Ciao Ciao",
+      "customer_display_name": "Ciao Ciao",
+      "kitchen_display_name": "Ciao Ciao",
+      "description": "Tomatsås, ost, oxfilé, köttfärs och skinka",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 25,
+      "aliases": [
+        "tjao tjao",
+        "chao chao",
+        "ciaociao"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Ciao Ciao",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-azteka-194c4d8d",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Azteka",
+      "customer_display_name": "Azteka",
+      "kitchen_display_name": "Azteka",
+      "description": "Tomatsås, mozzarellaost, skinka, tacosås, tacokrydda, jalapeños och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 26,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Azteka",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-mexicana-159cb565",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Mexicana",
+      "customer_display_name": "Mexicana",
+      "kitchen_display_name": "Mexicana",
+      "description": "Tomatsås, mozzarellaost, köttfärs, tacosås, tacokrydda, jalapeños, lök och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 27,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Mexicana",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-amore-259efb12",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Amore",
+      "customer_display_name": "Amore",
+      "kitchen_display_name": "Amore",
+      "description": "Tomatsås, ost, champinjoner och lök",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 28,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Amore",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-banana-75cee22d",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Banana",
+      "customer_display_name": "Banana",
+      "kitchen_display_name": "Banana",
+      "description": "Tomatsås, ost, skinka, banan och curry",
+      "item_type": "food",
+      "base_price_minor": 12900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 29,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Banana",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-yosef-a73ead33",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Yosef",
+      "customer_display_name": "Yosef",
+      "kitchen_display_name": "Yosef",
+      "description": "Tomatsås, ost, oxfilé, lök, champinjoner, paprika, tomater och bearnaisesås",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 30,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Yosef",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-juventus-62b6d282",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Juventus",
+      "customer_display_name": "Juventus",
+      "kitchen_display_name": "Juventus",
+      "description": "Tomatsås, ost, fetaost, champinjoner, paprika och ruccola",
+      "item_type": "food",
+      "base_price_minor": 14500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 31,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Juventus",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-kockens-special-b77077eb",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Kockens Special",
+      "customer_display_name": "Kockens Special",
+      "kitchen_display_name": "Kockens Special",
+      "description": "Tomatsås, ost, mozzarella, skinka, parmaskinka, soltorkade tomater och ruccola",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 32,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Kockens Special",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-supreme-2cd61129",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Supreme",
+      "customer_display_name": "Supreme",
+      "kitchen_display_name": "Supreme",
+      "description": "Tomatsås, ost, skinka, räkor, champinjoner, lök och paprika, ostgratinerad",
+      "item_type": "food",
+      "base_price_minor": 14900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 33,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Supreme",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-ub-t-386c13c9",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Ubåt",
+      "customer_display_name": "Ubåt",
+      "kitchen_display_name": "Ubåt",
+      "description": "Tomatsås, ost, oxfilé, champinjoner, färsk vitlök och bearnaisesås",
+      "item_type": "food",
+      "base_price_minor": 14000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 34,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Ubåt",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-pigalle-1938b591",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Pigalle",
+      "customer_display_name": "Pigalle",
+      "kitchen_display_name": "Pigalle",
+      "description": "Tomatsås, ost, räkor, champinjoner och lök",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 35,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Pigalle",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-kycklingpizza-a15881fd",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Kycklingpizza",
+      "customer_display_name": "Kycklingpizza",
+      "kitchen_display_name": "Kycklingpizza",
+      "description": "Tomatsås, ost, kyckling, ananas och curry",
+      "item_type": "food",
+      "base_price_minor": 14500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 36,
+      "aliases": [
+        "kyckling pizza"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Kycklingpizza",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-calzone-7105f136",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Calzone",
+      "customer_display_name": "Calzone",
+      "kitchen_display_name": "Calzone",
+      "description": "Tomatsås, ost och skinka",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 37,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Calzone",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-dubbel-calzone-special-f84121b9",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Dubbel Calzone Special",
+      "customer_display_name": "Dubbel Calzone Special",
+      "kitchen_display_name": "Dubbel Calzone Special",
+      "description": "Tomatsås, ost, skinka, champinjoner och räkor",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 38,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Dubbel Calzone Special",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-forno-6ab1fed2",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Forno",
+      "customer_display_name": "Forno",
+      "kitchen_display_name": "Forno",
+      "description": "Tomatsås, ost, oxfilé, mozzarella, gorgonzola och bearnaisesås",
+      "item_type": "food",
+      "base_price_minor": 16500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 39,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Forno",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-selles-special-3d143479",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Selles Special",
+      "customer_display_name": "Selles Special",
+      "kitchen_display_name": "Selles Special",
+      "description": "Tomatsås, ost, köttfärs, lök, champinjoner och fetaost",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 40,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Selles Special",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-roma-99d6e304",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Roma",
+      "customer_display_name": "Roma",
+      "kitchen_display_name": "Roma",
+      "description": "Tomatsås, ost, oxfilé, gorgonzola, tomater och bearnaisesås",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 41,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Roma",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-dubbel-calzone-7bbff480",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Dubbel Calzone",
+      "customer_display_name": "Dubbel Calzone",
+      "kitchen_display_name": "Dubbel Calzone",
+      "description": "Tomatsås, ost och skinka",
+      "item_type": "food",
+      "base_price_minor": 14000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 42,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Dubbel Calzone",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-calzone-special-63ac48de",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Calzone Special",
+      "customer_display_name": "Calzone Special",
+      "kitchen_display_name": "Calzone Special",
+      "description": "Skinka och räkor",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 43,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Calzone Special",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-acapulco-b6c2740a",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Acapulco",
+      "customer_display_name": "Acapulco",
+      "kitchen_display_name": "Acapulco",
+      "description": "Tomatsås, mozzarellaost, biff, lök, champinjoner, vitlök, tacosås, tacokrydda, jalapeños och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 44,
+      "aliases": [
+        "akapulko",
+        "acapulko"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Acapulco",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-kebabpizza-2ed366b1",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Kebabpizza",
+      "customer_display_name": "Kebabpizza",
+      "kitchen_display_name": "Kebabpizza",
+      "description": "Tomatsås, mozzarellaost, kebabkött, feferoni, lök, tomater, isbergssallad och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 45,
+      "aliases": [
+        "kebab pizza"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Kebabpizza",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-viking-b28d90ab",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Viking",
+      "customer_display_name": "Viking",
+      "kitchen_display_name": "Viking",
+      "description": "Kebabkött av nötkött, tomatsås, ost, lök, isbergssallad, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 46,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Viking",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-kebabpizza-special-94587d5a",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Kebabpizza Special",
+      "customer_display_name": "Kebabpizza Special",
+      "kitchen_display_name": "Kebabpizza Special",
+      "description": "Tomatsås, ost, kebabkött, isbergssallad, tomater, lök, feferoni, pommes och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 16500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 47,
+      "aliases": [
+        "kebab pizza special"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Kebabpizza Special",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-kycklingkebab-pizza-66bc0ef8",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Kycklingkebab Pizza",
+      "customer_display_name": "Kycklingkebab Pizza",
+      "kitchen_display_name": "Kycklingkebab Pizza",
+      "description": "Tomatsås, ost, kycklingkebab, isbergssallad, tomater, lök, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 48,
+      "aliases": [
+        "kyckling kebabpizza",
+        "kyckling kebab pizza"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Kycklingkebab Pizza",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-gyrospizza-a77935f2",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Gyrospizza",
+      "customer_display_name": "Gyrospizza",
+      "kitchen_display_name": "Gyrospizza",
+      "description": "Tomatsås, ost, gyroskebab, isbergssallad, tomater, lök, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 49,
+      "aliases": [
+        "gyros pizza"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Gyrospizza",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-empoli-f9c7e005",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Empoli",
+      "customer_display_name": "Empoli",
+      "kitchen_display_name": "Empoli",
+      "description": "Tomatsås, ost, grön sparris, champinjoner, oliver, lök och majs",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 50,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Empoli",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-tutti-frutti-8ce1dd62",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Tutti Frutti",
+      "customer_display_name": "Tutti Frutti",
+      "kitchen_display_name": "Tutti Frutti",
+      "description": "Tomatsås, ost, banan, ananas och curry",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 51,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Tutti Frutti",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-vegetariana-343e82ef",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Vegetariana",
+      "customer_display_name": "Vegetariana",
+      "kitchen_display_name": "Vegetariana",
+      "description": "Tomatsås, ost, champinjoner, lök, paprika, oliver och kronärtskocka",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 52,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Vegetariana",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-esras-ced49fee",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Esras",
+      "customer_display_name": "Esras",
+      "kitchen_display_name": "Esras",
+      "description": "Tomatsås, ost, fetaost, mozzarellaost, soltorkade tomater och oliver",
+      "item_type": "food",
+      "base_price_minor": 14000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 53,
+      "aliases": [
+        "esras pizza"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Esras",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-vegansk-kebabpizza-a6c10fbe",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Vegansk Kebabpizza",
+      "customer_display_name": "Vegansk Kebabpizza",
+      "kitchen_display_name": "Vegansk Kebabpizza",
+      "description": "Tomatsås, veganost, vegansk kebab, isbergssallad, tomater, lök och feferoni",
+      "item_type": "food",
+      "base_price_minor": 16500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 54,
+      "aliases": [
+        "vegansk kebab pizza"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Vegansk Kebabpizza",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-messina-f519a064",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Messina",
+      "customer_display_name": "Messina",
+      "kitchen_display_name": "Messina",
+      "description": "Tomatsås, veganost, champinjoner, tomater, lök och paprika",
+      "item_type": "food",
+      "base_price_minor": 14000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 55,
+      "aliases": [
+        "mesina"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Messina",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pizza-rosella-0f3a09f8",
+      "category_source_key": "al-forno-category-pizza-a5f07960",
+      "official_name": "Rosella",
+      "customer_display_name": "Rosella",
+      "kitchen_display_name": "Rosella",
+      "description": "Tomatsås, veganost, champinjoner, majs, paprika och sparris",
+      "item_type": "food",
+      "base_price_minor": 14000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 56,
+      "aliases": [
+        "rosela"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pizza",
+        "source_name": "Rosella",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pan-pizza-pan-pizza-beef-special-ec900f72",
+      "category_source_key": "al-forno-category-pan-pizza-3a1bfe58",
+      "official_name": "Pan Pizza Beef Special",
+      "customer_display_name": "Pan Pizza Beef Special",
+      "kitchen_display_name": "Pan Pizza Beef Special",
+      "description": "Tomatsås, ost, oxfilé, champinjoner, lök, paprika och bearnaisesås",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 0,
+      "aliases": [],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-storlek-39a815f9",
+          "catalog_group_source_key": "al-forno-group-storlek-39a815f9",
+          "name": "Storlek",
+          "group_type": "size",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-storlek-small-0bd599ba",
+              "name": "Small",
+              "kitchen_name": "Small",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "liten"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-storlek-medium-7553597c",
+              "name": "Medium",
+              "kitchen_name": "Medium",
+              "price_delta_minor": 2000,
+              "is_default": false,
+              "aliases": [
+                "mellan"
+              ],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-storlek-large-78426557",
+              "name": "Large",
+              "kitchen_name": "Large",
+              "price_delta_minor": 10000,
+              "is_default": false,
+              "aliases": [
+                "stor"
+              ],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "Pan Pizza",
+        "source_name": "Pan Pizza Beef Special",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pan-pizza-pan-pizza-rio-fb5071d7",
+      "category_source_key": "al-forno-category-pan-pizza-3a1bfe58",
+      "official_name": "Pan Pizza Rio",
+      "customer_display_name": "Pan Pizza Rio",
+      "kitchen_display_name": "Pan Pizza Rio",
+      "description": "Tomatsås, ost, fläskfilé, gorgonzola, champinjoner och mozzarella",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 1,
+      "aliases": [],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-storlek-39a815f9",
+          "catalog_group_source_key": "al-forno-group-storlek-39a815f9",
+          "name": "Storlek",
+          "group_type": "size",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-storlek-small-0bd599ba",
+              "name": "Small",
+              "kitchen_name": "Small",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "liten"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-storlek-medium-7553597c",
+              "name": "Medium",
+              "kitchen_name": "Medium",
+              "price_delta_minor": 2000,
+              "is_default": false,
+              "aliases": [
+                "mellan"
+              ],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-storlek-large-78426557",
+              "name": "Large",
+              "kitchen_name": "Large",
+              "price_delta_minor": 10000,
+              "is_default": false,
+              "aliases": [
+                "stor"
+              ],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "Pan Pizza",
+        "source_name": "Pan Pizza Rio",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pan-pizza-pan-pizza-catania-07bc65c6",
+      "category_source_key": "al-forno-category-pan-pizza-3a1bfe58",
+      "official_name": "Pan Pizza Catania",
+      "customer_display_name": "Pan Pizza Catania",
+      "kitchen_display_name": "Pan Pizza Catania",
+      "description": "Tomatsås, ost, köttfärs, lök, champinjoner och cayennepeppar",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 2,
+      "aliases": [],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-storlek-39a815f9",
+          "catalog_group_source_key": "al-forno-group-storlek-39a815f9",
+          "name": "Storlek",
+          "group_type": "size",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-storlek-small-0bd599ba",
+              "name": "Small",
+              "kitchen_name": "Small",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "liten"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-storlek-medium-7553597c",
+              "name": "Medium",
+              "kitchen_name": "Medium",
+              "price_delta_minor": 2000,
+              "is_default": false,
+              "aliases": [
+                "mellan"
+              ],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-storlek-large-78426557",
+              "name": "Large",
+              "kitchen_name": "Large",
+              "price_delta_minor": 10000,
+              "is_default": false,
+              "aliases": [
+                "stor"
+              ],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "Pan Pizza",
+        "source_name": "Pan Pizza Catania",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pan-pizza-pan-pizza-palermo-c3131d8d",
+      "category_source_key": "al-forno-category-pan-pizza-3a1bfe58",
+      "official_name": "Pan Pizza Palermo",
+      "customer_display_name": "Pan Pizza Palermo",
+      "kitchen_display_name": "Pan Pizza Palermo",
+      "description": "Tomatsås, ost, kyckling, ananas, banan och curry",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 3,
+      "aliases": [],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-storlek-39a815f9",
+          "catalog_group_source_key": "al-forno-group-storlek-39a815f9",
+          "name": "Storlek",
+          "group_type": "size",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-storlek-small-0bd599ba",
+              "name": "Small",
+              "kitchen_name": "Small",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "liten"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-storlek-medium-7553597c",
+              "name": "Medium",
+              "kitchen_name": "Medium",
+              "price_delta_minor": 2000,
+              "is_default": false,
+              "aliases": [
+                "mellan"
+              ],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-storlek-large-78426557",
+              "name": "Large",
+              "kitchen_name": "Large",
+              "price_delta_minor": 10000,
+              "is_default": false,
+              "aliases": [
+                "stor"
+              ],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "Pan Pizza",
+        "source_name": "Pan Pizza Palermo",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pan-pizza-pan-pizza-florens-fd56c997",
+      "category_source_key": "al-forno-category-pan-pizza-3a1bfe58",
+      "official_name": "Pan Pizza Florens",
+      "customer_display_name": "Pan Pizza Florens",
+      "kitchen_display_name": "Pan Pizza Florens",
+      "description": "Tomatsås, ost, champinjoner, lök, paprika, majs och oliver",
+      "item_type": "food",
+      "base_price_minor": 16000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 4,
+      "aliases": [],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-storlek-39a815f9",
+          "catalog_group_source_key": "al-forno-group-storlek-39a815f9",
+          "name": "Storlek",
+          "group_type": "size",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-storlek-small-0bd599ba",
+              "name": "Small",
+              "kitchen_name": "Small",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "liten"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-storlek-medium-7553597c",
+              "name": "Medium",
+              "kitchen_name": "Medium",
+              "price_delta_minor": 2000,
+              "is_default": false,
+              "aliases": [
+                "mellan"
+              ],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-storlek-large-78426557",
+              "name": "Large",
+              "kitchen_name": "Large",
+              "price_delta_minor": 10000,
+              "is_default": false,
+              "aliases": [
+                "stor"
+              ],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "Pan Pizza",
+        "source_name": "Pan Pizza Florens",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-spaghetti-bolognese-cda5a5a9",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Spaghetti Bolognese",
+      "customer_display_name": "Spaghetti Bolognese",
+      "kitchen_display_name": "Spaghetti Bolognese",
+      "description": "Italiensk köttfärs av nötkött med svartpeppar",
+      "item_type": "food",
+      "base_price_minor": 12900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 0,
+      "aliases": [
+        "spagetti bolognese"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Spaghetti Bolognese",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-penne-arrabbiata-bae6326b",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Penne Arrabbiata",
+      "customer_display_name": "Penne Arrabbiata",
+      "kitchen_display_name": "Penne Arrabbiata",
+      "description": "Körsbärstomater, chili, vitlök, persilja och tomatsås",
+      "item_type": "food",
+      "base_price_minor": 12900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 1,
+      "aliases": [
+        "penne arabiata",
+        "penne arrabiata",
+        "arrabbiata"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Penne Arrabbiata",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-pasta-funghi-51c9982c",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Pasta Funghi",
+      "customer_display_name": "Pasta Funghi",
+      "kitchen_display_name": "Pasta Funghi",
+      "description": "Färska champinjoner, persilja och grädde",
+      "item_type": "food",
+      "base_price_minor": 12900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 2,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Pasta Funghi",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-canneloni-classico-43942f0b",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Canneloni Classico",
+      "customer_display_name": "Canneloni Classico",
+      "kitchen_display_name": "Canneloni Classico",
+      "description": "Färsk pasta med ricottaost, spenat och grädde",
+      "item_type": "food",
+      "base_price_minor": 14500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 3,
+      "aliases": [
+        "cannelloni classico",
+        "canneloni",
+        "cannelloni"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Canneloni Classico",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-prosciutto-di-parma-968e5ff4",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Prosciutto di Parma",
+      "customer_display_name": "Prosciutto di Parma",
+      "kitchen_display_name": "Prosciutto di Parma",
+      "description": "Basilikapesto, soltorkade tomater och lufttorkad skinka",
+      "item_type": "food",
+      "base_price_minor": 14900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 4,
+      "aliases": [
+        "prosciutto parma",
+        "proshutto di parma"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Prosciutto di Parma",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-pasta-romana-27972ca7",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Pasta Romana",
+      "customer_display_name": "Pasta Romana",
+      "kitchen_display_name": "Pasta Romana",
+      "description": "Spaghetti, scampi, räkor, chili, vitlök, tomatsås och grädde",
+      "item_type": "food",
+      "base_price_minor": 17900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 5,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Pasta Romana",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-spaghetti-carbonara-b5e2d975",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Spaghetti Carbonara",
+      "customer_display_name": "Spaghetti Carbonara",
+      "kitchen_display_name": "Spaghetti Carbonara",
+      "description": "Bacon, svartpeppar, lök och äggula",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 6,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Spaghetti Carbonara",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-lasagne-al-forno-64840c92",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Lasagne Al Forno",
+      "customer_display_name": "Lasagne Al Forno",
+      "kitchen_display_name": "Lasagne Al Forno",
+      "description": "Hemlagad köttfärssås och bechamelsås",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 7,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Lasagne Al Forno",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-pasta-genovese-43fd8d8a",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Pasta Genovese",
+      "customer_display_name": "Pasta Genovese",
+      "kitchen_display_name": "Pasta Genovese",
+      "description": "Marinerad kycklingfilé, basilikapesto, soltorkade tomater och grädde",
+      "item_type": "food",
+      "base_price_minor": 14500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 8,
+      "aliases": [
+        "pasta jenovese"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Pasta Genovese",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-pasta-pollo-0820d909",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Pasta Pollo",
+      "customer_display_name": "Pasta Pollo",
+      "kitchen_display_name": "Pasta Pollo",
+      "description": "Marinerad kycklingfilé, paprika, grädde och curry",
+      "item_type": "food",
+      "base_price_minor": 14500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 9,
+      "aliases": [
+        "pasta polo"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Pasta Pollo",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-delizie-romagniola-94dc1505",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Delizie Romagniola",
+      "customer_display_name": "Delizie Romagniola",
+      "kitchen_display_name": "Delizie Romagniola",
+      "description": "Färska pastastubbar med zucchini, skinka och grädde",
+      "item_type": "food",
+      "base_price_minor": 14500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 10,
+      "aliases": [
+        "delizie romagnola",
+        "delizie romanola",
+        "romagniola"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Delizie Romagniola",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-spaghetti-bigoli-2d499fe1",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Spaghetti Bigoli",
+      "customer_display_name": "Spaghetti Bigoli",
+      "kitchen_display_name": "Spaghetti Bigoli",
+      "description": "Räkor, scampi, pesto, färsk vitlök, sambal och vitt vin",
+      "item_type": "food",
+      "base_price_minor": 17900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 11,
+      "aliases": [
+        "spagetti bigoli",
+        "spaghetti bigolli"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Spaghetti Bigoli",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-pasta-maestro-2e35da5a",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Pasta Maestro",
+      "customer_display_name": "Pasta Maestro",
+      "kitchen_display_name": "Pasta Maestro",
+      "description": "Strimlad biff, färska champinjoner, grädde, tomatsås, vitlök, chili och ost",
+      "item_type": "food",
+      "base_price_minor": 16900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 12,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Pasta Maestro",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-pasta-mums-mums-df034ff7",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Pasta Mums Mums",
+      "customer_display_name": "Pasta Mums Mums",
+      "kitchen_display_name": "Pasta Mums Mums",
+      "description": "Oxfilé, paprika, champinjoner, pesto, tryffelolja, grädde och ost",
+      "item_type": "food",
+      "base_price_minor": 17900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 13,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Pasta Mums Mums",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-oxfil-pasta-0de311a9",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Oxfilé Pasta",
+      "customer_display_name": "Oxfilé Pasta",
+      "kitchen_display_name": "Oxfilé Pasta",
+      "description": "Oxfilé, champinjoner och grädde",
+      "item_type": "food",
+      "base_price_minor": 16900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 14,
+      "aliases": [
+        "oxfile pasta"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Oxfilé Pasta",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-pasta-gorgonzola-3cfa2a94",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Pasta Gorgonzola",
+      "customer_display_name": "Pasta Gorgonzola",
+      "kitchen_display_name": "Pasta Gorgonzola",
+      "description": "Skinka, gorgonzola, lök och färsk vitlök",
+      "item_type": "food",
+      "base_price_minor": 16900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 15,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Pasta Gorgonzola",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-pasta-frutti-di-mare-fc1d61b1",
+      "category_source_key": "al-forno-category-pasta-998c0fb9",
+      "official_name": "Frutti di Mare",
+      "customer_display_name": "Frutti di Mare",
+      "kitchen_display_name": "Frutti di Mare",
+      "description": "Scampi, blåmusslor, räkor, körsbärstomater, färsk vitlök, chili och ruccola",
+      "item_type": "food",
+      "base_price_minor": 17900,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 16,
+      "aliases": [
+        "frutti de mare"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Pasta",
+        "source_name": "Frutti di Mare",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-sallad-gambretti-sallad-a66fae25",
+      "category_source_key": "al-forno-category-sallad-5ca7b85e",
+      "official_name": "Gambretti Sallad",
+      "customer_display_name": "Gambretti Sallad",
+      "kitchen_display_name": "Gambretti Sallad",
+      "description": "Handskalade räkor, ägg, avokado, gurka, tomater, lök, citron, paprika och ruccola",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 0,
+      "aliases": [
+        "gambretti",
+        "gamberetti sallad",
+        "räksallad"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Sallad",
+        "source_name": "Gambretti Sallad",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-sallad-prosciutto-sallad-5cca8c02",
+      "category_source_key": "al-forno-category-sallad-5ca7b85e",
+      "official_name": "Prosciutto Sallad",
+      "customer_display_name": "Prosciutto Sallad",
+      "kitchen_display_name": "Prosciutto Sallad",
+      "description": "Romansallad, lufttorkad skinka, brödkrutonger, tomater, soltorkade tomater, rödlök, paprika, parmesanost och ruccola",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 1,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Sallad",
+        "source_name": "Prosciutto Sallad",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-sallad-ceasarsallad-1bc5da7f",
+      "category_source_key": "al-forno-category-sallad-5ca7b85e",
+      "official_name": "Ceasarsallad",
+      "customer_display_name": "Ceasarsallad",
+      "kitchen_display_name": "Ceasarsallad",
+      "description": "Romansallad, marinerad kycklingfilé, tomater, paprika, brödkrutonger, rödlök, caesardressing, parmesanost och ruccola",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 2,
+      "aliases": [
+        "caesarsallad",
+        "cesarsallad",
+        "caesar sallad"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Sallad",
+        "source_name": "Ceasarsallad",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-sallad-kebabsallad-2e1566df",
+      "category_source_key": "al-forno-category-sallad-5ca7b85e",
+      "official_name": "Kebabsallad",
+      "customer_display_name": "Kebabsallad",
+      "kitchen_display_name": "Kebabsallad",
+      "description": "Kebabkött, isbergssallad, gurka, lök, paprika, tomater, feferoni och ruccola",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 3,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Sallad",
+        "source_name": "Kebabsallad",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-sallad-grekisksallad-6a351cf2",
+      "category_source_key": "al-forno-category-sallad-5ca7b85e",
+      "official_name": "Grekisksallad",
+      "customer_display_name": "Grekisksallad",
+      "kitchen_display_name": "Grekisksallad",
+      "description": "Fårost, gurka, paprika, tomater, soltorkade tomater, rödlök och ruccola",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 4,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Sallad",
+        "source_name": "Grekisksallad",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-sallad-mozarellasallad-c35e2f49",
+      "category_source_key": "al-forno-category-sallad-5ca7b85e",
+      "official_name": "Mozarellasallad",
+      "customer_display_name": "Mozarellasallad",
+      "kitchen_display_name": "Mozarellasallad",
+      "description": "Mozzarellaost, gurka, paprika, tomater, basilika, soltorkade tomater, rödlök och ruccola",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 5,
+      "aliases": [
+        "mozzarellasallad",
+        "mozzarella sallad"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Sallad",
+        "source_name": "Mozarellasallad",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-sallad-tonfisksallad-82820cb5",
+      "category_source_key": "al-forno-category-sallad-5ca7b85e",
+      "official_name": "Tonfisksallad",
+      "customer_display_name": "Tonfisksallad",
+      "kitchen_display_name": "Tonfisksallad",
+      "description": "Tonfisk i olja, ägg, tomater, gurka, rödlök, paprika, citron och ruccola",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 6,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Sallad",
+        "source_name": "Tonfisksallad",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-sallad-ost-skinksallad-9dc895cf",
+      "category_source_key": "al-forno-category-sallad-5ca7b85e",
+      "official_name": "Ost-Skinksallad",
+      "customer_display_name": "Ost-Skinksallad",
+      "kitchen_display_name": "Ost-Skinksallad",
+      "description": "Isbergssallad, tomater, gurka, paprika, oliver, ägg, lök och ruccola",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 7,
+      "aliases": [
+        "ost och skinksallad",
+        "ost skink sallad"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Sallad",
+        "source_name": "Ost-Skinksallad",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-sallad-gyros-sallad-5171a45e",
+      "category_source_key": "al-forno-category-sallad-5ca7b85e",
+      "official_name": "Gyros Sallad",
+      "customer_display_name": "Gyros Sallad",
+      "kitchen_display_name": "Gyros Sallad",
+      "description": "Isbergssallad, tomater, gurka, lök, paprika, feferoni och ruccola",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 8,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Sallad",
+        "source_name": "Gyros Sallad",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-kebab-med-br-d-f73812e1",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Kebab med bröd",
+      "customer_display_name": "Kebab med bröd",
+      "kitchen_display_name": "Kebab med bröd",
+      "description": "Kebab, isbergssallad, lök, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 10500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 0,
+      "aliases": [
+        "kebab i bröd"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Kebab med bröd",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-kebabrulle-ea79e0b7",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Kebabrulle",
+      "customer_display_name": "Kebabrulle",
+      "kitchen_display_name": "Kebabrulle",
+      "description": "Isbergssallad, kebab, lök, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 13000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 1,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Kebabrulle",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-kebabtallrik-7cb6ddbd",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Kebabtallrik",
+      "customer_display_name": "Kebabtallrik",
+      "kitchen_display_name": "Kebabtallrik",
+      "description": "Isbergssallad, kebab, lök, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 2,
+      "aliases": [],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "catalog_group_source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "name": "Tillbehör",
+          "group_type": "choice",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-tillbeh-r-pommes-4977686a",
+              "name": "Pommes",
+              "kitchen_name": "Pommes",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "pommes frites"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-ris-fbfcb0da",
+              "name": "Ris",
+              "kitchen_name": "Ris",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-bulgur-9de749a1",
+              "name": "Bulgur",
+              "kitchen_name": "Bulgur",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Kebabtallrik",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-kycklingkebabtallrik-5f652035",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Kycklingkebabtallrik",
+      "customer_display_name": "Kycklingkebabtallrik",
+      "kitchen_display_name": "Kycklingkebabtallrik",
+      "description": "Isbergssallad, lök, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 14500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 3,
+      "aliases": [],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "catalog_group_source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "name": "Tillbehör",
+          "group_type": "choice",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-tillbeh-r-pommes-4977686a",
+              "name": "Pommes",
+              "kitchen_name": "Pommes",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "pommes frites"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-ris-fbfcb0da",
+              "name": "Ris",
+              "kitchen_name": "Ris",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-bulgur-9de749a1",
+              "name": "Bulgur",
+              "kitchen_name": "Bulgur",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Kycklingkebabtallrik",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-kycklingkebab-rulle-56d31825",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Kycklingkebab Rulle",
+      "customer_display_name": "Kycklingkebab Rulle",
+      "kitchen_display_name": "Kycklingkebab Rulle",
+      "description": "Kyckling, isbergssallad, tomater, lök och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 14000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 4,
+      "aliases": [
+        "kycklingkebabrulle",
+        "kyckling kebabrulle"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Kycklingkebab Rulle",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-kycklingkebab-med-br-d-f563d300",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Kycklingkebab med bröd",
+      "customer_display_name": "Kycklingkebab med bröd",
+      "kitchen_display_name": "Kycklingkebab med bröd",
+      "description": "Kyckling, isbergssallad, tomater, lök och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 11500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 5,
+      "aliases": [
+        "kycklingkebab i bröd"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Kycklingkebab med bröd",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-mixkebabtallrik-79f5b9c1",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Mixkebabtallrik",
+      "customer_display_name": "Mixkebabtallrik",
+      "kitchen_display_name": "Mixkebabtallrik",
+      "description": "Kebabkött av nötkött, kycklingkebab, isbergssallad, lök, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 6,
+      "aliases": [],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "catalog_group_source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "name": "Tillbehör",
+          "group_type": "choice",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-tillbeh-r-pommes-4977686a",
+              "name": "Pommes",
+              "kitchen_name": "Pommes",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "pommes frites"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-ris-fbfcb0da",
+              "name": "Ris",
+              "kitchen_name": "Ris",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-bulgur-9de749a1",
+              "name": "Bulgur",
+              "kitchen_name": "Bulgur",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Mixkebabtallrik",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-vegansk-kebab-med-br-d-548ef727",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Vegansk Kebab med bröd",
+      "customer_display_name": "Vegansk Kebab med bröd",
+      "kitchen_display_name": "Vegansk Kebab med bröd",
+      "description": "Isbergssallad, vegansk kebab, lök, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 12500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 7,
+      "aliases": [
+        "vegansk kebab i bröd"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Vegansk Kebab med bröd",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-gyrostallrik-cd05b1a9",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Gyrostallrik",
+      "customer_display_name": "Gyrostallrik",
+      "kitchen_display_name": "Gyrostallrik",
+      "description": "Gyroskött, isbergssallad, lök, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 8,
+      "aliases": [
+        "jirostallrik",
+        "gyros tallrik"
+      ],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "catalog_group_source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "name": "Tillbehör",
+          "group_type": "choice",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-tillbeh-r-pommes-4977686a",
+              "name": "Pommes",
+              "kitchen_name": "Pommes",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "pommes frites"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-ris-fbfcb0da",
+              "name": "Ris",
+              "kitchen_name": "Ris",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-bulgur-9de749a1",
+              "name": "Bulgur",
+              "kitchen_name": "Bulgur",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Gyrostallrik",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-falafeltallrik-065b19df",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Falafeltallrik",
+      "customer_display_name": "Falafeltallrik",
+      "kitchen_display_name": "Falafeltallrik",
+      "description": "Isbergssallad, falafel, lök, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 14000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 9,
+      "aliases": [],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "catalog_group_source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "name": "Tillbehör",
+          "group_type": "choice",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-tillbeh-r-pommes-4977686a",
+              "name": "Pommes",
+              "kitchen_name": "Pommes",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "pommes frites"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-ris-fbfcb0da",
+              "name": "Ris",
+              "kitchen_name": "Ris",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-bulgur-9de749a1",
+              "name": "Bulgur",
+              "kitchen_name": "Bulgur",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Falafeltallrik",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-vegansk-kebabtallrik-db8dca73",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Vegansk Kebabtallrik",
+      "customer_display_name": "Vegansk Kebabtallrik",
+      "kitchen_display_name": "Vegansk Kebabtallrik",
+      "description": "Isbergssallad, lök, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 10,
+      "aliases": [],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "catalog_group_source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "name": "Tillbehör",
+          "group_type": "choice",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-tillbeh-r-pommes-4977686a",
+              "name": "Pommes",
+              "kitchen_name": "Pommes",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "pommes frites"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-ris-fbfcb0da",
+              "name": "Ris",
+              "kitchen_name": "Ris",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-bulgur-9de749a1",
+              "name": "Bulgur",
+              "kitchen_name": "Bulgur",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Vegansk Kebabtallrik",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-gyrosrulle-5360e10f",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Gyrosrulle",
+      "customer_display_name": "Gyrosrulle",
+      "kitchen_display_name": "Gyrosrulle",
+      "description": "Isbergssallad, gyros, lök, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 14000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 11,
+      "aliases": [
+        "jirosrulle",
+        "gyros rulle"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Gyrosrulle",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-falafelrulle-4a83c635",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Falafelrulle",
+      "customer_display_name": "Falafelrulle",
+      "kitchen_display_name": "Falafelrulle",
+      "description": "Isbergssallad, falafel, lök, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 14000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 12,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Falafelrulle",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-gyros-med-br-d-0ff3dc19",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Gyros med bröd",
+      "customer_display_name": "Gyros med bröd",
+      "kitchen_display_name": "Gyros med bröd",
+      "description": "Isbergssallad, gyros, lök, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 11500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 13,
+      "aliases": [
+        "gyros i bröd"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Gyros med bröd",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-falafel-med-br-d-f35126e1",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Falafel med bröd",
+      "customer_display_name": "Falafel med bröd",
+      "kitchen_display_name": "Falafel med bröd",
+      "description": "Isbergssallad, falafel, lök, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 10500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 14,
+      "aliases": [
+        "falafel i bröd"
+      ],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Falafel med bröd",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-kebab-vegansk-kebabrulle-d8699cd6",
+      "category_source_key": "al-forno-category-kebab-5388f5e7",
+      "official_name": "Vegansk Kebabrulle",
+      "customer_display_name": "Vegansk Kebabrulle",
+      "kitchen_display_name": "Vegansk Kebabrulle",
+      "description": "Isbergssallad, vegansk kebab, lök, tomater, feferoni och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 15,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Kebab",
+        "source_name": "Vegansk Kebabrulle",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-hamburgare-hamburgare-0645bde2",
+      "category_source_key": "al-forno-category-hamburgare-3140accb",
+      "official_name": "Hamburgare",
+      "customer_display_name": "Hamburgare",
+      "kitchen_display_name": "Hamburgare",
+      "description": "Pommes ingår. Isbergssallad, tomater, lök och hamburgerdressing",
+      "item_type": "food",
+      "base_price_minor": 12000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 0,
+      "aliases": [
+        "vanlig hamburgare"
+      ],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-vikt-3ff73b4a",
+          "catalog_group_source_key": "al-forno-group-vikt-3ff73b4a",
+          "name": "Vikt",
+          "group_type": "choice",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-vikt-90g-09fa1c1d",
+              "name": "90g",
+              "kitchen_name": "90g",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "90 gram",
+                "90 grams"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-vikt-150g-3138f641",
+              "name": "150g",
+              "kitchen_name": "150g",
+              "price_delta_minor": 1000,
+              "is_default": false,
+              "aliases": [
+                "150 gram",
+                "150 grams"
+              ],
+              "sort_order": 1
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "Hamburgare",
+        "source_name": "Hamburgare",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-hamburgare-sambalburgare-200g-9c3fd37e",
+      "category_source_key": "al-forno-category-hamburgare-3140accb",
+      "official_name": "Sambalburgare 200g",
+      "customer_display_name": "Sambalburgare 200g",
+      "kitchen_display_name": "Sambalburgare 200g",
+      "description": "Pommes ingår. Isbergssallad, tomater, lök och bearnaisesås",
+      "item_type": "food",
+      "base_price_minor": 13500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 1,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "Hamburgare",
+        "source_name": "Sambalburgare 200g",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-la-carte-fish-and-chips-6ef6934e",
+      "category_source_key": "al-forno-category-la-carte-94118b6e",
+      "official_name": "Fish and Chips",
+      "customer_display_name": "Fish and Chips",
+      "kitchen_display_name": "Fish and Chips",
+      "description": "Isbergssallad, lök, tomater och remouladsås",
+      "item_type": "food",
+      "base_price_minor": 15000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 0,
+      "aliases": [
+        "fish n chips",
+        "fisk och chips"
+      ],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "catalog_group_source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "name": "Tillbehör",
+          "group_type": "choice",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-tillbeh-r-pommes-4977686a",
+              "name": "Pommes",
+              "kitchen_name": "Pommes",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "pommes frites"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-ris-fbfcb0da",
+              "name": "Ris",
+              "kitchen_name": "Ris",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-bulgur-9de749a1",
+              "name": "Bulgur",
+              "kitchen_name": "Bulgur",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "À la Carte",
+        "source_name": "Fish and Chips",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-la-carte-husets-plankstek-dd7ff838",
+      "category_source_key": "al-forno-category-la-carte-94118b6e",
+      "official_name": "Husets Plankstek",
+      "customer_display_name": "Husets Plankstek",
+      "kitchen_display_name": "Husets Plankstek",
+      "description": "Grillad biff med gratinerat potatismos, bearnaisesås, baconlindad sparris, grillad tomat, grillad paprika, grillade champinjoner och rödvinssås",
+      "item_type": "food",
+      "base_price_minor": 22500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 1,
+      "aliases": [],
+      "option_groups": [],
+      "metadata": {
+        "category_name": "À la Carte",
+        "source_name": "Husets Plankstek",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-la-carte-grillbiff-680d70b0",
+      "category_source_key": "al-forno-category-la-carte-94118b6e",
+      "official_name": "Grillbiff",
+      "customer_display_name": "Grillbiff",
+      "kitchen_display_name": "Grillbiff",
+      "description": "Grillbiff, grillade grönsaker, rödvinssås och bearnaisesås",
+      "item_type": "food",
+      "base_price_minor": 21500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 2,
+      "aliases": [],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "catalog_group_source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "name": "Tillbehör",
+          "group_type": "choice",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-tillbeh-r-pommes-4977686a",
+              "name": "Pommes",
+              "kitchen_name": "Pommes",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "pommes frites"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-ris-fbfcb0da",
+              "name": "Ris",
+              "kitchen_name": "Ris",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-bulgur-9de749a1",
+              "name": "Bulgur",
+              "kitchen_name": "Bulgur",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "À la Carte",
+        "source_name": "Grillbiff",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-la-carte-fl-skfil-black-white-d42728cc",
+      "category_source_key": "al-forno-category-la-carte-94118b6e",
+      "official_name": "Fläskfilé Black & White",
+      "customer_display_name": "Fläskfilé Black & White",
+      "kitchen_display_name": "Fläskfilé Black & White",
+      "description": "Fläskfilé, grillade grönsaker, rödvinssås och bearnaisesås",
+      "item_type": "food",
+      "base_price_minor": 21500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 3,
+      "aliases": [
+        "black and white",
+        "black white"
+      ],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "catalog_group_source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "name": "Tillbehör",
+          "group_type": "choice",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-tillbeh-r-pommes-4977686a",
+              "name": "Pommes",
+              "kitchen_name": "Pommes",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "pommes frites"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-ris-fbfcb0da",
+              "name": "Ris",
+              "kitchen_name": "Ris",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-bulgur-9de749a1",
+              "name": "Bulgur",
+              "kitchen_name": "Bulgur",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "À la Carte",
+        "source_name": "Fläskfilé Black & White",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-la-carte-fl-skfil-oscar-180de5b7",
+      "category_source_key": "al-forno-category-la-carte-94118b6e",
+      "official_name": "Fläskfilé Oscar",
+      "customer_display_name": "Fläskfilé Oscar",
+      "kitchen_display_name": "Fläskfilé Oscar",
+      "description": "Fläskfilé, räkor, grillade grönsaker, rödvinssås och bearnaisesås",
+      "item_type": "food",
+      "base_price_minor": 21500,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 4,
+      "aliases": [
+        "flaskfile oscar",
+        "fläskfilé oskar"
+      ],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "catalog_group_source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "name": "Tillbehör",
+          "group_type": "choice",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-tillbeh-r-pommes-4977686a",
+              "name": "Pommes",
+              "kitchen_name": "Pommes",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "pommes frites"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-ris-fbfcb0da",
+              "name": "Ris",
+              "kitchen_name": "Ris",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-bulgur-9de749a1",
+              "name": "Bulgur",
+              "kitchen_name": "Bulgur",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "À la Carte",
+        "source_name": "Fläskfilé Oscar",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-la-carte-laxtallrik-799f481a",
+      "category_source_key": "al-forno-category-la-carte-94118b6e",
+      "official_name": "Laxtallrik",
+      "customer_display_name": "Laxtallrik",
+      "kitchen_display_name": "Laxtallrik",
+      "description": "Lax, isbergssallad, lök, tomater och vitlökssås",
+      "item_type": "food",
+      "base_price_minor": 19000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 5,
+      "aliases": [],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "catalog_group_source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "name": "Tillbehör",
+          "group_type": "choice",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-tillbeh-r-pommes-4977686a",
+              "name": "Pommes",
+              "kitchen_name": "Pommes",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "pommes frites"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-ris-fbfcb0da",
+              "name": "Ris",
+              "kitchen_name": "Ris",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-bulgur-9de749a1",
+              "name": "Bulgur",
+              "kitchen_name": "Bulgur",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "À la Carte",
+        "source_name": "Laxtallrik",
+        "price_verification_status": "provided_by_user"
+      }
+    },
+    {
+      "source_key": "al-forno-item-la-carte-chicken-bits-971a8978",
+      "category_source_key": "al-forno-category-la-carte-94118b6e",
+      "official_name": "Chicken Bits",
+      "customer_display_name": "Chicken Bits",
+      "kitchen_display_name": "Chicken Bits",
+      "description": "Isbergssallad, lök, tomater och currydressing",
+      "item_type": "food",
+      "base_price_minor": 14000,
+      "currency": "SEK",
+      "is_active": true,
+      "allow_customer_notes": true,
+      "sort_order": 6,
+      "aliases": [
+        "chickenbits",
+        "kycklingbitar"
+      ],
+      "option_groups": [
+        {
+          "source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "catalog_group_source_key": "al-forno-group-tillbeh-r-ba9843bb",
+          "name": "Tillbehör",
+          "group_type": "choice",
+          "selection_mode": "single",
+          "is_required": true,
+          "min_select": 1,
+          "max_select": 1,
+          "prerequisite_option_source_keys": [],
+          "options": [
+            {
+              "source_key": "al-forno-tillbeh-r-pommes-4977686a",
+              "name": "Pommes",
+              "kitchen_name": "Pommes",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [
+                "pommes frites"
+              ],
+              "sort_order": 0
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-ris-fbfcb0da",
+              "name": "Ris",
+              "kitchen_name": "Ris",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 1
+            },
+            {
+              "source_key": "al-forno-tillbeh-r-bulgur-9de749a1",
+              "name": "Bulgur",
+              "kitchen_name": "Bulgur",
+              "price_delta_minor": 0,
+              "is_default": false,
+              "aliases": [],
+              "sort_order": 2
+            }
+          ],
+          "sort_order": 0
+        }
+      ],
+      "metadata": {
+        "category_name": "À la Carte",
+        "source_name": "Chicken Bits",
+        "price_verification_status": "provided_by_user"
+      }
+    }
+  ]
+}

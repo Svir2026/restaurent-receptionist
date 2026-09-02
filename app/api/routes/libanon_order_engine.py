@@ -32,14 +32,14 @@ from app.services.voice_order_state import (
 
 
 router = APIRouter(
-    prefix="/v2/libanon",
-    tags=["libanon-order-engine-test"],
+    prefix="/v2/al-forno",
+    tags=["al-forno-order-engine-test"],
 )
 
-ENABLE_ENV = "LIBANON_ORDER_ENGINE_TEST_ENABLED"
-STATE_BACKEND_ENV = "LIBANON_ORDER_STATE_BACKEND"
-SQLITE_PATH_ENV = "LIBANON_ORDER_SQLITE_PATH"
-PREVIEW_TOKEN_ENV = "LIBANON_PREVIEW_TOOL_TOKEN"
+ENABLE_ENV = "AL_FORNO_ORDER_ENGINE_TEST_ENABLED"
+STATE_BACKEND_ENV = "AL_FORNO_ORDER_STATE_BACKEND"
+SQLITE_PATH_ENV = "AL_FORNO_ORDER_SQLITE_PATH"
+PREVIEW_TOKEN_ENV = "AL_FORNO_PREVIEW_TOOL_TOKEN"
 
 
 def _is_enabled() -> bool:
@@ -70,7 +70,7 @@ def get_state_repository() -> VoiceOrderStateRepository:
     backend = os.environ.get(STATE_BACKEND_ENV, "supabase").strip().casefold()
     sqlite_path = os.environ.get(
         SQLITE_PATH_ENV,
-        "/tmp/libanon_voice_order_state.sqlite3",
+        "/tmp/al_forno_voice_order_state.sqlite3",
     ).strip()
     return _state_repository(backend, sqlite_path)
 
@@ -92,8 +92,8 @@ def require_libanon_order_engine_context(
             raise HTTPException(
                 status_code=503,
                 detail={
-                    "code": "LIBANON_PREVIEW_AUTH_UNAVAILABLE",
-                    "message": "Libanons testautentisering är inte konfigurerad.",
+                    "code": "AL_FORNO_PREVIEW_AUTH_UNAVAILABLE",
+                    "message": "Al Fornos testautentisering är inte konfigurerad.",
                 },
             )
         if not hmac.compare_digest(supplied, expected):
@@ -107,7 +107,7 @@ def require_libanon_order_engine_context(
         return ToolRestaurantContext(
             credential_id=UUID("00000000-0000-0000-0000-000000000001"),
             restaurant_id=UUID(LIBANON_RESTAURANT_ID),
-            restaurant_name="Libanon Kolgrill",
+            restaurant_name="Restaurang Al Forno",
             restaurant_slug=LIBANON_RESTAURANT_SLUG,
             restaurant_is_active=True,
             provisioning_job_id=None,
@@ -129,14 +129,14 @@ def libanon_order_turn(
         Depends(require_libanon_order_engine_context),
     ],
 ) -> LibanonOrderTurnResponse:
-    """Test-only Libanon turn engine. It never submits a real order."""
+    """Test-only Al Forno turn engine. It never submits a real order."""
 
     if not _is_enabled():
         raise HTTPException(
             status_code=404,
             detail={
-                "code": "LIBANON_ORDER_ENGINE_DISABLED",
-                "message": "Libanons testverktyg är inte aktiverat.",
+                "code": "AL_FORNO_ORDER_ENGINE_DISABLED",
+                "message": "Al Fornos testverktyg är inte aktiverat.",
             },
         )
 
@@ -147,7 +147,7 @@ def libanon_order_turn(
         raise HTTPException(
             status_code=403,
             detail={
-                "code": "LIBANON_RESTAURANT_MISMATCH",
+                "code": "AL_FORNO_RESTAURANT_MISMATCH",
                 "message": "Verktyget tillhör en annan restaurang.",
             },
         )
