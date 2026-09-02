@@ -149,6 +149,10 @@ class AlFornoCatalogTests(unittest.TestCase):
             self.assertTrue(size_groups[0].is_required)
             self.assertEqual([option.name for option in size_groups[0].options], ["Small", "Medium", "Large"])
             self.assertEqual([option.price_delta_minor for option in size_groups[0].options], [0, 2000, 10000])
+            self.assertEqual(
+                [option.name for option in size_groups[0].options if option.is_default],
+                ["Medium"],
+            )
 
     def test_side_choice_exists_only_where_menu_requires_it(self) -> None:
         expected = {
@@ -185,15 +189,13 @@ class AlFornoOrderEngineTests(unittest.TestCase):
         self.assertFalse(result.pending_questions)
         self.assertNotIn("storlek", result.say.casefold())
 
-    def test_pan_pizza_without_size_asks_exactly_once(self) -> None:
-        conversation = EngineConversation("conv-alforno-pan-size")
-        first = conversation.turn("En pan pizza Rio")
-        self.assertEqual(first.action, "ask_question")
-        self.assertEqual(first.say, "Vill du ha small, medium eller large?")
-        second = conversation.turn("Medium")
-        self.assertEqual(second.action, "confirm_delta")
-        self.assertEqual([option.name for option in second.cart[0].selected_options], ["Medium"])
-        self.assertIn("medium", second.say.casefold())
+    def test_pan_pizza_without_size_defaults_to_medium(self) -> None:
+        result = EngineConversation("conv-alforno-pan-size").turn("En pan pizza Rio")
+        self.assertEqual(result.action, "confirm_delta")
+        self.assertEqual([option.name for option in result.cart[0].selected_options], ["Medium"])
+        self.assertEqual(result.cart[0].base_price_minor, 16_000)
+        self.assertEqual(result.cart[0].selected_options[0].price_delta_minor, 2_000)
+        self.assertIn("medium", result.say.casefold())
 
     def test_pan_pizza_explicit_large_skips_question_and_prices_variant(self) -> None:
         result = EngineConversation("conv-alforno-pan-large").turn("En large pan pizza Palermo")
@@ -202,11 +204,38 @@ class AlFornoOrderEngineTests(unittest.TestCase):
         self.assertEqual(result.cart[0].base_price_minor, 16000)
         self.assertEqual(result.cart[0].selected_options[0].price_delta_minor, 10000)
 
-    def test_pan_pizza_compound_pronunciation_alias_asks_for_size(self) -> None:
+    def test_pan_pizza_compound_pronunciation_alias_defaults_to_medium(self) -> None:
         result = EngineConversation("conv-alforno-pan-alias").turn("En pannpizza katania")
-        self.assertEqual(result.action, "ask_question")
+        self.assertEqual(result.action, "confirm_delta")
         self.assertEqual(result.cart[0].official_name, "Pan Pizza Catania")
-        self.assertEqual(result.say, "Vill du ha small, medium eller large?")
+        self.assertEqual(result.cart[0].selected_options[0].name, "Medium")
+
+    def test_pan_pizza_child_and_small_words_select_small(self) -> None:
+        for index, utterance in enumerate(
+            (
+                "En liten pan pizza Rio",
+                "En barn pan pizza Rio",
+                "En small pan pizza Rio",
+            )
+        ):
+            with self.subTest(utterance=utterance):
+                result = EngineConversation(f"conv-alforno-small-{index}").turn(utterance)
+                self.assertEqual(result.action, "confirm_delta")
+                self.assertEqual(result.cart[0].selected_options[0].name, "Small")
+
+    def test_pan_pizza_family_and_large_words_select_large(self) -> None:
+        for index, utterance in enumerate(
+            (
+                "En stor pan pizza Rio",
+                "En familje pan pizza Rio",
+                "En extra stor pan pizza Rio",
+                "En large pan pizza Rio",
+            )
+        ):
+            with self.subTest(utterance=utterance):
+                result = EngineConversation(f"conv-alforno-large-{index}").turn(utterance)
+                self.assertEqual(result.action, "confirm_delta")
+                self.assertEqual(result.cart[0].selected_options[0].name, "Large")
 
     def test_spoken_carbonara_alias_is_accepted_without_fuzzy_confirmation(self) -> None:
         result = EngineConversation("conv-alforno-carbonara-alias").turn(
@@ -247,8 +276,8 @@ class AlFornoOrderEngineTests(unittest.TestCase):
         )
 
     def test_different_required_choices_are_resolved_in_order(self) -> None:
-        conversation = EngineConversation("conv-alforno-burger-pan")
-        first = conversation.turn("En hamburgare och en pan pizza Rio")
+        conversation = EngineConversation("conv-alforno-burger-side")
+        first = conversation.turn("En hamburgare och en kebabtallrik")
         self.assertEqual(
             first.say,
             "Till Hamburgare, vill du ha 90 gram eller 150 gram?",
@@ -256,12 +285,12 @@ class AlFornoOrderEngineTests(unittest.TestCase):
         second = conversation.turn("150 gram")
         self.assertEqual(
             second.say,
-            "Till Pan Pizza Rio, vill du ha small, medium eller large?",
+            "Till Kebabtallrik, vill du ha pommes, ris eller bulgur?",
         )
-        third = conversation.turn("Large")
+        third = conversation.turn("Ris")
         self.assertEqual(third.action, "confirm_delta")
         self.assertEqual(third.cart[0].selected_options[0].name, "150g")
-        self.assertEqual(third.cart[1].selected_options[0].name, "Large")
+        self.assertEqual(third.cart[1].selected_options[0].name, "Ris")
 
     def test_multiple_items_and_removals_are_preserved(self) -> None:
         result = EngineConversation("conv-alforno-multi").turn(

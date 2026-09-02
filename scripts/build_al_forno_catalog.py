@@ -263,7 +263,13 @@ def _key(value: str) -> str:
     return f"al-forno-{normalized}-{digest}"
 
 
-def _option_group(name: str, options: Iterable[tuple[str, int, list[str]]], *, group_type: str) -> dict:
+def _option_group(
+    name: str,
+    options: Iterable[tuple[str, int, list[str]]],
+    *,
+    group_type: str,
+    default_option_name: str | None = None,
+) -> dict:
     group_key = _key(f"group:{name}")
     return {
         "source_key": group_key,
@@ -281,7 +287,7 @@ def _option_group(name: str, options: Iterable[tuple[str, int, list[str]]], *, g
                 "name": option_name,
                 "kitchen_name": option_name,
                 "price_delta_minor": price_delta * 100,
-                "is_default": False,
+                "is_default": option_name == default_option_name,
                 "aliases": aliases,
                 "sort_order": index,
             }
@@ -298,11 +304,12 @@ def _item(category: str, name: str, price: int, description: str, order: int) ->
             _option_group(
                 "Storlek",
                 (
-                    ("Small", 0, ["liten"]),
-                    ("Medium", 20, ["mellan"]),
-                    ("Large", 100, ["stor"]),
+                    ("Small", 0, ["liten", "litet", "mini", "barn", "barnpizza", "barn pizza"]),
+                    ("Medium", 20, ["mellan", "standard", "normal", "vanlig"]),
+                    ("Large", 100, ["stor", "stora", "extra stor", "familj", "familje", "familjepizza", "familje pizza"]),
                 ),
                 group_type="size",
+                default_option_name="Medium",
             )
         )
     if name in SIDE_REQUIRED:

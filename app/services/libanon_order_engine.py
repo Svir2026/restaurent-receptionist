@@ -93,8 +93,26 @@ EXTRA_MARKERS = (
 )
 
 SIZE_WORDS = {
-    "large": {"large", "familjepizza", "familje pizza", "stor"},
-    "base": {"small", "standard", "normal", "vanlig", "medium"},
+    "small": {
+        "small",
+        "liten",
+        "litet",
+        "mini",
+        "barn",
+        "barnpizza",
+        "barn pizza",
+    },
+    "medium": {"medium", "mellan", "standard", "normal", "vanlig"},
+    "large": {
+        "large",
+        "stor",
+        "stora",
+        "extra stor",
+        "familj",
+        "familje",
+        "familjepizza",
+        "familje pizza",
+    },
 }
 
 
@@ -248,16 +266,14 @@ def _size_option(
 ) -> CatalogOption | None:
     normalized = normalize_spoken_text(utterance)
 
-    if any(value in normalized for value in SIZE_WORDS["large"]):
+    for size_name in ("large", "small", "medium"):
+        if not any(
+            re.search(rf"(?<!\w){re.escape(value)}(?!\w)", normalized)
+            for value in SIZE_WORDS[size_name]
+        ):
+            continue
         for option in group.options:
-            option_name = normalize_spoken_text(option.name)
-            if "familj" in option_name or "large" in option_name:
-                return option
-
-    if any(value in normalized for value in SIZE_WORDS["base"]):
-        for option in group.options:
-            option_name = normalize_spoken_text(option.name)
-            if option_name in {"standard", "medium"}:
+            if normalize_spoken_text(option.name) == size_name:
                 return option
 
     return next((value for value in group.options if value.is_default), None)
