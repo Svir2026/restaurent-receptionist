@@ -1341,7 +1341,11 @@
       "is_active": true,
       "allow_customer_notes": true,
       "sort_order": 0,
-      "aliases": [],
+      "aliases": [
+        "panpizza beef special",
+        "pannpizza beef special",
+        "beef special"
+      ],
       "option_groups": [
         {
           "source_key": "al-forno-group-storlek-39a815f9",
@@ -1410,7 +1414,10 @@
       "is_active": true,
       "allow_customer_notes": true,
       "sort_order": 1,
-      "aliases": [],
+      "aliases": [
+        "panpizza rio",
+        "pannpizza rio"
+      ],
       "option_groups": [
         {
           "source_key": "al-forno-group-storlek-39a815f9",
@@ -1479,7 +1486,12 @@
       "is_active": true,
       "allow_customer_notes": true,
       "sort_order": 2,
-      "aliases": [],
+      "aliases": [
+        "panpizza catania",
+        "pannpizza catania",
+        "pan pizza katania",
+        "pannpizza katania"
+      ],
       "option_groups": [
         {
           "source_key": "al-forno-group-storlek-39a815f9",
@@ -1548,7 +1560,10 @@
       "is_active": true,
       "allow_customer_notes": true,
       "sort_order": 3,
-      "aliases": [],
+      "aliases": [
+        "panpizza palermo",
+        "pannpizza palermo"
+      ],
       "option_groups": [
         {
           "source_key": "al-forno-group-storlek-39a815f9",
@@ -1617,7 +1632,10 @@
       "is_active": true,
       "allow_customer_notes": true,
       "sort_order": 4,
-      "aliases": [],
+      "aliases": [
+        "panpizza florens",
+        "pannpizza florens"
+      ],
       "option_groups": [
         {
           "source_key": "al-forno-group-storlek-39a815f9",
@@ -1825,7 +1843,12 @@
       "is_active": true,
       "allow_customer_notes": true,
       "sort_order": 6,
-      "aliases": [],
+      "aliases": [
+        "spagetti carbonara",
+        "spagetti karbonara",
+        "spaghetti karbonara",
+        "karbonara"
+      ],
       "option_groups": [],
       "metadata": {
         "category_name": "Pasta",

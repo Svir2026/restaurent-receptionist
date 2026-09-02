@@ -202,6 +202,19 @@ class AlFornoOrderEngineTests(unittest.TestCase):
         self.assertEqual(result.cart[0].base_price_minor, 16000)
         self.assertEqual(result.cart[0].selected_options[0].price_delta_minor, 10000)
 
+    def test_pan_pizza_compound_pronunciation_alias_asks_for_size(self) -> None:
+        result = EngineConversation("conv-alforno-pan-alias").turn("En pannpizza katania")
+        self.assertEqual(result.action, "ask_question")
+        self.assertEqual(result.cart[0].official_name, "Pan Pizza Catania")
+        self.assertEqual(result.say, "Vill du ha small, medium eller large?")
+
+    def test_spoken_carbonara_alias_is_accepted_without_fuzzy_confirmation(self) -> None:
+        result = EngineConversation("conv-alforno-carbonara-alias").turn(
+            "En spagetti karbonara"
+        )
+        self.assertEqual(result.action, "confirm_delta")
+        self.assertEqual(result.cart[0].official_name, "Spaghetti Carbonara")
+
     def test_required_side_is_asked_and_saved(self) -> None:
         conversation = EngineConversation("conv-alforno-side")
         first = conversation.turn("En kycklingkebabtallrik")
