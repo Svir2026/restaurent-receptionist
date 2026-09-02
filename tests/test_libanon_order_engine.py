@@ -223,6 +223,46 @@ class AlFornoOrderEngineTests(unittest.TestCase):
         self.assertEqual(second.action, "confirm_delta")
         self.assertEqual([option.name for option in second.cart[0].selected_options], ["Bulgur"])
 
+    def test_multiple_required_choices_name_each_order_item(self) -> None:
+        conversation = EngineConversation("conv-alforno-two-sides")
+        first = conversation.turn("En kebabtallrik och en kycklingkebabtallrik")
+        self.assertEqual(
+            first.say,
+            "Till Kebabtallrik, vill du ha pommes, ris eller bulgur?",
+        )
+        second = conversation.turn("Pommes")
+        self.assertEqual(
+            second.say,
+            "Till Kycklingkebabtallrik, vill du ha pommes, ris eller bulgur?",
+        )
+        third = conversation.turn("Ris")
+        self.assertEqual(third.action, "confirm_delta")
+        self.assertEqual(
+            [value.name for value in third.cart[0].selected_options],
+            ["Pommes"],
+        )
+        self.assertEqual(
+            [value.name for value in third.cart[1].selected_options],
+            ["Ris"],
+        )
+
+    def test_different_required_choices_are_resolved_in_order(self) -> None:
+        conversation = EngineConversation("conv-alforno-burger-pan")
+        first = conversation.turn("En hamburgare och en pan pizza Rio")
+        self.assertEqual(
+            first.say,
+            "Till Hamburgare, vill du ha 90 gram eller 150 gram?",
+        )
+        second = conversation.turn("150 gram")
+        self.assertEqual(
+            second.say,
+            "Till Pan Pizza Rio, vill du ha small, medium eller large?",
+        )
+        third = conversation.turn("Large")
+        self.assertEqual(third.action, "confirm_delta")
+        self.assertEqual(third.cart[0].selected_options[0].name, "150g")
+        self.assertEqual(third.cart[1].selected_options[0].name, "Large")
+
     def test_multiple_items_and_removals_are_preserved(self) -> None:
         result = EngineConversation("conv-alforno-multi").turn(
             "En kebabpizza utan lök och en kycklingpizza utan ananas"

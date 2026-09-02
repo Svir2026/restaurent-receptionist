@@ -419,6 +419,28 @@ def _question_for_group(
     )
 
 
+def _qualify_multiple_required_questions(
+    state: LibanonOrderState,
+) -> None:
+    required = [
+        value
+        for value in state.pending_questions
+        if value.kind == "required_option" and value.line_id
+    ]
+    if len(required) < 2:
+        return
+
+    lines = {value.line_id: value for value in state.items}
+    for question in required:
+        line = lines.get(question.line_id)
+        if line is None or question.prompt.startswith("Till "):
+            continue
+        question.prompt = (
+            f"Till {line.customer_display_name}, "
+            f"{question.prompt[:1].lower()}{question.prompt[1:]}"
+        )
+
+
 def _build_order_line(
     *,
     mention: CatalogMention,
@@ -1161,6 +1183,7 @@ def process_libanon_order_turn(
                     new_questions.extend(questions)
 
                 state.pending_questions.extend(new_questions)
+                _qualify_multiple_required_questions(state)
                 state.unresolved_attempts = 0
                 cart_changed = bool(delta)
 
