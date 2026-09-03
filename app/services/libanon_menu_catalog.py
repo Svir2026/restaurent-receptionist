@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-LIBANON_RESTAURANT_ID = "162089e6-09b0-5928-944b-2906df01f10e"
+LIBANON_RESTAURANT_ID = "ed9643af-b7a3-4300-b2c1-031eb4aa0a94"
 LIBANON_RESTAURANT_SLUG = "restaurang-al-forno"
 DEFAULT_CATALOG_PATH = (
     Path(__file__).resolve().parent.parent / "data" / "al_forno_menu_candidate.json"

@@ -166,7 +166,7 @@ def import_structured_menu(
                     getattr(error, "code", None),
                     100,
                 ),
-                "message": _safe_log_value(
+                "error_message": _safe_log_value(
                     getattr(error, "message", None)
                     or str(error),
                     500,

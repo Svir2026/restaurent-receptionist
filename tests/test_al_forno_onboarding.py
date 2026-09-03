@@ -5,7 +5,6 @@ from decimal import Decimal
 from uuid import UUID
 
 from app.services.al_forno_onboarding import (
-    AlFornoOnboardingError,
     build_al_forno_menu_import_request,
 )
 from app.services.menu_validator import validate_menu_import
@@ -22,19 +21,17 @@ class AlFornoOnboardingTests(unittest.TestCase):
             restaurant_id=RESTAURANT_ID,
             provisioning_job_id=JOB_ID,
             idempotency_key=IMPORT_ID,
-            allow_unverified_prices=True,
         )
 
-    def test_requires_every_price_to_be_verified_by_default(self) -> None:
-        with self.assertRaisesRegex(
-            AlFornoOnboardingError,
-            "Tropicana",
-        ):
-            build_al_forno_menu_import_request(
-                restaurant_id=RESTAURANT_ID,
-                provisioning_job_id=JOB_ID,
-                idempotency_key=IMPORT_ID,
-            )
+    def test_user_verified_tropicana_price_is_importable(self) -> None:
+        request = self._request()
+        item = next(
+            item
+            for item in request.items
+            if item.official_name == "Tropicana"
+        )
+
+        self.assertEqual(item.base_price, Decimal("150"))
 
     def test_builds_valid_generic_menu_import(self) -> None:
         request = self._request()

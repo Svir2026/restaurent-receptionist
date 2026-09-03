@@ -83,7 +83,7 @@ class AlFornoCatalogTests(unittest.TestCase):
         cls.catalog = get_libanon_catalog()
 
     def test_catalog_identity_and_complete_section_counts(self) -> None:
-        self.assertEqual(LIBANON_RESTAURANT_ID, "162089e6-09b0-5928-944b-2906df01f10e")
+        self.assertEqual(LIBANON_RESTAURANT_ID, "ed9643af-b7a3-4300-b2c1-031eb4aa0a94")
         self.assertEqual(LIBANON_RESTAURANT_SLUG, "restaurang-al-forno")
         self.assertEqual(len(self.catalog.items), 113)
         self.assertEqual(
